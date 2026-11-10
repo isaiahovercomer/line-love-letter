@@ -46,6 +46,25 @@ const clickOpen = async page => {
 
 await check('home（使用說明）', '?demo', async page => {
   await expectText(page, '.guide h3', '建立流通神聖的愛活動');
+  await expectText(page, '.guide .guide-credit', '背景音樂：Kevin MacLeod (incompetech.com)');
+  await expectText(page, '.guide .guide-credit', '生日曲為公有領域');
+  const cred = await page.evaluate(() => {
+    const el = document.querySelector('.guide .guide-credit');
+    const a = el && el.querySelector('a');
+    const guide = el && el.closest('.guide');
+    const last = guide && [...guide.children].at(-1);
+    const cs = el && getComputedStyle(el);
+    return {
+      href: a && a.getAttribute('href'),
+      isLast: last === el,
+      fontSize: cs && parseFloat(cs.fontSize),
+      count: document.querySelectorAll('.guide-credit').length,
+    };
+  });
+  if (cred.href !== 'https://creativecommons.org/licenses/by/4.0/') throw new Error('署名連結不對：' + cred.href);
+  if (!cred.isLast) throw new Error('署名應在使用說明最下方');
+  if (!(cred.fontSize > 0 && cred.fontSize <= 13)) throw new Error('署名字級應為小字：' + cred.fontSize);
+  if (cred.count !== 1) throw new Error('署名應只有一行：' + cred.count);
   await shot(page, 'home');
 });
 
@@ -91,6 +110,7 @@ await check('write（使用說明）', '?demo=write', async page => {
 
 await check('write-noguide：寫信並送出', '?demo=write&noguide', async page => {
   await page.locator('#w-to').waitFor();
+  if (await page.locator('.guide-credit').count()) throw new Error('未開使用說明時，頁面不該出現音樂署名');
   await shot(page, 'write-noguide');
   await page.fill('#w-to', '林志豪');
   await page.fill('#w-text', '煙霧測試的悄悄話');

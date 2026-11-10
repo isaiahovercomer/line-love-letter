@@ -185,6 +185,8 @@
   .guide .dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--rule); }
   .guide .dots span.on { background: var(--gold); width: 18px; border-radius: 4px; }
   .guide .btn-row { margin: 0; }
+  .guide .guide-credit { margin: 16px 0 0; font-size: 11px; color: var(--ink-2); text-align: center; min-height: 0; line-height: 1.45; }
+  .guide .guide-credit a { color: inherit; text-decoration: underline; }
   .sent-list .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--rule); font-size: 15px; }
   .sent-list .row:last-child { border-bottom: 0; }
   .mine-item { border-bottom: 1px solid var(--rule); padding-bottom: 10px; }
@@ -686,7 +688,8 @@ function openGuide(kind, force) {
     bg.innerHTML = `<div class="guide"><div class="g-emoji">${e}</div><h3>${esc(t)}</h3><p>${esc(d)}</p>
       <div class="dots">${pages.map((_, k) => `<span class="${k === i ? 'on' : ''}"></span>`).join('')}</div>
       <div class="btn-row">${i ? '<button class="btn ghost" type="button" data-g="prev">上一步</button>' : '<button class="btn ghost" type="button" data-g="skip">略過</button>'}
-      <button class="btn gold" type="button" data-g="next">${i === pages.length - 1 ? '開始使用' : '下一步'}</button></div></div>`;
+      <button class="btn gold" type="button" data-g="next">${i === pages.length - 1 ? '開始使用' : '下一步'}</button></div>
+      <p class="guide-credit">背景音樂：Kevin MacLeod (incompetech.com)，<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>；生日曲為公有領域。</p></div>`;
     bg.querySelector('[data-g=next]').focus();
   };
   bg.onclick = ev => {

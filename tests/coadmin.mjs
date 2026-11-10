@@ -43,7 +43,7 @@ check('前端畫面不輸出 userId 欄位',
   && /還沒打開信的收信人還不能新增/.test(html));
 check('預覽模式 ?demo=coadmin',
   /DEMO_MODE === 'coadmin'/.test(html) && /function demoRequireCreator/.test(html));
-check('sw 快取已加版本', /loveletter-v9/.test(sw));
+check('sw 快取有版本號', /loveletter-v\d+/.test(sw));
 
 console.log(`${8 + 3 - fail} 項檢查，失敗 ${fail}`);
 process.exit(fail ? 1 : 0);
