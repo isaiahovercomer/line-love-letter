@@ -13,7 +13,7 @@ const SH = { ROSTER: '名單', ACTS: '流通神聖的愛活動', LETTERS: '信�
 
 const HEADERS = {
   '名單': ['姓名', '手機', 'LINE userId', 'LINE名稱'],
-  '流通神聖的愛活動': ['活動代碼', '活動名稱', '說明', '開放寫信', '建立者', '建立時間', '截止時間'],
+  '流通神聖的愛活動': ['活動代碼', '活動名稱', '說明', '開放寫信', '建立者', '建立時間', '截止時間', '預設信紙'],
   '信件': ['信件代碼', '活動代碼', '寄件人姓名', '寄件人 userId', '收信人姓名', '悄悄話', '照片網址', '信紙', '寫信時間', '已送出', '經文出處', '經文內容'],
   '收信紀錄': ['時間', '信件代碼', '活動代碼', '收信人姓名', 'LINE名稱', 'LINE userId'],
   '發布者': ['LINE userId', '名稱', '備註'],
@@ -21,10 +21,10 @@ const HEADERS = {
 };
 
 // 欄位位置（從 0 開始）
-const AC = { ID: 0, TITLE: 1, DESC: 2, OPEN: 3, CREATOR: 4, CREATED: 5, DEADLINE: 6 };
+const AC = { ID: 0, TITLE: 1, DESC: 2, OPEN: 3, CREATOR: 4, CREATED: 5, DEADLINE: 6, PAPER: 7 };
 const LT = { ID: 0, ACT: 1, FROM: 2, FROM_UID: 3, TO: 4, TEXT: 5, IMAGE: 6, PAPER: 7, TIME: 8, SENT: 9, VREF: 10, VTEXT: 11 };
 const OP = { TIME: 0, LETTER: 1, ACT: 2, NAME: 3, LINE_NAME: 4, UID: 5 };
-const PAPERS = ['rose', 'sky', 'kraft', 'mint'];
+const PAPERS = ['rose', 'sky', 'kraft', 'mint', 'winter', 'xmas', 'newyear', 'thanks', 'grad', 'birthday', 'gospel'];
 
 function setup() {
   const ss = SpreadsheetApp.getActive();
@@ -234,7 +234,7 @@ function uploadImage(user, data, mime) {
 /* ---------- 流通神聖的愛活動 ---------- */
 function rowToAct(r) {
   return { id: String(r[AC.ID]), title: String(r[AC.TITLE]), desc: String(r[AC.DESC] || ''), open: isTrue(r[AC.OPEN]),
-    creator: String(r[AC.CREATOR] || '').replace(/\s*\(U[0-9a-f]+\)\s*$/, ''), created: fmt(r[AC.CREATED]), deadline: cleanTime(r[AC.DEADLINE]) };
+    creator: String(r[AC.CREATOR] || '').replace(/\s*\(U[0-9a-f]+\)\s*$/, ''), created: fmt(r[AC.CREATED]), deadline: cleanTime(r[AC.DEADLINE]), paper: PAPERS.includes(String(r[AC.PAPER])) ? String(r[AC.PAPER]) : 'rose' };
 }
 function stateOf(a) {
   if (!a.open) return 'closed';
@@ -242,7 +242,7 @@ function stateOf(a) {
   return d && d < new Date() ? 'ended' : 'open';
 }
 function openedCount(actId) { return new Set(rows(SH.OPENS).filter(o => String(o[OP.ACT]) === String(actId)).map(o => String(o[OP.LETTER]))).size; }
-function publicAct(a) { return { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, state: stateOf(a), opened: openedCount(a.id) }; }
+function publicAct(a) { return { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, paper: a.paper, state: stateOf(a), opened: openedCount(a.id) }; }
 function findActRow(id) {
   const data = sheet(SH.ACTS).getDataRange().getValues();
   for (let i = 1; i < data.length; i++) if (String(data[i][AC.ID]) === String(id)) return { index: i + 1, row: data[i] };
@@ -253,7 +253,7 @@ function getAct(id) { try { return rowToAct(findActRow(id).row); } catch (e) { r
 function cleanActInput(a) {
   const title = clip(a.title, 40);
   if (!title) throw new Error('請填寫活動名稱');
-  return { title, desc: clip(a.desc, 500), deadline: cleanTime(a.deadline) };
+  return { title, desc: clip(a.desc, 500), deadline: cleanTime(a.deadline), paper: PAPERS.includes(a.paper) ? a.paper : 'rose' };
 }
 
 function createAct(user, input) {
@@ -262,7 +262,7 @@ function createAct(user, input) {
   withLock(() => {
     const sh = sheet(SH.ACTS), at = sh.getLastRow() + 1;
     sh.getRange(at, AC.DEADLINE + 1).setNumberFormat('@');
-    sh.getRange(at, 1, 1, 7).setValues([[id, a.title, a.desc, true, user.displayName + ' (' + user.userId + ')', new Date(), a.deadline]]);
+    sh.getRange(at, 1, 1, 8).setValues([[id, a.title, a.desc, true, user.displayName + ' (' + user.userId + ')', new Date(), a.deadline, a.paper]]);
   });
   return withStats(getAct(id));
 }
@@ -273,6 +273,7 @@ function updateAct(id, input) {
     const f = findActRow(id), sh = sheet(SH.ACTS);
     sh.getRange(f.index, AC.TITLE + 1, 1, 2).setValues([[a.title, a.desc]]);
     sh.getRange(f.index, AC.DEADLINE + 1).setNumberFormat('@').setValue(a.deadline);
+    sh.getRange(f.index, AC.PAPER + 1).setValue(a.paper);
     return withStats(getAct(id));
   });
 }

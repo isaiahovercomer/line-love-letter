@@ -69,6 +69,7 @@
   .f-hint { font-size: 13px; color: var(--ink-2); margin: 2px 0 0; }
   input.in, textarea.in { width: 100%; padding: 12px 14px; border: 1.5px solid var(--rule); border-radius: 10px; background: #fff; font-size: 16px; }
   textarea.in { min-height: 96px; resize: vertical; }
+  select.in { width: 100%; appearance: auto; min-height: 48px; padding: 10px 12px; border: 1.5px solid var(--rule); border-radius: 10px; background: #fff; font-size: 16px; }
 
   .chip { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: var(--sky-2); color: var(--ink-2); white-space: nowrap; }
   .chip.open { background: #E1EEE6; color: var(--ok); }
@@ -100,9 +101,11 @@
   .pair .body { margin-top: 10px; }
 
   /* 信紙 */
-  .papers { display: flex; gap: 10px; align-items: center; margin: 4px 0 12px; }
-  .papers button { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 1.5px var(--rule); cursor: pointer; }
-  .papers button[aria-pressed=true] { box-shadow: 0 0 0 2.5px var(--ink); }
+  .papers { display: flex; gap: 6px; align-items: center; margin: 4px -16px 12px; padding: 4px 16px; overflow-x: auto; scrollbar-width: none; }
+  .papers .pg { flex: none; font-size: 12px; color: var(--ink-2); margin-left: 4px; }
+  .papers button { flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--rule); background: var(--bg); color: var(--c); font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .papers button i { font-style: normal; }
+  .papers button[aria-pressed=true] { background: var(--c); border-color: var(--c); color: #fff; }
   .paper { position: relative; background-color: var(--p-paper); color: var(--p-ink); border-radius: 6px 6px 10px 10px; border-top: 6px solid var(--p-accent);
     padding: 16px 20px 24px; box-shadow: 0 2px 4px rgba(60,30,30,.06), 0 14px 32px rgba(90,40,40,.12); font-family: var(--serif); line-height: 32px;
     background-image: repeating-linear-gradient(to bottom, transparent 0 31px, var(--p-line) 31px 32px); background-position: 0 15px; }
@@ -217,10 +220,19 @@ function toast(msg) {
 
 /* ---------- 信紙樣式 ---------- */
 const PAPERS = {
-  rose:  { name: '素雅', paper: '#FBF8F1', ink: '#2F3343', accent: '#2F3343', line: '#E6DFD0', env: '#E6DFCF', flap: '#D6CCB8' },
-  sky:   { name: '晴空', paper: '#F5F9FD', ink: '#22374E', accent: '#3F6FA8', line: '#D5E1EE', env: '#CFDDEE', flap: '#B9CDE5' },
-  kraft: { name: '牛皮', paper: '#FBF6EC', ink: '#4A3826', accent: '#A86F32', line: '#E9DBC3', env: '#E2C9A0', flap: '#D4B584' },
-  mint:  { name: '薄荷', paper: '#F4FAF6', ink: '#1F3F2E', accent: '#3D8A62', line: '#D2E7DA', env: '#C9E3D3', flap: '#B1D6BF' },
+  // 日常
+  rose:     { group: '日常', name: '素雅', sym: '✦', paper: '#FBF8F1', ink: '#2F3343', accent: '#2F3343', line: '#E6DFD0', env: '#E6DFCF', flap: '#D6CCB8' },
+  sky:      { group: '日常', name: '晴空', sym: '✦', paper: '#F5F9FD', ink: '#22374E', accent: '#3F6FA8', line: '#D5E1EE', env: '#CFDDEE', flap: '#B9CDE5' },
+  kraft:    { group: '日常', name: '牛皮', sym: '✦', paper: '#FBF6EC', ink: '#4A3826', accent: '#A86F32', line: '#E9DBC3', env: '#E2C9A0', flap: '#D4B584' },
+  mint:     { group: '日常', name: '薄荷', sym: '✦', paper: '#F4FAF6', ink: '#1F3F2E', accent: '#3D8A62', line: '#D2E7DA', env: '#C9E3D3', flap: '#B1D6BF' },
+  // 節日與場合
+  winter:   { group: '節日場合', name: '冬季', sym: '❄', paper: '#F4F8FB', ink: '#1F3A52', accent: '#4A7FA7', line: '#D9E5EE', env: '#DCE7F0', flap: '#C3D5E4' },
+  xmas:     { group: '節日場合', name: '聖誕', sym: '★', paper: '#FBF7EF', ink: '#1F3B2C', accent: '#A3302B', line: '#E7DECC', env: '#D6E2D3', flap: '#B5CAB0' },
+  newyear:  { group: '節日場合', name: '新春', sym: '✺', paper: '#FFF8EE', ink: '#5A1E16', accent: '#B8322A', line: '#F0DCC6', env: '#F2D3B8', flap: '#E6B994' },
+  thanks:   { group: '節日場合', name: '感恩', sym: '❧', paper: '#FCF6EC', ink: '#4A3220', accent: '#B4652A', line: '#ECDCC5', env: '#E9CFAF', flap: '#DDB98F' },
+  grad:     { group: '節日場合', name: '畢業', sym: '✪', paper: '#F6F7FA', ink: '#1E2A44', accent: '#9A7631', line: '#DCE0E8', env: '#D3D9E5', flap: '#BCC5D6' },
+  birthday: { group: '節日場合', name: '生日', sym: '✷', paper: '#FFFBEF', ink: '#4A3A12', accent: '#C27B12', line: '#F1E5C4', env: '#F3E2B0', flap: '#E8D08E' },
+  gospel:   { group: '節日場合', name: '福音', sym: '✝', paper: '#F7F6FB', ink: '#2E2A4A', accent: '#5B4F9A', line: '#E1DEEE', env: '#DEDAEE', flap: '#C9C3E3' },
 };
 const paperOf = k => PAPERS[k] || PAPERS.rose;
 const paperVars = k => { const p = paperOf(k); return `--p-paper:${p.paper};--p-ink:${p.ink};--p-accent:${p.accent};--p-line:${p.line};--p-env:${p.env};--p-flap:${p.flap}`; };
@@ -242,7 +254,7 @@ const verseShow = l => l.vref || l.vtext ? `<div class="verse-show"><div class="
 const demo = {
   me: { userId: 'Udemo', displayName: '預覽使用者', name: ['bind', 'newbie'].includes(DEMO_MODE) ? '' : '陳怡君', isAdmin: true },
   acts: [
-    { id: 'A1', title: '冬天的第一個問候', desc: '寫一封悄悄話給你想感謝的弟兄姊妹，可以附一張照片。12/24 前都可以寫。', deadline: '2026-12-24 23:59', open: true, created: '2026/11/10 16:00', creator: '簡晨光', mine: true },
+    { id: 'A1', title: '冬天的第一個問候', desc: '寫一封悄悄話給你想感謝的弟兄姊妹，可以附一張照片。12/24 前都可以寫。', deadline: '2026-12-24 23:59', paper: 'winter', open: true, created: '2026/11/10 16:00', creator: '簡晨光', mine: true },
     { id: 'A2', title: '畢業祝福信', desc: '', deadline: '', open: false, created: '2026/6/1 10:00', creator: '簡晨光', mine: true },
   ],
   letters: [
@@ -266,11 +278,11 @@ async function demoApi(action, d) {
     case 'home': return { ok: true, me: { ...demo.me }, acts: demo.acts.map(demoStats) };
     case 'writeBoot': {
       const a = act(d.actId);
-      return { ok: true, me: { ...demo.me }, act: a ? { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, state: demoState(a), opened: demoStats(a).opened } : null,
+      return { ok: true, me: { ...demo.me }, act: a ? { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, paper: a.paper, state: demoState(a), opened: demoStats(a).opened } : null,
         verses: (await demoApi('verses', {})).verses, letters: demo.letters.filter(l => l.fromUid === 'Udemo' && l.actId === d.actId).reverse() };
     }
     case 'session': return { ok: true, token: 'demo', expires: Date.now() + 864e5 };
-    case 'act': { const a = act(d.actId); return { ok: true, act: a ? { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, state: demoState(a), opened: demoStats(a).opened } : null }; }
+    case 'act': { const a = act(d.actId); return { ok: true, act: a ? { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, paper: a.paper, state: demoState(a), opened: demoStats(a).opened } : null }; }
     case 'letterCard': { const l = letter(d.letterId); return { ok: true, card: l ? { id: l.id, to: l.to, paper: l.paper, actId: l.actId, actTitle: act(l.actId).title } : null }; }
     case 'bind': {
       if (!d.name || String(d.phone).replace(/\D/g, '').length < 9) throw new Error('請填寫姓名和完整手機號碼');
@@ -487,7 +499,7 @@ function writeForm(edit, presetTo) {
     return view(`${topHtml(ME.name)}<div class="card center"><div class="big-emoji">⏳</div><h2>${esc(ACT.title)}</h2><p>${ACT.state === 'ended' ? '這個流通神聖的愛活動已經截止寫信了。' : '主辦人已經停止這個活動的寫信。'}</p></div>${footHtml()}`);
   }
   const d = edit || readDraft(ACT.id);
-  const paper = d.paper || 'rose';
+  const paper = d.paper || ACT.paper || 'rose';
   PHOTO = d.photo || d.image || '';
   const to = edit ? edit.to : presetTo !== undefined ? presetTo : PARAMS.get('to') || d.to || '';
   const today = new Date().toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
@@ -496,11 +508,11 @@ function writeForm(edit, presetTo) {
     ${edit ? '' : ACT.desc ? `<p class="muted small" style="white-space:pre-wrap">${esc(ACT.desc)}</p>` : ''}
     ${ACT.deadline ? `<p class="small muted">寫信截止：${esc(shortTime(ACT.deadline))}</p>` : ''}
     <div class="papers" role="group" aria-label="選信紙">
-      <span class="small muted">信紙</span>
-      ${Object.entries(PAPERS).map(([k, p]) => `<button type="button" data-paper="${k}" aria-pressed="${k === paper}" aria-label="${p.name}" title="${p.name}" style="background:${p.accent}"></button>`).join('')}
+      ${['日常', '節日場合'].map(g => `<span class="pg">${g === '日常' ? '日常' : '節日／場合'}</span>` + Object.entries(PAPERS).filter(([, p]) => p.group === g).map(([k, p]) =>
+        `<button type="button" data-paper="${k}" aria-pressed="${k === paper}" style="--c:${p.accent};--bg:${p.paper}"><i aria-hidden="true">${p.sym}</i>${p.name}</button>`).join('')).join('')}
     </div>
     <div class="paper" id="paper" style="${paperVars(paper)}">
-      <div class="stampmark" aria-hidden="true">✦</div>
+      <div class="stampmark" id="w-stamp" aria-hidden="true">${paperOf(paper).sym}</div>
       <div class="actname">${esc(ACT.title)}</div>
       <div class="dear"><span>親愛的</span><input id="w-to" maxlength="30" value="${esc(to)}" placeholder="收信人的名字" aria-label="收信人的名字"><span>：</span></div>
       <textarea id="w-text" maxlength="1000" placeholder="寫下想對他說的悄悄話…" aria-label="悄悄話">${esc(d.text || '')}</textarea>
@@ -524,7 +536,7 @@ function writeForm(edit, presetTo) {
   document.querySelectorAll('[data-paper]').forEach(b => b.onclick = () => {
     cur = b.dataset.paper;
     document.querySelectorAll('[data-paper]').forEach(x => x.setAttribute('aria-pressed', x === b));
-    $('paper').setAttribute('style', paperVars(cur)); keep();
+    $('paper').setAttribute('style', paperVars(cur)); $('w-stamp').textContent = paperOf(cur).sym; keep();
   });
   const ta = $('w-text');
   const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.max(224, Math.ceil(ta.scrollHeight / 32) * 32) + 'px'; };
@@ -641,7 +653,7 @@ function sentView(ok) {
       <h2>${ok ? '信送出了！' : '信已存好，還沒送出'}</h2>
       <p class="muted">${ok ? `等「${esc(LETTER.to)}」按下收信，就算神聖的愛流通成功。` : '按下面的按鈕，選擇要傳給哪位朋友或群組。'}</p>
     </div>
-    <div class="env-stage"><div class="env" style="${paperVars(LETTER.paper)}"><div class="flap"></div><div class="seal">✦</div><div class="to"><small>To.</small><b>${esc(LETTER.to)}</b></div></div></div>
+    <div class="env-stage"><div class="env" style="${paperVars(LETTER.paper)}"><div class="flap"></div><div class="seal">${paperOf(LETTER.paper).sym}</div><div class="to"><small>To.</small><b>${esc(LETTER.to)}</b></div></div></div>
     <div class="btn-row">
       <button class="btn ${ok ? 'ghost' : 'gold'} block" id="s-again" type="button">${ok ? '再傳給其他人' : '選擇朋友或群組送出'}</button>
       <button class="btn block" id="s-new" type="button">再寫一封</button>
@@ -658,7 +670,7 @@ async function letterFlow(pre) {
   view(`${topHtml()}
     <p class="center muted small" style="margin-top:20px">${esc(card.actTitle)}</p>
     <h2 class="center">有一封給「${esc(card.to)}」的信</h2>
-    <div class="env-stage"><div class="env" id="env" style="${paperVars(card.paper)}"><div class="flap"></div><div class="seal">✦</div><div class="to"><small>To.</small><b>${esc(card.to)}</b></div></div></div>
+    <div class="env-stage"><div class="env" id="env" style="${paperVars(card.paper)}"><div class="flap"></div><div class="seal">${paperOf(card.paper).sym}</div><div class="to"><small>To.</small><b>${esc(card.to)}</b></div></div></div>
     <p class="center muted small">只有「${esc(card.to)}」本人拆得開</p>
     <button class="btn block gold" id="l-open" type="button" style="margin-top:12px">收信</button>
     ${footHtml()}`);
@@ -710,7 +722,7 @@ function drawLetter(r) {
   view(`${topHtml()}
     <p class="center small" style="margin:18px 0 4px;color:var(--ok)">${r.status === 'mine' ? '這是你寫的信' + (r.openedAt ? '・對方已收信 🕊️' : '・對方還沒收信') : r.first ? '🕊️ 收信成功！' : '你已經收過這封信了'}</p>
     <div class="paper fade-up" style="${paperVars(l.paper)}">
-      <div class="stampmark" aria-hidden="true">✦</div>
+      <div class="stampmark" aria-hidden="true">${paperOf(l.paper).sym}</div>
       <div class="actname">${esc(l.actTitle)}</div>
       <div class="dear"><span>親愛的 <b>${esc(l.to)}</b>：</span></div>
       <div class="text">${esc(l.text)}</div>
@@ -848,11 +860,15 @@ function renderActForm(a) {
       <textarea class="in" id="a-desc" maxlength="500" placeholder="例如：寫一封悄悄話給你想感謝的人。">${esc(a ? a.desc : '')}</textarea>
       <label class="f" for="a-dl">寫信截止時間（可不填）</label>
       <input class="in" id="a-dl" type="datetime-local" value="${esc(dl)}">
+      <label class="f" for="a-paper">預設信紙主題</label>
+      <select class="in" id="a-paper">${['日常', '節日場合'].map(g => `<optgroup label="${g === '日常' ? '日常' : '節日／場合'}">${Object.entries(PAPERS).filter(([, p]) => p.group === g)
+        .map(([k, p]) => `<option value="${k}" ${k === ((a && a.paper) || 'rose') ? 'selected' : ''}>${p.sym} ${p.name}</option>`).join('')}</optgroup>`).join('')}</select>
+      <p class="f-hint">寫信的人打開時會先用這款信紙，也可以自己換。</p>
       <div class="btn-row"><button class="btn block" id="a-save" type="button">${a ? '儲存' : '建立並發到群組'}</button></div>
     </div>`);
   $('f-back').onclick = () => a ? renderDetail(a.id) : renderHome();
   $('a-save').onclick = e => busy(e.currentTarget, async () => {
-    const input = { title: $('a-title').value.trim(), desc: $('a-desc').value.trim(), deadline: $('a-dl').value.replace('T', ' ') };
+    const input = { title: $('a-title').value.trim(), desc: $('a-desc').value.trim(), deadline: $('a-dl').value.replace('T', ' '), paper: $('a-paper').value };
     if (!input.title) { $('a-title').focus(); throw new Error('請填寫活動名稱'); }
     if (a) { await api('updateAct', { actId: a.id, act: input }); toast('已儲存'); return renderDetail(a.id); }
     const r = await api('createAct', { act: input });
@@ -992,7 +1008,7 @@ function letterFlex(l) {
       { type: 'text', text: '✉️ ' + (l.actTitle || '流通神聖的愛信'), size: 'xs', color: p.accent, weight: 'bold', wrap: true },
       { type: 'box', layout: 'vertical', margin: 'md', backgroundColor: p.env, cornerRadius: '10px', paddingAll: '16px', paddingTop: '22px', contents: [
         { type: 'box', layout: 'vertical', width: '44px', height: '44px', cornerRadius: '22px', backgroundColor: p.accent, justifyContent: 'center', alignItems: 'center',
-          contents: [{ type: 'text', text: '✦', color: '#FFFFFF', size: 'lg', align: 'center' }] },
+          contents: [{ type: 'text', text: p.sym, color: '#FFFFFF', size: 'lg', align: 'center' }] },
         { type: 'text', text: 'To.', size: 'xs', color: p.ink, margin: 'lg' },
         { type: 'text', text: String(l.to), size: 'xl', weight: 'bold', color: p.ink, wrap: true },
         { type: 'text', text: '只有本人拆得開', size: 'xxs', color: p.ink, margin: 'sm' } ] },
@@ -1005,7 +1021,7 @@ function letterFlex(l) {
 
 /** 寫信入口卡：發到群組，大家按「寫一封愛的信」 */
 function actFlex(a) {
-  const p = PAPERS.rose;
+  const p = paperOf(a.paper);
   const body = [
     { type: 'text', text: '✉️ 流通神聖的愛圖卡', size: 'xs', color: p.accent, weight: 'bold' },
     { type: 'text', text: a.title, size: 'xl', weight: 'bold', color: p.ink, wrap: true, margin: 'sm' } ];
