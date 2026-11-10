@@ -29,8 +29,8 @@
     --shadow: 0 1px 2px rgba(60,40,20,.05), 0 8px 24px rgba(60,40,20,.08);
     --serif: "Noto Serif TC", "Songti TC", serif;
     --sans: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
-    /* 信紙（預設玫瑰） */
-    --p-paper: #FFF6F5; --p-ink: #5A2A30; --p-accent: #C8505E; --p-line: #F1D2D4; --p-env: #F6C9CC; --p-flap: #EFB3B8;
+    /* 信紙（預設素雅） */
+    --p-paper: #FBF8F1; --p-ink: #2F3343; --p-accent: #2F3343; --p-line: #E6DFD0; --p-env: #E6DFCF; --p-flap: #D6CCB8;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--sky); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.6; -webkit-text-size-adjust: 100%; }
@@ -217,7 +217,7 @@ function toast(msg) {
 
 /* ---------- 信紙樣式 ---------- */
 const PAPERS = {
-  rose:  { name: '玫瑰', paper: '#FFF6F5', ink: '#5A2A30', accent: '#C8505E', line: '#F1D2D4', env: '#F6C9CC', flap: '#EFB3B8' },
+  rose:  { name: '素雅', paper: '#FBF8F1', ink: '#2F3343', accent: '#2F3343', line: '#E6DFD0', env: '#E6DFCF', flap: '#D6CCB8' },
   sky:   { name: '晴空', paper: '#F5F9FD', ink: '#22374E', accent: '#3F6FA8', line: '#D5E1EE', env: '#CFDDEE', flap: '#B9CDE5' },
   kraft: { name: '牛皮', paper: '#FBF6EC', ink: '#4A3826', accent: '#A86F32', line: '#E9DBC3', env: '#E2C9A0', flap: '#D4B584' },
   mint:  { name: '薄荷', paper: '#F4FAF6', ink: '#1F3F2E', accent: '#3D8A62', line: '#D2E7DA', env: '#C9E3D3', flap: '#B1D6BF' },
@@ -386,15 +386,15 @@ const footHtml = () => `<div class="foot"><button class="link" type="button" onc
 /* ---------- 使用說明：第一次登入後自動出現，之後可從頁尾再打開 ---------- */
 const GUIDES = {
   writer: [
-    ['💌', '寫一封信', '在信紙上填收信人的名字，寫下想對他說的悄悄話。可以換信紙顏色，也可以附一張照片。'],
+    ['✉️', '寫一封信', '在信紙上填收信人的名字，寫下想對他說的悄悄話。可以換信紙顏色，也可以附一張照片。'],
     ['✍️', '名字要寫對', '收信人的名字要和他在這裡登記的姓名一樣（例如寫全名「陳怡君」），他才拆得開。'],
     ['📤', '儲存並送出', '按「儲存並送出」，選擇要傳給哪位朋友或群組。對方會收到只寫著「To. 他名字」的信封。'],
-    ['💞', '收信＝神聖的愛流通成功', '對方按「收信」並登入，姓名相符就能拆信。你寫的信列在頁面下方，可以重新送出；對方收信前可以編輯，也可以刪除。'],
+    ['🕊️', '收信＝神聖的愛流通成功', '對方按「收信」並登入，姓名相符就能拆信。你寫的信列在頁面下方，可以重新送出；對方收信前可以編輯，也可以刪除。'],
   ],
   host: [
     ['📮', '建立流通神聖的愛活動', '按「建立」填活動名稱、說明和寫信截止時間。建立後馬上跳出選單，把寫信入口發到群組。'],
-    ['💌', '大家寫信、送出', '成員第一次寫信要填姓名和手機，之後寫信、選朋友或群組送出信封。'],
-    ['💞', '看神聖的愛流通', '點進活動就能看到「誰 → 誰」、是否已收信。點一下可看信件內容，必要時可刪除某封信。'],
+    ['✉️', '大家寫信、送出', '成員第一次寫信要填姓名和手機，之後寫信、選朋友或群組送出信封。'],
+    ['🕊️', '看神聖的愛流通', '點進活動就能看到「誰 → 誰」、是否已收信。點一下可看信件內容，必要時可刪除某封信。'],
     ['⚙️', '管理活動', '活動頁最下方可以編輯、停止或重新開放寫信、刪除活動。首頁也可以把平台安裝到手機桌面。'],
   ],
 };
@@ -500,7 +500,7 @@ function writeForm(edit, presetTo) {
       ${Object.entries(PAPERS).map(([k, p]) => `<button type="button" data-paper="${k}" aria-pressed="${k === paper}" aria-label="${p.name}" title="${p.name}" style="background:${p.accent}"></button>`).join('')}
     </div>
     <div class="paper" id="paper" style="${paperVars(paper)}">
-      <div class="stampmark" aria-hidden="true">♥</div>
+      <div class="stampmark" aria-hidden="true">✦</div>
       <div class="actname">${esc(ACT.title)}</div>
       <div class="dear"><span>親愛的</span><input id="w-to" maxlength="30" value="${esc(to)}" placeholder="收信人的名字" aria-label="收信人的名字"><span>：</span></div>
       <textarea id="w-text" maxlength="1000" placeholder="寫下想對他說的悄悄話…" aria-label="悄悄話">${esc(d.text || '')}</textarea>
@@ -515,7 +515,7 @@ function writeForm(edit, presetTo) {
       <div class="date">${esc(today)}</div>
     </div>
     <p class="lock-note">🔒 收信人要登入，而且登記的姓名和你寫的收信人一樣，才拆得開這封信。</p>
-    <button class="btn block gold" id="w-send" type="button">${edit ? '儲存修改' : '儲存並送出 💌'}</button>
+    <button class="btn block gold" id="w-send" type="button">${edit ? '儲存修改' : '儲存並送出 ✉️'}</button>
     ${edit ? '' : '<div id="w-mine"></div>'}${footHtml()}`);
 
   let cur = paper;
@@ -614,7 +614,7 @@ async function drawMine() {
     if (!letters.length || !box.isConnected) return;
     box.innerHTML = `<div class="card sent-list"><b>我在這個活動寫的信</b>${letters.map(l => `
       <div class="mine-item">
-        <div class="row" style="border:0"><span>給 <b>${esc(l.to)}</b></span>${l.openedAt ? `<span class="chip paired">💞 已收信</span>`
+        <div class="row" style="border:0"><span>給 <b>${esc(l.to)}</b></span>${l.openedAt ? `<span class="chip paired">🕊️ 已收信</span>`
           : l.sent ? `<span class="chip pending">已送出・未收</span>` : `<span class="chip">還沒送出</span>`}</div>
         <div class="mine-acts">
           ${l.sent ? '' : `<button class="btn gold" type="button" data-resend="${esc(l.id)}">送出</button>`}
@@ -637,11 +637,11 @@ async function drawMine() {
 function sentView(ok) {
   view(`${topHtml(ME.name)}
     <div class="center fade-up">
-      <div class="big-emoji">${ok ? '💌' : '📝'}</div>
+      <div class="big-emoji">${ok ? '✉️' : '📝'}</div>
       <h2>${ok ? '信送出了！' : '信已存好，還沒送出'}</h2>
       <p class="muted">${ok ? `等「${esc(LETTER.to)}」按下收信，就算神聖的愛流通成功。` : '按下面的按鈕，選擇要傳給哪位朋友或群組。'}</p>
     </div>
-    <div class="env-stage"><div class="env" style="${paperVars(LETTER.paper)}"><div class="flap"></div><div class="seal">♥</div><div class="to"><small>To.</small><b>${esc(LETTER.to)}</b></div></div></div>
+    <div class="env-stage"><div class="env" style="${paperVars(LETTER.paper)}"><div class="flap"></div><div class="seal">✦</div><div class="to"><small>To.</small><b>${esc(LETTER.to)}</b></div></div></div>
     <div class="btn-row">
       <button class="btn ${ok ? 'ghost' : 'gold'} block" id="s-again" type="button">${ok ? '再傳給其他人' : '選擇朋友或群組送出'}</button>
       <button class="btn block" id="s-new" type="button">再寫一封</button>
@@ -658,7 +658,7 @@ async function letterFlow(pre) {
   view(`${topHtml()}
     <p class="center muted small" style="margin-top:20px">${esc(card.actTitle)}</p>
     <h2 class="center">有一封給「${esc(card.to)}」的信</h2>
-    <div class="env-stage"><div class="env" id="env" style="${paperVars(card.paper)}"><div class="flap"></div><div class="seal">♥</div><div class="to"><small>To.</small><b>${esc(card.to)}</b></div></div></div>
+    <div class="env-stage"><div class="env" id="env" style="${paperVars(card.paper)}"><div class="flap"></div><div class="seal">✦</div><div class="to"><small>To.</small><b>${esc(card.to)}</b></div></div></div>
     <p class="center muted small">只有「${esc(card.to)}」本人拆得開</p>
     <button class="btn block gold" id="l-open" type="button" style="margin-top:12px">收信</button>
     ${footHtml()}`);
@@ -708,9 +708,9 @@ function drawLetter(r) {
   const l = r.letter;
   ME = ME || {};
   view(`${topHtml()}
-    <p class="center small" style="margin:18px 0 4px;color:var(--ok)">${r.status === 'mine' ? '這是你寫的信' + (r.openedAt ? '・對方已收信 💞' : '・對方還沒收信') : r.first ? '💞 收信成功！' : '你已經收過這封信了'}</p>
+    <p class="center small" style="margin:18px 0 4px;color:var(--ok)">${r.status === 'mine' ? '這是你寫的信' + (r.openedAt ? '・對方已收信 🕊️' : '・對方還沒收信') : r.first ? '🕊️ 收信成功！' : '你已經收過這封信了'}</p>
     <div class="paper fade-up" style="${paperVars(l.paper)}">
-      <div class="stampmark" aria-hidden="true">♥</div>
+      <div class="stampmark" aria-hidden="true">✦</div>
       <div class="actname">${esc(l.actTitle)}</div>
       <div class="dear"><span>親愛的 <b>${esc(l.to)}</b>：</span></div>
       <div class="text">${esc(l.text)}</div>
@@ -720,8 +720,8 @@ function drawLetter(r) {
       <div class="date">${esc(l.time)}</div>
     </div>
     <div class="btn-row col" style="margin-top:20px">
-      ${r.status === 'mine' ? '' : `<button class="btn gold" type="button" id="l-reply">💌 回信給 ${esc(l.from)}</button>`}
-      <button class="btn ${r.status === 'mine' ? 'gold' : 'ghost'}" type="button" id="l-pass">💞 繼續把愛傳下去</button>
+      ${r.status === 'mine' ? '' : `<button class="btn gold" type="button" id="l-reply">✉️ 回信給 ${esc(l.from)}</button>`}
+      <button class="btn ${r.status === 'mine' ? 'gold' : 'ghost'}" type="button" id="l-pass">🕊️ 繼續把愛傳下去</button>
     </div>
     <p class="small muted center">「繼續把愛傳下去」：寫一封新的信給另一個人。</p>${footHtml()}`);
   if ($('l-reply')) $('l-reply').onclick = e => busy(e.currentTarget, () => writeFrom(l.actId, l.from));
@@ -732,7 +732,7 @@ function drawLetter(r) {
 async function forwardLetterFlow(id) {
   const { card } = await api('letterCard', { letterId: id });
   if (!card) return view(`${topHtml()}<div class="card center"><p>找不到這封信。</p></div>`);
-  view(`${topHtml()}<div class="card center"><div class="big-emoji">💌</div><p>把這封給「${esc(card.to)}」的信轉傳出去</p>
+  view(`${topHtml()}<div class="card center"><div class="big-emoji">✉️</div><p>把這封給「${esc(card.to)}」的信轉傳出去</p>
     <button class="btn block gold" id="f-go" type="button">選擇朋友或群組</button></div>`);
   $('f-go').onclick = async () => { if (await sendLetter(card) && liff.isInClient()) liff.closeWindow(); };
 }
@@ -740,7 +740,7 @@ async function forwardLetterFlow(id) {
 async function forwardActFlow(id) {
   const { act } = await api('act', { actId: id });
   if (!act) return view(`${topHtml()}<div class="card center"><p>找不到這個流通神聖的愛活動。</p></div>`);
-  view(`${topHtml()}<div class="card center"><div class="big-emoji">💌</div><p>轉傳「${esc(act.title)}」的寫信入口</p>
+  view(`${topHtml()}<div class="card center"><div class="big-emoji">✉️</div><p>轉傳「${esc(act.title)}」的寫信入口</p>
     <button class="btn block gold" id="f-go" type="button">選擇朋友或群組</button></div>`);
   $('f-go').onclick = async () => { if (await sendAct(act) && liff.isInClient()) liff.closeWindow(); };
 }
@@ -828,8 +828,8 @@ function renderHome() {
     ${ACTS.length ? ACTS.map(a => `
       <button class="card act" type="button" data-act="${esc(a.id)}">
         <div class="t"><h3>${esc(a.title)}</h3>${stateChip(a.state)}</div>
-        <div class="s">💌 ${a.letters} 封信・💞 神聖的愛流通成功 ${a.opened}${a.deadline ? `・截止 ${esc(shortTime(a.deadline))}` : ''}${a.mine === false ? `・${esc(a.creator)} 建立` : ''}</div>
-      </button>`).join('') : `<div class="card empty"><div class="big-emoji">💌</div>還沒有流通神聖的愛活動，按上面的按鈕建立第一個。</div>`}
+        <div class="s">✉️ ${a.letters} 封信・🕊️ 神聖的愛流通成功 ${a.opened}${a.deadline ? `・截止 ${esc(shortTime(a.deadline))}` : ''}${a.mine === false ? `・${esc(a.creator)} 建立` : ''}</div>
+      </button>`).join('') : `<div class="card empty"><div class="big-emoji">✉️</div>還沒有流通神聖的愛活動，按上面的按鈕建立第一個。</div>`}
     ${footHtml()}`, 'home');
   $('h-new').onclick = () => renderActForm();
   if ($('h-install')) $('h-install').onclick = () => startInstall();
@@ -908,7 +908,7 @@ function drawDetail() {
           <button type="button" data-row="${esc(l.id)}" aria-expanded="${OPENED_ROW === l.id}">
             <span style="min-width:0"><span class="names">${esc(l.from)}<span class="arrow">→</span>${esc(l.to)}</span>
               <span class="when" style="display:block">${l.openedAt ? `${esc(l.openedBy)} 於 ${esc(l.openedAt)} 收信` : `寫於 ${esc(l.time)}`}</span></span>
-            ${l.openedAt ? '<span class="chip paired">💞 神聖的愛流通成功</span>' : l.sent ? '<span class="chip pending">未收信</span>' : '<span class="chip">未送出</span>'}
+            ${l.openedAt ? '<span class="chip paired">🕊️ 神聖的愛流通成功</span>' : l.sent ? '<span class="chip pending">未收信</span>' : '<span class="chip">未送出</span>'}
           </button>
           ${OPENED_ROW === l.id ? `<div class="body"><div class="paper mini" style="${paperVars(l.paper)}"><div class="text">${esc(l.text)}</div>
             ${l.image ? `<div class="photo"><img src="${esc(l.image)}" alt="附上的照片" style="max-height:220px"></div>` : ''}${verseShow(l)}</div>
@@ -980,19 +980,19 @@ const sendAct = a => pick([actFlex(a)], '已發到群組');
 
 /** 「已有 N 人收到信」：發卡當下這個活動已經拆信的人數（LINE 圖卡發出後內容固定，不會自動更新） */
 const openedLine = (n, t, emptyText) => (+n > 0 || emptyText) ? [{ type: 'box', layout: 'horizontal', margin: 'md', paddingAll: '8px', cornerRadius: '999px', backgroundColor: t.line,
-  contents: [{ type: 'text', text: +n > 0 ? `💞 已有 ${+n} 人收到信` : emptyText, size: 'xs', color: t.accent, weight: 'bold', align: 'center' }] }] : [];
+  contents: [{ type: 'text', text: +n > 0 ? `🕊️ 已有 ${+n} 人收到信` : emptyText, size: 'xs', color: t.accent, weight: 'bold', align: 'center' }] }] : [];
 
 /** 信封圖卡：只寫收信人，內容要按「收信」才看得到 */
 function letterFlex(l) {
   const p = paperOf(l.paper);
-  return { type: 'flex', altText: `💌 有一封給 ${l.to} 的信`.slice(0, 400), contents: {
+  return { type: 'flex', altText: `✉️ 有一封給 ${l.to} 的信`.slice(0, 400), contents: {
     type: 'bubble', size: 'kilo',
     styles: { body: { backgroundColor: p.paper }, footer: { backgroundColor: p.paper } },
     body: { type: 'box', layout: 'vertical', paddingAll: '18px', contents: [
-      { type: 'text', text: '💌 ' + (l.actTitle || '流通神聖的愛信'), size: 'xs', color: p.accent, weight: 'bold', wrap: true },
+      { type: 'text', text: '✉️ ' + (l.actTitle || '流通神聖的愛信'), size: 'xs', color: p.accent, weight: 'bold', wrap: true },
       { type: 'box', layout: 'vertical', margin: 'md', backgroundColor: p.env, cornerRadius: '10px', paddingAll: '16px', paddingTop: '22px', contents: [
         { type: 'box', layout: 'vertical', width: '44px', height: '44px', cornerRadius: '22px', backgroundColor: p.accent, justifyContent: 'center', alignItems: 'center',
-          contents: [{ type: 'text', text: '♥', color: '#FFFFFF', size: 'lg', align: 'center' }] },
+          contents: [{ type: 'text', text: '✦', color: '#FFFFFF', size: 'lg', align: 'center' }] },
         { type: 'text', text: 'To.', size: 'xs', color: p.ink, margin: 'lg' },
         { type: 'text', text: String(l.to), size: 'xl', weight: 'bold', color: p.ink, wrap: true },
         { type: 'text', text: '只有本人拆得開', size: 'xxs', color: p.ink, margin: 'sm' } ] },
@@ -1007,12 +1007,12 @@ function letterFlex(l) {
 function actFlex(a) {
   const p = PAPERS.rose;
   const body = [
-    { type: 'text', text: '💌 流通神聖的愛圖卡', size: 'xs', color: p.accent, weight: 'bold' },
+    { type: 'text', text: '✉️ 流通神聖的愛圖卡', size: 'xs', color: p.accent, weight: 'bold' },
     { type: 'text', text: a.title, size: 'xl', weight: 'bold', color: p.ink, wrap: true, margin: 'sm' } ];
-  if (a.desc) body.push({ type: 'text', text: a.desc.length > 160 ? a.desc.slice(0, 158) + '…' : a.desc, size: 'sm', color: '#7A5A5E', wrap: true, margin: 'md' });
-  if (shortTime(a.deadline)) body.push({ type: 'text', text: '寫信截止 ' + shortTime(a.deadline), size: 'xs', color: '#7A5A5E', margin: 'md' });
-  body.push(...openedLine(a.opened, p, '💌 還沒有人收到信，來寫第一封吧'));
-  return { type: 'flex', altText: `💌 ${a.title}：寫一封愛的信`.slice(0, 400), contents: {
+  if (a.desc) body.push({ type: 'text', text: a.desc.length > 160 ? a.desc.slice(0, 158) + '…' : a.desc, size: 'sm', color: '#67645F', wrap: true, margin: 'md' });
+  if (shortTime(a.deadline)) body.push({ type: 'text', text: '寫信截止 ' + shortTime(a.deadline), size: 'xs', color: '#67645F', margin: 'md' });
+  body.push(...openedLine(a.opened, p, '✉️ 還沒有人收到信，來寫第一封吧'));
+  return { type: 'flex', altText: `✉️ ${a.title}：寫一封愛的信`.slice(0, 400), contents: {
     type: 'bubble',
     styles: { body: { backgroundColor: p.paper }, footer: { backgroundColor: p.paper } },
     body: { type: 'box', layout: 'vertical', paddingAll: '20px', contents: body },
