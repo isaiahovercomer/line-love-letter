@@ -59,40 +59,69 @@ function doPost(e) {
       out = { ok: true, card: letterCard(req.letterId) };
     } else {
       const user = req.session && req.action !== 'session' ? userFromSession(req.session) : verifyIdToken(req.idToken);
-      const own = () => requireOwner(user, req.actId);
-      switch (req.action) {
-        case 'session':      out = { ok: true, ...createSession(user) }; break;
-        case 'logout':       deleteSession(req.session); out = { ok: true }; break;
-        case 'home':         out = { ok: true, me: meOf(user), acts: listActs(user) }; break;
-        case 'writeBoot': {   // 寫信頁一次拿齊：活動、我是誰、備選經文、我寫過的信
-          const a = getAct(req.actId);
-          out = { ok: true, act: a ? publicAct(a) : null, me: meOf(user), verses: listVerses(), letters: a ? myLetters(user, a.id) : [] };
-          break;
-        }
-        case 'me':           out = { ok: true, ...meOf(user) }; break;
-        case 'bind':         out = { ok: true, ...bind(user, req.name, req.phone) }; break;
-        case 'uploadImage':  out = { ok: true, url: uploadImage(user, req.data, req.mime) }; break;
-        case 'writeLetter':  out = { ok: true, letter: writeLetter(user, req.actId, req.letter || {}) }; break;
-        case 'markSent':     out = { ok: true, ...markSent(user, req.letterId) }; break;
-        case 'updateLetter': out = { ok: true, letter: updateLetter(user, req.letterId, req.letter || {}) }; break;
-        case 'deleteLetter': out = { ok: true, ...deleteLetter(user, req.letterId) }; break;
-        case 'myLetters':    out = { ok: true, letters: myLetters(user, req.actId) }; break;
-        case 'openLetter':   out = { ok: true, ...openLetter(user, req.letterId) }; break;
-        case 'createAct':    out = { ok: true, act: createAct(user, req.act || {}) }; break;
-        case 'listActs':     out = { ok: true, acts: listActs(user) }; break;
-        case 'updateAct':    own(); out = { ok: true, act: updateAct(req.actId, req.act || {}) }; break;
-        case 'actDetail':    own(); out = { ok: true, ...actDetail(req.actId) }; break;
-        case 'setOpen':      own(); out = { ok: true, act: setOpen(req.actId, !!req.open) }; break;
-        case 'deleteAct':    own(); out = { ok: true, ...deleteAct(req.actId) }; break;
-        case 'myData':       out = { ok: true, ...myData(user) }; break;
-        case 'deleteMyData': out = { ok: true, ...deleteMyData(user) }; break;
-        default: throw new Error('未知的動作');
-      }
+      out = ONCE_ACTIONS.includes(req.action) ? once(user, req, () => run(user, req)) : run(user, req);
     }
   } catch (err) {
     out = { ok: false, error: String((err && err.message) || err) };
   }
   return json(out);
+}
+
+/** 需要登入的動作 */
+function run(user, req) {
+  let out;
+  const own = () => requireOwner(user, req.actId);
+  switch (req.action) {
+    case 'session':      out = { ok: true, ...createSession(user) }; break;
+    case 'logout':       deleteSession(req.session); out = { ok: true }; break;
+    case 'home':         out = { ok: true, me: meOf(user), acts: listActs(user) }; break;
+    case 'writeBoot': {   // 寫信頁一次拿齊：活動、我是誰、備選經文、我寫過的信
+      const a = getAct(req.actId);
+      out = { ok: true, act: a ? publicAct(a) : null, me: meOf(user), verses: listVerses(), letters: a ? myLetters(user, a.id) : [] };
+      break;
+    }
+    case 'me':           out = { ok: true, ...meOf(user) }; break;
+    case 'bind':         out = { ok: true, ...bind(user, req.name, req.phone) }; break;
+    case 'uploadImage':  out = { ok: true, url: uploadImage(user, req.data, req.mime) }; break;
+    case 'writeLetter':  out = { ok: true, letter: writeLetter(user, req.actId, req.letter || {}) }; break;
+    case 'markSent':     out = { ok: true, ...markSent(user, req.letterId) }; break;
+    case 'updateLetter': out = { ok: true, letter: updateLetter(user, req.letterId, req.letter || {}) }; break;
+    case 'deleteLetter': out = { ok: true, ...deleteLetter(user, req.letterId) }; break;
+    case 'myLetters':    out = { ok: true, letters: myLetters(user, req.actId) }; break;
+    case 'openLetter':   out = { ok: true, ...openLetter(user, req.letterId) }; break;
+    case 'createAct':    out = { ok: true, act: createAct(user, req.act || {}) }; break;
+    case 'listActs':     out = { ok: true, acts: listActs(user) }; break;
+    case 'updateAct':    own(); out = { ok: true, act: updateAct(req.actId, req.act || {}) }; break;
+    case 'actDetail':    own(); out = { ok: true, ...actDetail(req.actId) }; break;
+    case 'setOpen':      own(); out = { ok: true, act: setOpen(req.actId, !!req.open) }; break;
+    case 'deleteAct':    own(); out = { ok: true, ...deleteAct(req.actId) }; break;
+    case 'myData':       out = { ok: true, ...myData(user) }; break;
+    case 'deleteMyData': out = { ok: true, ...deleteMyData(user) }; break;
+    default: throw new Error('未知的動作');
+  }
+  return out;
+}
+
+/* ---------- 防重複送出：同一個人、同一個動作、同一個請求編號（rid），10 分鐘內只做一次 ---------- */
+// 前端每次按下按鈕產生一個 rid，連點或失敗重試都帶同一個；故意再寫一封新的信會是新的 rid，不受影響
+const ONCE_ACTIONS = ['bind', 'uploadImage', 'writeLetter', 'markSent', 'updateLetter', 'deleteLetter', 'createAct', 'updateAct', 'setOpen', 'deleteAct', 'deleteMyData'];
+const ONCE_PENDING = '__pending__';
+function once(user, req, fn) {
+  const rid = String(req.rid || '');
+  if (!/^[\w-]{8,64}$/.test(rid)) return fn();          // 舊版前端沒有 rid：照舊執行
+  const cache = CacheService.getScriptCache(), key = 'rid:' + user.userId + ':' + req.action + ':' + rid;
+  let hit = withLock(() => { const v = cache.get(key); if (!v) cache.put(key, ONCE_PENDING, 120); return v; });
+  for (let i = 0; hit === ONCE_PENDING && i < 40; i++) { Utilities.sleep(500); hit = cache.get(key); }   // 同一個請求正在處理：等它的結果
+  if (hit === ONCE_PENDING) throw new Error('上一次的送出還在處理中，請稍候再試');
+  if (hit) return JSON.parse(hit);
+  try {
+    const out = fn();
+    try { cache.put(key, JSON.stringify(out), 600); } catch (e) { cache.remove(key); }
+    return out;
+  } catch (err) {
+    cache.remove(key);                                    // 失敗不記：重試時會真的再做一次
+    throw err;
+  }
 }
 
 function json(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }

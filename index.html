@@ -143,11 +143,12 @@
   .env-stage { perspective: 900px; margin: 20px auto 8px; max-width: 340px; }
   .env { position: relative; aspect-ratio: 7 / 5; background: var(--p-env); border-radius: 10px; box-shadow: 0 2px 4px rgba(60,30,30,.08), 0 18px 40px rgba(90,40,40,.18); }
   .env::before { content: ""; position: absolute; inset: 0; border-radius: 10px; background: linear-gradient(to top right, transparent 49.6%, rgba(255,255,255,.28) 50%, transparent 50.4%), linear-gradient(to top left, transparent 49.6%, rgba(255,255,255,.28) 50%, transparent 50.4%); }
-  .env .flap { position: absolute; left: 0; right: 0; top: 0; height: 58%; background: var(--p-flap); clip-path: polygon(0 0, 100% 0, 50% 100%); transform-origin: top; transition: transform .7s ease, opacity .3s ease .4s; border-radius: 10px 10px 0 0; z-index: 2; }
-  .env .seal { position: absolute; left: 50%; top: 58%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: var(--p-accent); color: #fff; display: grid; place-items: center; font-size: 24px; z-index: 3; box-shadow: 0 2px 6px rgba(0,0,0,.25); transition: opacity .3s; }
-  .env .to { position: absolute; left: 0; right: 0; bottom: 14%; text-align: center; color: var(--p-ink); font-family: var(--serif); z-index: 1; }
+  /* 蓋板尖端、封蠟在上半部，「To. 名字」在下半部，兩者不重疊（320px 也一樣） */
+  .env .flap { position: absolute; left: 0; right: 0; top: 0; height: 44%; background: var(--p-flap); clip-path: polygon(0 0, 100% 0, 50% 100%); transform-origin: top; transition: transform .7s ease, opacity .3s ease .4s; border-radius: 10px 10px 0 0; z-index: 2; }
+  .env .seal { position: absolute; left: 50%; top: 44%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: var(--p-accent); color: #fff; display: grid; place-items: center; font-size: 21px; z-index: 3; box-shadow: 0 2px 6px rgba(0,0,0,.25); transition: opacity .3s; }
+  .env .to { position: absolute; left: 0; right: 0; bottom: 9%; padding: 0 16px; line-height: 1.35; text-align: center; color: var(--p-ink); font-family: var(--serif); z-index: 1; }
   .env .to small { display: block; font-size: 13px; opacity: .75; font-family: var(--sans); }
-  .env .to b { font-size: 24px; }
+  .env .to b { display: block; font-size: 24px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* 掀開後蓋板會翻到信封上方：最後淡出，才不會蓋住上面的標題 */
   .env.open .flap { transform: rotateX(180deg); z-index: 0; opacity: 0; }
   .env.open .seal { opacity: 0; }
@@ -267,7 +268,9 @@ const demo = {
     { id: 'L4', actId: 'A2', from: '林志豪', fromUid: 'U4', to: '簡晨光', text: '畢業快樂！', image: '', paper: 'kraft', time: '2026/6/2 12:00', sent: true, openedAt: '2026/6/2 13:10', openedBy: '簡晨光' },
   ],
 };
-if (DEMO) window.liff = { isInClient: () => false, isLoggedIn: () => true, closeWindow() {}, isApiAvailable: () => false, getContext: () => null };
+// 預覽：選單不會真的打開，直接當作「已選好」
+if (DEMO) window.liff = { isInClient: () => false, isLoggedIn: () => true, closeWindow() {}, isApiAvailable: k => k === 'shareTargetPicker', getContext: () => null,
+  shareTargetPicker: () => new Promise(r => setTimeout(() => r({ status: 'success' }), 250)) };
 const demoState = a => !a.open ? 'closed' : (a.deadline && new Date(a.deadline.replace(' ', 'T')) < new Date() ? 'ended' : 'open');
 const demoStats = a => { const ls = demo.letters.filter(l => l.actId === a.id); return { ...a, state: demoState(a), letters: ls.length, opened: ls.filter(l => l.openedAt).length }; };
 const demoContent = l => ({ ...l, actTitle: (demo.acts.find(a => a.id === l.actId) || {}).title || '' });
@@ -449,13 +452,22 @@ function openGuide(kind, force) {
 
 /** 兩段式確認：第一次按變成「再按一次確認」 */
 function armThen(btn, label, fn) {
+  if (btn.disabled || btn.dataset.busy) return;
   if (btn.classList.contains('armed')) { btn.classList.remove('armed'); return fn(); }
   const old = btn.textContent; btn.textContent = label; btn.classList.add('armed');
   setTimeout(() => { if (btn.isConnected && btn.classList.contains('armed')) { btn.classList.remove('armed'); btn.textContent = old; } }, 4000);
 }
+/** 請求編號：同一次動作連點或重試都送同一個，後端據此只做一次 */
+const newRid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
+/** 按鈕處理中：連點只算一次（先同步檢查旗標，再 disabled）；成功後換掉請求編號，失敗時保留，再按一次後端不會重複寫入 */
 async function busy(btn, fn) {
+  if (!btn || btn.disabled || btn.dataset.busy) return;
+  btn.dataset.busy = '1';
+  const rid = btn.dataset.rid || (btn.dataset.rid = newRid());
   const old = btn.innerHTML; btn.disabled = true; btn.textContent = '處理中…';
-  try { return await fn(); } catch (e) { toast(e.message); } finally { if (btn.isConnected) { btn.disabled = false; btn.innerHTML = old; } }
+  try { const r = await fn(rid); delete btn.dataset.rid; return r; }
+  catch (e) { toast(e.message); }
+  finally { delete btn.dataset.busy; if (btn.isConnected) { btn.disabled = false; btn.innerHTML = old; } }
 }
 
 /* ================= 第一次登入：姓名＋手機 ================= */
@@ -471,8 +483,8 @@ function bindView(title, hint, done, preset = '') {
       <p class="f-hint">只用來確認是你本人，之後用這個 LINE 開啟就不用再填。</p>
       <div class="btn-row"><button class="btn block" id="b-go" type="button">確認</button></div>
     </div>${footHtml()}`);
-  $('b-go').onclick = e => busy(e.currentTarget, async () => {
-    const r = await api('bind', { name: $('b-name').value.trim(), phone: $('b-phone').value.trim() });
+  $('b-go').onclick = e => busy(e.currentTarget, async rid => {
+    const r = await api('bind', { name: $('b-name').value.trim(), phone: $('b-phone').value.trim(), rid });
     ME = { ...(ME || {}), name: r.name };
     await done();
   });
@@ -568,17 +580,17 @@ function writeForm(edit, presetTo) {
     vgrow(); keep();
   });
   drawPhoto(keep);
-  $('w-send').onclick = e => busy(e.currentTarget, async () => {
+  $('w-send').onclick = e => busy(e.currentTarget, async rid => {
     const letter = { to: $('w-to').value.trim(), text: $('w-text').value.trim(), paper: cur, image: PHOTO, vref: $('v-ref').value.trim(), vtext: vt.value.trim() };
     if (!letter.to) { $('w-to').focus(); throw new Error('請填寫收信人的名字'); }
     if (!letter.text) { ta.focus(); throw new Error('請寫下要給對方的悄悄話'); }
     if (edit) {
-      const r = await api('updateLetter', { letterId: edit.id, letter });
+      const r = await api('updateLetter', { letterId: edit.id, letter, rid });
       PHOTO = '';
       if (r.letter.changedTo) { LETTER = r.letter; toast('收信人改了，要重新送出'); return sentView(false); }
       toast('已儲存修改'); return writeForm();
     }
-    const r = await api('writeLetter', { actId: ACT.id, letter });
+    const r = await api('writeLetter', { actId: ACT.id, letter, rid });
     clearDraft(ACT.id); PHOTO = '';
     LETTER = r.letter;
     const ok = await sendLetter(LETTER);
@@ -587,6 +599,7 @@ function writeForm(edit, presetTo) {
   drawMine();
 }
 
+let UPLOADING = false;
 function drawPhoto(keep) {
   const box = $('w-photo');
   if (PHOTO && !imgOk(PHOTO)) PHOTO = '';
@@ -595,16 +608,18 @@ function drawPhoto(keep) {
     $('p-x').onclick = () => { PHOTO = ''; drawPhoto(keep); keep(); };
   } else {
     box.innerHTML = `<button class="photo-pick" id="p-pick" type="button">📷 附一張照片（可不附）</button><input type="file" id="p-file" accept="image/*" hidden>`;
-    $('p-pick').onclick = () => $('p-file').click();
+    $('p-pick').onclick = () => { if (!UPLOADING) $('p-file').click(); };
     $('p-file').onchange = async e => {
       const f = e.target.files && e.target.files[0]; e.target.value = '';
-      if (!f) return;
+      if (!f || UPLOADING) return;
+      UPLOADING = true;
       $('p-pick').textContent = '照片上傳中…'; $('p-pick').disabled = true;
       try {
         const data = await shrinkImage(f, 1200, 0.85);
-        PHOTO = (await api('uploadImage', { data, mime: 'image/jpeg' })).url;
+        PHOTO = (await api('uploadImage', { data, mime: 'image/jpeg', rid: newRid() })).url;
         drawPhoto(keep); keep();
       } catch (err) { toast('上傳失敗：' + err.message); drawPhoto(keep); }
+      finally { UPLOADING = false; }
     };
   }
 }
@@ -643,13 +658,13 @@ async function drawMine() {
         </div>
       </div>`).join('')}
       <p class="small muted" style="margin:8px 0 0">對方收信後就不能再修改；刪除後，對方的信封會打不開。</p></div>`;
-    box.querySelectorAll('[data-resend]').forEach(b => b.onclick = () => {
+    box.querySelectorAll('[data-resend]').forEach(b => b.onclick = () => busy(b, async () => {
       const l = letters.find(x => x.id === b.dataset.resend);
-      sendLetter({ ...l, actTitle: ACT.title, opened: ACT.opened }).then(ok => ok && drawMine());
-    });
+      if (await sendLetter({ ...l, actTitle: ACT.title, opened: ACT.opened })) drawMine();
+    }));
     box.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => writeForm(letters.find(x => x.id === b.dataset.edit)));
-    box.querySelectorAll('[data-del]').forEach(b => b.onclick = () => armThen(b, '確定刪除？', () => busy(b, async () => {
-      await api('deleteLetter', { letterId: b.dataset.del }); toast('已刪除這封信'); box.innerHTML = ''; drawMine();
+    box.querySelectorAll('[data-del]').forEach(b => b.onclick = () => armThen(b, '確定刪除？', () => busy(b, async rid => {
+      await api('deleteLetter', { letterId: b.dataset.del, rid }); toast('已刪除這封信'); box.innerHTML = ''; drawMine();
     })));
   } catch (e) {}
 }
@@ -666,7 +681,7 @@ function sentView(ok) {
       <button class="btn ${ok ? 'ghost' : 'gold'} block" id="s-again" type="button">${ok ? '再傳給其他人' : '選擇朋友或群組送出'}</button>
       <button class="btn block" id="s-new" type="button">再寫一封</button>
     </div>${footHtml()}`);
-  $('s-again').onclick = async () => { if (await sendLetter(LETTER)) sentView(true); };
+  $('s-again').onclick = e => busy(e.currentTarget, async () => { if (await sendLetter(LETTER)) sentView(true); });
   $('s-new').onclick = () => writeForm();
 }
 
@@ -754,7 +769,7 @@ async function forwardLetterFlow(id) {
   if (!card) return view(`${topHtml()}<div class="card center"><p>找不到這封信。</p></div>`);
   view(`${topHtml()}<div class="card center"><div class="big-emoji">✉️</div><p>把這封給「${esc(card.to)}」的信轉傳出去</p>
     <button class="btn block gold" id="f-go" type="button">選擇朋友或群組</button></div>`);
-  $('f-go').onclick = async () => { if (await sendLetter(card) && liff.isInClient()) liff.closeWindow(); };
+  $('f-go').onclick = e => busy(e.currentTarget, async () => { if (await sendLetter(card) && liff.isInClient()) liff.closeWindow(); });
 }
 
 async function forwardActFlow(id) {
@@ -762,7 +777,7 @@ async function forwardActFlow(id) {
   if (!act) return view(`${topHtml()}<div class="card center"><p>找不到這個流通神聖的愛活動。</p></div>`);
   view(`${topHtml()}<div class="card center"><div class="big-emoji">✉️</div><p>轉傳「${esc(act.title)}」的寫信入口</p>
     <button class="btn block gold" id="f-go" type="button">選擇朋友或群組</button></div>`);
-  $('f-go').onclick = async () => { if (await sendAct(act) && liff.isInClient()) liff.closeWindow(); };
+  $('f-go').onclick = e => busy(e.currentTarget, async () => { if (await sendAct(act) && liff.isInClient()) liff.closeWindow(); });
 }
 
 /* ================= 安裝到手機桌面（PWA） ================= */
@@ -875,11 +890,11 @@ function renderActForm(a) {
       <div class="btn-row"><button class="btn block" id="a-save" type="button">${a ? '儲存' : '建立並發到群組'}</button></div>
     </div>`);
   $('f-back').onclick = () => a ? renderDetail(a.id) : renderHome();
-  $('a-save').onclick = e => busy(e.currentTarget, async () => {
+  $('a-save').onclick = e => busy(e.currentTarget, async rid => {
     const input = { title: $('a-title').value.trim(), desc: $('a-desc').value.trim(), deadline: $('a-dl').value.replace('T', ' '), paper: $('a-paper').value };
     if (!input.title) { $('a-title').focus(); throw new Error('請填寫活動名稱'); }
-    if (a) { await api('updateAct', { actId: a.id, act: input }); toast('已儲存'); return renderDetail(a.id); }
-    const r = await api('createAct', { act: input });
+    if (a) { await api('updateAct', { actId: a.id, act: input, rid }); toast('已儲存'); return renderDetail(a.id); }
+    const r = await api('createAct', { act: input, rid });
     ACTS.unshift(r.act); saveHome();
     await sendAct(r.act);
     renderDetail(r.act.id);
@@ -946,14 +961,14 @@ function drawDetail() {
       <button class="btn danger" id="d-del" type="button">刪除活動</button>
     </div>${footHtml()}`, 'detail:' + a.id);
   $('d-back').onclick = () => renderHome();
-  $('d-share').onclick = () => sendAct(a);
+  $('d-share').onclick = e => busy(e.currentTarget, () => sendAct(a));
   $('d-edit').onclick = () => renderActForm(a);
-  $('d-open').onclick = e => busy(e.currentTarget, async () => { DETAIL.act = (await api('setOpen', { actId: a.id, open: !a.open })).act; drawDetail(); });
-  $('d-del').onclick = e => armThen(e.currentTarget, `確定刪除？${list.length} 封信會一起刪掉`, () => busy(e.currentTarget, async () => {
-    await api('deleteAct', { actId: a.id }); ACTS = ACTS.filter(x => x.id !== a.id); saveHome(); cacheDel('detail:' + a.id); toast('已刪除'); renderHome();
+  $('d-open').onclick = e => busy(e.currentTarget, async rid => { DETAIL.act = (await api('setOpen', { actId: a.id, open: !a.open, rid })).act; drawDetail(); });
+  $('d-del').onclick = e => armThen(e.currentTarget, `確定刪除？${list.length} 封信會一起刪掉`, () => busy(e.currentTarget, async rid => {
+    await api('deleteAct', { actId: a.id, rid }); ACTS = ACTS.filter(x => x.id !== a.id); saveHome(); cacheDel('detail:' + a.id); toast('已刪除'); renderHome();
   }));
-  document.querySelectorAll('[data-ldel]').forEach(b => b.onclick = () => armThen(b, '確定刪除？刪了無法復原', () => busy(b, async () => {
-    await api('deleteLetter', { letterId: b.dataset.ldel });
+  document.querySelectorAll('[data-ldel]').forEach(b => b.onclick = () => armThen(b, '確定刪除？刪了無法復原', () => busy(b, async rid => {
+    await api('deleteLetter', { letterId: b.dataset.ldel, rid });
     const gone = DETAIL.list.find(x => x.id === b.dataset.ldel);
     DETAIL.list = DETAIL.list.filter(x => x.id !== b.dataset.ldel);
     DETAIL.act = { ...DETAIL.act, letters: DETAIL.act.letters - 1, opened: DETAIL.act.opened - (gone && gone.openedAt ? 1 : 0) };
@@ -978,26 +993,33 @@ async function myDataFlow() {
     ${d.found || d.sent ? `<p class="small muted">刪除後，你的姓名手機、你寫的信（含照片連結）與收信紀錄都會刪掉，下次使用要重新填寫。</p>
     <button class="btn danger block" id="m-del" type="button">刪除我的資料</button>` : ''}`);
   const del = $('m-del');
-  if (del) del.onclick = e => armThen(e.currentTarget, '再按一次確定刪除', () => busy(e.currentTarget, async () => {
-    await api('deleteMyData'); setSession(null); toast('已刪除你的資料'); myDataFlow();
+  if (del) del.onclick = e => armThen(e.currentTarget, '再按一次確定刪除', () => busy(e.currentTarget, async rid => {
+    await api('deleteMyData', { rid }); setSession(null); toast('已刪除你的資料'); myDataFlow();
   }));
 }
 
 /* ================= 傳到 LINE ================= */
+/** 朋友／群組選單一次只開一個：選單開著時再按，直接當作沒按 */
+let PICKING = false;
 async function pick(messages, okText) {
-  if (DEMO) { toast('預覽模式：正式版會在這裡跳出朋友／群組選單'); return true; }
+  if (PICKING) return false;
+  PICKING = true;
+  try { return await openPicker(messages, okText); } finally { PICKING = false; }
+}
+async function openPicker(messages, okText) {
   if (!liff.isLoggedIn()) { toast('需要先登入 LINE 一次'); setTimeout(() => liff.login({ redirectUri: location.href }), 600); return false; }
   if (!liff.isApiAvailable('shareTargetPicker')) { toast('無法開啟選單，請確認 LIFF 已開啟 Share target picker'); return false; }
   try {
     const res = await liff.shareTargetPicker(messages, { isMultiple: true });
-    toast(res ? okText : '已取消');
+    toast(res ? (DEMO ? '預覽模式：正式版會在這裡跳出朋友／群組選單' : okText) : '已取消');
     return !!res;
   } catch (e) { toast('傳送失敗：' + e.message); return false; }
 }
 
 async function sendLetter(l) {
+  if (PICKING) return false;
   const ok = await pick([letterFlex(l)], '信已送出');
-  if (ok) { try { await api('markSent', { letterId: l.id }); } catch (e) {} }
+  if (ok) { try { await api('markSent', { letterId: l.id, rid: newRid() }); } catch (e) {} }
   return ok;
 }
 const sendAct = a => pick([actFlex(a)], '已發到群組');
