@@ -9,7 +9,40 @@
 - 網站總管理者：在 Apps Script「專案設定 → 指令碼屬性」設定 `SUPER_ADMIN`（LINE userId，多位用逗號分隔）。只有總管理者在後台看得到信件內容；活動建立人、共同管理者與發布者只能看誰寫給誰、是否已送出與收信。活動建立者（與總管理者）可以把已經寫信或已經收信的人加為共同管理者；共同管理者有同樣的後台檢視與管理權限，但不能新增／移除共同管理者，也不能刪除活動。
 - LIFF：Full、scopes openid＋profile、開啟 shareTargetPicker
 
-寫信時可選日常或節日／場合信紙（含愛情、牧養、建造、福音等）。點選主題會配上輕柔背景音樂，可停止；收信的人要自己按「打開聲音聆聽」。LINE 圖卡與活動標題旁邊會顯示「已有 XX 人寫信」「已有 XX 個人收到愛」（送出當下的人數，圖卡發出後不會再變）。每個使用者可在首頁或「我的個人資料」查看「我寫過的信」（跨活動、寫給誰、是否已送出或對方已收信）。活動後台有收信人名單（已送出、不重複收信人，可複製或截圖，不含信件內容），以及共同管理者名單（點選已寫信或已收信的人即可新增；還沒打開信的收信人還不能新增）。頁面上不使用十字架圖示或表情符號。
+寫信時可選日常或節日／場合信紙（含愛情、牧養、建造、福音等）。點選主題會配上輕柔背景音樂（循環播放、預設音量 0.35，點選後才載入），可停止；收信的人要自己按「打開聲音聆聽」。背景音樂授權與逐首曲目見下方「背景音樂」。LINE 圖卡與活動標題旁邊會顯示「已有 XX 人寫信」「已有 XX 個人收到愛」（送出當下的人數，圖卡發出後不會再變）。每個使用者可在首頁或「我的個人資料」查看「我寫過的信」（跨活動、寫給誰、是否已送出或對方已收信）。活動後台有收信人名單（已送出、不重複收信人，可複製或截圖，不含信件內容），以及共同管理者名單（點選已寫信或已收信的人即可新增；還沒打開信的收信人還不能新增）。頁面上不使用十字架圖示或表情符號。
+
+## 背景音樂
+
+14 首主題曲都是約 51 秒、單聲道、約 64 kbps 的循環 MP3（頭尾淡入淡出），放在 `audio/<主題>.mp3`。寫信頁點選主題後才載入，不預先快取；預設音量 0.35、循環播放。使用說明最下方有一行小字署名，其他畫面不另外標示。
+
+除「生日」外，錄音皆為 [Kevin MacLeod / incompetech.com](https://incompetech.com/music/royalty-free/faq.html)，官方授權為 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)，必須署名，可商用、可剪輯。建議署名格式（官方 FAQ）：
+
+```
+"曲名" Kevin MacLeod (incompetech.com)
+Licensed under Creative Commons: By Attribution 4.0
+https://creativecommons.org/licenses/by/4.0/
+```
+
+各曲官方頁：`https://incompetech.com/music/royalty-free/index.html?isrc=……`。即使旋律是公有領域（例如薩替、聖誕歌曲、聖詩、巴哈），這些錄音本身仍須依 CC BY 4.0 署名，不可當成 CC0。
+
+生日主選：旋律為公有領域；MIDI 設定為 CC0 1.0（Wikimedia Commons，Rabanus Flavus / Peter Gerloff），不必署名。
+
+| 主題 | 檔名 | 曲名 | 作者／來源 | 授權 | 官方頁／來源 |
+|---|---|---|---|---|---|
+| 素雅 | `rose.mp3` | Gymnopedie No. 1 | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100787 |
+| 晴空 | `sky.mp3` | Fresh Air | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1500084 |
+| 牛皮 | `kraft.mp3` | Windswept | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100757 |
+| 薄荷 | `mint.mp3` | Enchanted Journey | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100799 |
+| 冬季 | `winter.mp3` | Winter Chimes | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100009 |
+| 聖誕 | `xmas.mp3` | Silent Night | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100075 |
+| 新春 | `newyear.mp3` | Morning | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN2300003 |
+| 感恩 | `thanks.mp3` | Water Lily | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1400035 |
+| 畢業 | `grad.mp3` | Dreams Become Real | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1500027 |
+| 生日 | `birthday.mp3` | Happy Birthday to You（柔和音樂盒演奏） | 傳統旋律；MIDI 設定：Rabanus Flavus (Peter Gerloff) | 旋律為公有領域；MIDI 為 CC0 1.0，不必署名 | https://commons.wikimedia.org/wiki/File:Happy_birthday_to_you_(Zum_Geburtstag_viel_Gl%C3%BCck).mid |
+| 福音 | `gospel.mp3` | Amazing Grace 2011 | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100820 |
+| 愛情 | `love.mp3` | There is Romance | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100044 |
+| 牧養 | `shepherd.mp3` | The Forest and the Trees | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100766 |
+| 建造 | `build.mp3` | Prelude in C (BWV 846) | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100689 |
 
 ## 更新步驟
 
@@ -28,6 +61,7 @@ NODE_PATH=<有安裝 playwright 的 node_modules> BASE_URL=http://127.0.0.1:1876
 node tests/no-cross.mjs
 node tests/loved-count.mjs
 node tests/coadmin.mjs
+node tests/bgm.mjs
 ```
 
 加 `SHOTS_DIR=_shots` 會順便存 `after-*.png` 截圖（`_shots/` 已在 `.gitignore`，不會被提交）。

@@ -144,7 +144,7 @@ SUCCESS
 - 新增信紙：愛情、牧養、建造；福音符號改為書本，畫面與原始檔皆無十字架
 - `img/in-christ.svg` 中央改為鴿子與橄欖枝，保留金色圓印與外圈 IN CHRIST
 - LINE 圖卡顯示「已有 XX 個人收到愛」（該活動已送出信件的不重複收信人數，含正要送出的這一封；0 不顯示；發出後不會自動更新）
-- 每款主題輕柔原創 CC0 背景音樂（約 28 秒循環、loudnorm −24 LUFS、音量 0.35、點選後才載入）。寫信頁說明「點選主題，會配上相應的背景音樂」；收信頁「🔈 打開聲音聆聽」
+- 每款主題輕柔背景音樂（約 51 秒循環、單聲道 64 kbps、音量 0.35、點選後才載入）。除生日曲為公有領域外，其餘為 Kevin MacLeod (incompetech.com)，CC BY 4.0，署名見使用說明最下方與 README。寫信頁說明「點選主題，會配上相應的背景音樂」；收信頁「🔈 打開聲音聆聽」
 - 使用說明與 README 已更新
 - 測試：`demo-smoke` 17/17、`no-double-submit` 15/15、`no-cross`、`loved-count`；gitleaks
 - 後端需手動把 `Code.gs` 貼回 Apps Script，部署新版本，執行一次 `resetVerseRefs`，並設定 `SUPER_ADMIN`
