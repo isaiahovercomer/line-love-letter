@@ -156,6 +156,15 @@ await check('newbie：先登記才能收信', '?demo=newbie&noguide', async page
 await check('mydata：我的個人資料', '?demo=mydata&noguide', async page => {
   await expectText(page, 'h2', '我的個人資料');
   await expectText(page, '.card', '陳怡君');
+  await expectText(page, '#m-mine', '查看我寫過的信');
+  await expectText(page, '#m-write', '我要寫信');
+  const pos = await page.evaluate(() => {
+    const a = document.getElementById('m-mine').getBoundingClientRect();
+    const b = document.getElementById('m-write').getBoundingClientRect();
+    return { below: b.top >= a.bottom - 2, gold: document.getElementById('m-write').classList.contains('gold') };
+  });
+  if (!pos.below) throw new Error('「我要寫信」應在「查看我寫過的信」下面');
+  if (!pos.gold) throw new Error('「我要寫信」應是金色主按鈕');
   await shot(page, 'mydata');
 });
 
@@ -528,10 +537,66 @@ await check('activity-themes：寫信頁套上活動主題浮水印', '?demo=wri
 });
 
 await check('mydata：有入口到我寫過的信', '?demo=mydata&noguide', async page => {
-
   await expectText(page, 'h2', '我的個人資料');
   await expectText(page, '#m-mine', '查看我寫過的信');
   await expectText(page, '.card', '寫過 3 封信');
+});
+
+await check('lock-note：寫信頁說明已改為大致相符', '?demo=write&noguide', async page => {
+  await page.locator('#w-to').waitFor();
+  const note = await page.locator('.lock-note').innerText();
+  if (!note.includes('大致相符') || !note.includes('收信') || note.includes('一樣，才拆得開'))
+    throw new Error('寫信頁說明未更新：' + note);
+});
+
+await check('guide：使用說明有新規則與按鈕對比', '?demo=write&noguide', async page => {
+  await page.locator('#w-to').waitFor();
+  await page.evaluate(() => { try { localStorage.removeItem('loveletter.guide.writer'); } catch (e) {} });
+  await page.locator('.foot .link', { hasText: '使用說明' }).click();
+  await expectText(page, '.guide h3', '寫一封信');
+  if (await page.locator('.guide-samples .btn.gold', { hasText: '儲存並送出' }).count() === 0)
+    throw new Error('寫信說明應示範金色主按鈕');
+  await page.locator('.guide [data-g=next]').click();
+  await page.locator('.guide [data-g=next]').click();
+  await expectText(page, '.guide h3', '名字大致相符就可以');
+  const body = await page.locator('.guide p').first().innerText();
+  if (!body.includes('大致相符') || !body.includes('稱謂') || !body.includes('小名'))
+    throw new Error('使用說明姓名規則未更新：' + body);
+  if (await page.locator('.guide-samples .btn.gold', { hasText: '收信' }).count() === 0)
+    throw new Error('姓名頁應示範收信按鈕');
+});
+
+await check('guide：主辦說明有按鈕明暗對比', '?demo&noguide', async page => {
+  await expectText(page, 'h2', '我的流通神聖的愛活動');
+  await page.evaluate(() => { try { localStorage.removeItem('loveletter.guide.host'); } catch (e) {} });
+  await page.locator('.foot .link', { hasText: '使用說明' }).click();
+  await expectText(page, '.guide h3', '建立流通神聖的愛活動');
+  if (await page.locator('.guide-samples .btn.gold', { hasText: '建立並發到群組' }).count() === 0)
+    throw new Error('主辦說明應示範金色主按鈕');
+  // skip to last page for danger / ghost chips
+  for (let n = 0; n < 4; n++) await page.locator('.guide [data-g=next]').click();
+  await expectText(page, '.guide h3', '管理活動');
+  if (await page.locator('.guide-samples .btn.ghost', { hasText: '複製' }).count() === 0)
+    throw new Error('管理頁應示範淺色次要按鈕');
+  if (await page.locator('.guide-samples .btn.danger', { hasText: '刪除活動' }).count() === 0)
+    throw new Error('管理頁應示範危險按鈕');
+  const cred = await page.locator('.guide .guide-credit').count();
+  if (cred !== 1) throw new Error('署名應仍在使用說明最下方');
+});
+
+await check('mydata：我要寫信會回到進行中的活動', '?demo=write&act=A8&noguide', async page => {
+  await page.locator('h2', { hasText: '端午的問候' }).waitFor();
+  await page.goto(new URL('?demo=mydata&noguide', BASE).href, { waitUntil: 'load' });
+  await page.locator('#m-write').click();
+  await page.locator('h2', { hasText: '端午的問候' }).waitFor({ timeout: 8000 });
+});
+
+await check('mydata：沒有進行中活動時我要寫信回到首頁', '?demo=mydata&noguide', async page => {
+  await page.evaluate(() => { try { sessionStorage.removeItem('loveletter.lastAct'); } catch (e) {} });
+  await page.reload({ waitUntil: 'load' });
+  await expectText(page, 'h2', '我的個人資料');
+  await page.locator('#m-write').click();
+  await expectText(page, 'h2', '我的流通神聖的愛活動');
 });
 
 await browser.close();
