@@ -216,7 +216,7 @@ const paperVars = k => { const p = paperOf(k); return `--p-paper:${p.paper};--p-
 const demo = {
   me: { userId: 'Udemo', displayName: '預覽使用者', name: ['bind', 'newbie'].includes(DEMO_MODE) ? '' : '陳怡君', isAdmin: true },
   acts: [
-    { id: 'A1', title: '聖誕節傳情', desc: '寫一封悄悄話給你想感謝的弟兄姊妹，可以附一張照片。12/24 前都可以寫。', deadline: '2026-12-24 23:59', open: true, created: '2026/11/10 16:00', creator: '簡晨光', mine: true },
+    { id: 'A1', title: '冬天的第一個問候', desc: '寫一封悄悄話給你想感謝的弟兄姊妹，可以附一張照片。12/24 前都可以寫。', deadline: '2026-12-24 23:59', open: true, created: '2026/11/10 16:00', creator: '簡晨光', mine: true },
     { id: 'A2', title: '畢業祝福信', desc: '', deadline: '', open: false, created: '2026/6/1 10:00', creator: '簡晨光', mine: true },
   ],
   letters: [
@@ -421,7 +421,7 @@ const clearDraft = id => { try { localStorage.removeItem(draftKey(id)); } catch 
 
 async function writeFlow(pre) {
   ACT = pre && pre.act;
-  if (!ACT) return view(`${topHtml()}<div class="card center"><div class="big-emoji">📭</div><p>找不到這個傳情活動，可能已經被刪除。</p></div>`);
+  if (!ACT) return view(`${topHtml()}<div class="card center"><div class="big-emoji">📭</div><p>找不到這個流通神聖的愛活動，可能已經被刪除。</p></div>`);
   ME = await api('me');
   GUIDE_KIND = 'writer';
   if (!ME.name) return bindView('先認識一下你', `第一次寫信，請填你的姓名和手機。<br>收到信的人會看到你的姓名。`, () => { writeForm(); openGuide('writer'); });
@@ -430,7 +430,7 @@ async function writeFlow(pre) {
 
 function writeForm(edit) {
   if (ACT.state !== 'open') {
-    return view(`${topHtml(ME.name)}<div class="card center"><div class="big-emoji">⏳</div><h2>${esc(ACT.title)}</h2><p>${ACT.state === 'ended' ? '這個傳情活動已經截止寫信了。' : '主辦人已經停止這個活動的寫信。'}</p></div>${footHtml()}`);
+    return view(`${topHtml(ME.name)}<div class="card center"><div class="big-emoji">⏳</div><h2>${esc(ACT.title)}</h2><p>${ACT.state === 'ended' ? '這個流通神聖的愛活動已經截止寫信了。' : '主辦人已經停止這個活動的寫信。'}</p></div>${footHtml()}`);
   }
   const d = edit || readDraft(ACT.id);
   const paper = d.paper || 'rose';
@@ -645,7 +645,7 @@ async function forwardLetterFlow(id) {
 
 async function forwardActFlow(id) {
   const { act } = await api('act', { actId: id });
-  if (!act) return view(`${topHtml()}<div class="card center"><p>找不到這個傳情活動。</p></div>`);
+  if (!act) return view(`${topHtml()}<div class="card center"><p>找不到這個流通神聖的愛活動。</p></div>`);
   view(`${topHtml()}<div class="card center"><div class="big-emoji">💌</div><p>轉傳「${esc(act.title)}」的寫信入口</p>
     <button class="btn block gold" id="f-go" type="button">選擇朋友或群組</button></div>`);
   $('f-go').onclick = async () => { if (await sendAct(act) && liff.isInClient()) liff.closeWindow(); };
@@ -708,13 +708,13 @@ function renderHome() {
   view(`${topHtml(ME.name || ME.displayName)}
     <h2>我的流通神聖的愛活動</h2>
     <p class="muted small">建立活動 → 把寫信入口發到群組 → 大家寫信、傳給收信人 → 在這裡看配對。</p>
-    <button class="btn block gold" id="h-new" type="button">＋ 建立傳情活動</button>
+    <button class="btn block gold" id="h-new" type="button">＋ 建立流通神聖的愛活動</button>
     ${isStandalone() ? '' : '<button class="btn ghost block" id="h-install" type="button" style="margin-top:10px">📲 安裝到手機桌面</button>'}
     ${ACTS.length ? ACTS.map(a => `
       <button class="card act" type="button" data-act="${esc(a.id)}">
         <div class="t"><h3>${esc(a.title)}</h3>${stateChip(a.state)}</div>
         <div class="s">💌 ${a.letters} 封信・💞 配對成功 ${a.opened}${a.deadline ? `・截止 ${esc(shortTime(a.deadline))}` : ''}${a.mine === false ? `・${esc(a.creator)} 建立` : ''}</div>
-      </button>`).join('') : `<div class="card empty"><div class="big-emoji">💌</div>還沒有傳情活動，按上面的按鈕建立第一個。</div>`}
+      </button>`).join('') : `<div class="card empty"><div class="big-emoji">💌</div>還沒有流通神聖的愛活動，按上面的按鈕建立第一個。</div>`}
     ${footHtml()}`);
   $('h-new').onclick = () => renderActForm();
   if ($('h-install')) $('h-install').onclick = () => startInstall();
@@ -728,7 +728,7 @@ function renderActForm(a) {
     <h2>${a ? '編輯流通神聖的愛活動' : '建立流通神聖的愛活動'}</h2>
     <div class="card">
       <label class="f" for="a-title">活動名稱</label>
-      <input class="in" id="a-title" maxlength="40" value="${esc(a ? a.title : '')}" placeholder="例如：聖誕節傳情">
+      <input class="in" id="a-title" maxlength="40" value="${esc(a ? a.title : '')}" placeholder="例如：冬天的第一個問候">
       <label class="f" for="a-desc">說明（可不填）</label>
       <textarea class="in" id="a-desc" maxlength="500" placeholder="例如：寫一封悄悄話給你想感謝的人。">${esc(a ? a.desc : '')}</textarea>
       <label class="f" for="a-dl">寫信截止時間（可不填）</label>
@@ -857,7 +857,7 @@ const sendAct = a => pick([actFlex(a)], '已發到群組');
 /** 信封圖卡：只寫收信人，內容要按「收信」才看得到 */
 function letterFlex(l) {
   const p = paperOf(l.paper);
-  return { type: 'flex', altText: `💌 有一封給 ${l.to} 的傳情信`.slice(0, 400), contents: {
+  return { type: 'flex', altText: `💌 有一封給 ${l.to} 的信`.slice(0, 400), contents: {
     type: 'bubble', size: 'kilo',
     styles: { body: { backgroundColor: p.paper }, footer: { backgroundColor: p.paper } },
     body: { type: 'box', layout: 'vertical', paddingAll: '18px', contents: [
@@ -874,7 +874,7 @@ function letterFlex(l) {
   } };
 }
 
-/** 寫信入口卡：發到群組，大家按「寫一封傳情信」 */
+/** 寫信入口卡：發到群組，大家按「寫一封愛的信」 */
 function actFlex(a) {
   const p = PAPERS.rose;
   const body = [
@@ -882,12 +882,12 @@ function actFlex(a) {
     { type: 'text', text: a.title, size: 'xl', weight: 'bold', color: p.ink, wrap: true, margin: 'sm' } ];
   if (a.desc) body.push({ type: 'text', text: a.desc.length > 160 ? a.desc.slice(0, 158) + '…' : a.desc, size: 'sm', color: '#7A5A5E', wrap: true, margin: 'md' });
   if (shortTime(a.deadline)) body.push({ type: 'text', text: '寫信截止 ' + shortTime(a.deadline), size: 'xs', color: '#7A5A5E', margin: 'md' });
-  return { type: 'flex', altText: `💌 ${a.title}：寫一封傳情信`.slice(0, 400), contents: {
+  return { type: 'flex', altText: `💌 ${a.title}：寫一封愛的信`.slice(0, 400), contents: {
     type: 'bubble',
     styles: { body: { backgroundColor: p.paper }, footer: { backgroundColor: p.paper } },
     body: { type: 'box', layout: 'vertical', paddingAll: '20px', contents: body },
     footer: { type: 'box', layout: 'vertical', paddingAll: '16px', paddingTop: '0px', spacing: 'xs', contents: [
-      { type: 'button', style: 'primary', color: p.accent, height: 'sm', action: { type: 'uri', label: '寫一封傳情信', uri: actUrl(a.id) } },
+      { type: 'button', style: 'primary', color: p.accent, height: 'sm', action: { type: 'uri', label: '寫一封愛的信', uri: actUrl(a.id) } },
       { type: 'button', style: 'link', height: 'sm', color: p.ink, action: { type: 'uri', label: '轉傳給其他群組或朋友', uri: shareUrl(a.id) } } ] },
   } };
 }

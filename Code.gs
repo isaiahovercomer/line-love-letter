@@ -1,19 +1,19 @@
 /**
- * LINE 傳情圖卡建立平台 — Google Apps Script 後端
+ * LINE 流通神聖的愛圖卡建立平台 — Google Apps Script 後端
  * 貼到 Google 試算表的「擴充功能 → Apps Script」。第一次（或更新欄位後）執行一次 setup()，再部署成網頁應用程式
  * （執行身分：我；存取權：所有人）。
  */
 
 const CONFIG = {
   CHANNEL_ID: '2012412693',          // LINE Login channel ID（與活動登記平台同一個）
-  IMAGE_FOLDER: 'LINE 傳情圖卡照片', // 信裡附的照片存在雲端硬碟這個資料夾
+  IMAGE_FOLDER: 'LINE 流通神聖的愛圖卡照片', // 信裡附的照片存在雲端硬碟這個資料夾
 };
 
-const SH = { ROSTER: '名單', ACTS: '傳情活動', LETTERS: '信件', OPENS: '收信紀錄', PUBLISHERS: '發布者' };
+const SH = { ROSTER: '名單', ACTS: '流通神聖的愛活動', LETTERS: '信件', OPENS: '收信紀錄', PUBLISHERS: '發布者' };
 
 const HEADERS = {
   '名單': ['姓名', '手機', 'LINE userId', 'LINE名稱'],
-  '傳情活動': ['活動代碼', '活動名稱', '說明', '開放寫信', '建立者', '建立時間', '截止時間'],
+  '流通神聖的愛活動': ['活動代碼', '活動名稱', '說明', '開放寫信', '建立者', '建立時間', '截止時間'],
   '信件': ['信件代碼', '活動代碼', '寄件人姓名', '寄件人 userId', '收信人姓名', '悄悄話', '照片網址', '信紙', '寫信時間', '已送出'],
   '收信紀錄': ['時間', '信件代碼', '活動代碼', '收信人姓名', 'LINE名稱', 'LINE userId'],
   '發布者': ['LINE userId', '名稱', '備註'],
@@ -27,6 +27,8 @@ const PAPERS = ['rose', 'sky', 'kraft', 'mint'];
 
 function setup() {
   const ss = SpreadsheetApp.getActive();
+  const old = ss.getSheetByName('傳' + '情活動');  // 舊名稱的工作表改成新名稱，資料保留
+  if (old && !ss.getSheetByName(SH.ACTS)) old.setName(SH.ACTS);
   Object.keys(HEADERS).forEach(name => {
     const sh = ss.getSheetByName(name) || ss.insertSheet(name);
     const h = HEADERS[name];
@@ -40,7 +42,7 @@ function setup() {
   imageFolder();
 }
 
-function doGet() { return json({ ok: true, msg: '傳情圖卡系統運作中' }); }
+function doGet() { return json({ ok: true, msg: '流通神聖的愛圖卡系統運作中' }); }
 
 function doPost(e) {
   let out;
@@ -218,7 +220,7 @@ function uploadImage(user, data, mime) {
   return 'https://lh3.googleusercontent.com/d/' + file.getId();
 }
 
-/* ---------- 傳情活動 ---------- */
+/* ---------- 流通神聖的愛活動 ---------- */
 function rowToAct(r) {
   return { id: String(r[AC.ID]), title: String(r[AC.TITLE]), desc: String(r[AC.DESC] || ''), open: isTrue(r[AC.OPEN]),
     creator: String(r[AC.CREATOR] || '').replace(/\s*\(U[0-9a-f]+\)\s*$/, ''), created: fmt(r[AC.CREATED]), deadline: cleanTime(r[AC.DEADLINE]) };
@@ -232,7 +234,7 @@ function publicAct(a) { return { id: a.id, title: a.title, desc: a.desc, deadlin
 function findActRow(id) {
   const data = sheet(SH.ACTS).getDataRange().getValues();
   for (let i = 1; i < data.length; i++) if (String(data[i][AC.ID]) === String(id)) return { index: i + 1, row: data[i] };
-  throw new Error('找不到這個傳情活動，可能已經被刪除');
+  throw new Error('找不到這個流通神聖的愛活動，可能已經被刪除');
 }
 function getAct(id) { try { return rowToAct(findActRow(id).row); } catch (e) { return null; } }
 
@@ -289,7 +291,7 @@ function listActs(user) {
 /** 後台：每封信的寄件人、收信人、內容與收信狀態 */
 function actDetail(id) {
   const a = getAct(id);
-  if (!a) throw new Error('找不到這個傳情活動');
+  if (!a) throw new Error('找不到這個流通神聖的愛活動');
   const opens = rows(SH.OPENS).filter(o => String(o[OP.ACT]) === a.id);
   const letters = rows(SH.LETTERS).filter(l => String(l[LT.ACT]) === a.id).map(l => {
     const o = opens.find(o => String(o[OP.LETTER]) === String(l[LT.ID]));
@@ -319,9 +321,9 @@ function findLetter(id) {
 
 function writeLetter(user, actId, input) {
   const a = getAct(actId);
-  if (!a) throw new Error('找不到這個傳情活動，可能已經被刪除');
+  if (!a) throw new Error('找不到這個流通神聖的愛活動，可能已經被刪除');
   const st = stateOf(a);
-  if (st !== 'open') throw new Error(st === 'ended' ? '這個傳情活動已經截止寫信' : '主辦人已經停止這個活動的寫信');
+  if (st !== 'open') throw new Error(st === 'ended' ? '這個流通神聖的愛活動已經截止寫信' : '主辦人已經停止這個活動的寫信');
   const from = rosterName(user);
   if (!from) throw new Error('NEED_BIND');
   const { to, text, image, paper } = cleanLetterInput(input);
