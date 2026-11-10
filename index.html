@@ -1056,7 +1056,7 @@ function drawDetail() {
       <button type="button" data-f="paired" aria-pressed="${FILTER === 'paired'}">神聖的愛流通成功 ${paired.length}</button>
       <button type="button" data-f="pending" aria-pressed="${FILTER === 'pending'}">待收信 ${list.length - paired.length}</button>
     </div>
-    ${full ? '' : '<p class="lock-note" id="d-privacy">🔒 信件內容僅網站管理者可見。這裡只顯示誰寫給誰、是否已送出與收信。</p>'}
+    ${full ? '' : '<p class="lock-note" id="d-privacy">🔒 信件內容使用者可見。這裡只顯示誰寫給誰、是否已送出與收信。</p>'}
     <div class="card" style="padding:4px 14px">
       ${shown.length ? shown.map(l => `
         <div class="pair">

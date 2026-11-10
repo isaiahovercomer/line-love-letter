@@ -178,7 +178,7 @@ await check('verse-picks：21 條都在頁面內、可換行', '?demo=write&nogu
 await check('privacy：活動建立人看不到信件內容', '?demo&noguide', async page => {
   await expectText(page, 'h2', '我的流通神聖的愛活動');
   await page.locator('.card.act').first().click();
-  await expectText(page, '#d-privacy', '信件內容僅網站管理者可見');
+  await expectText(page, '#d-privacy', '信件內容使用者可見');
   await page.locator('[data-row]').first().click();
   if (await page.locator('.paper.mini .text').count()) throw new Error('建立人不該看到信件內容');
   await shot(page, 'privacy-host');
