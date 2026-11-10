@@ -383,6 +383,85 @@ await check('roster：活動後台收信人名單可複製與截圖', '?demo&nog
   if (path) await dl.saveAs(path);
 });
 
+await check('coadmin-creator：可新增共同管理者，畫面不出現 userId', '?demo&noguide', async page => {
+  await expectText(page, 'h2', '我的流通神聖的愛活動');
+  await page.locator('.card.act').first().click();
+  await expectText(page, 'h2', '冬天的第一個問候');
+  await expectText(page, '#d-coadmins', '共同管理者');
+  await expectText(page, '#d-coadmins .nm', '王小明');
+  await expectText(page, '#d-coadmins', '只有活動建立者可以新增或移除共同管理者，以及刪除活動');
+  await expectText(page, '.co-cands', '簡晨光');
+  await expectText(page, '#d-coadmins', '還沒打開信的收信人還不能新增');
+  if (!(await page.locator('#d-del').count())) throw new Error('建立者應能刪除活動');
+  const leak = await page.evaluate(() => {
+    const box = document.getElementById('d-coadmins');
+    const html = box ? box.innerHTML : '';
+    const keys = [...box.querySelectorAll('[data-coadd], [data-corem]')].map(el => el.getAttribute('data-coadd') || el.getAttribute('data-corem') || '');
+    return { html, keys, hasUid: /Udemo|U[0-9]|userId/i.test(html) };
+  });
+  if (leak.hasUid) throw new Error('共同管理者區塊不該出現 userId：' + leak.html.slice(0, 200));
+  if (leak.keys.some(k => !k || /^U/i.test(k) || k.length < 8)) throw new Error('短鑰異常：' + JSON.stringify(leak.keys));
+  await page.locator('#d-coadmins').scrollIntoViewIfNeeded();
+  await shot(page, 'coadmin-creator');
+  const key = await page.locator('[data-coadd]').filter({ hasText: '簡晨光' }).first().getAttribute('data-coadd');
+  await page.locator('[data-coadd]').filter({ hasText: '簡晨光' }).first().click();
+  await page.locator('[data-coadd].armed').first().click();
+  await expectText(page, '.toast', '已新增共同管理者');
+  await expectText(page, '#d-coadmins .nm', '簡晨光');
+  if (await page.locator('[data-coadd]').filter({ hasText: '簡晨光' }).count()) throw new Error('新增後不該還在候選人');
+  const again = await page.evaluate(async key => {
+    const r1 = await demoApi('addCoAdmin', { actId: 'A1', key });
+    const r2 = await demoApi('addCoAdmin', { actId: 'A1', key });
+    return { added1: r1.added, added2: r2.added, n: r1.coAdmins.filter(c => c.name === '簡晨光').length, n2: r2.coAdmins.filter(c => c.name === '簡晨光').length };
+  }, key);
+  if (again.added1 !== false || again.added2 !== false || again.n !== 1 || again.n2 !== 1) throw new Error('重複新增應只保留一位：' + JSON.stringify(again));
+});
+
+await check('coadmin：共同管理者可看後台、看不到內容、不能新增他人', '?demo=coadmin&noguide', async page => {
+  await expectText(page, 'h2', '我的流通神聖的愛活動');
+  const home = await page.evaluate(() => ({
+    n: document.querySelectorAll('.card.act').length,
+    text: [...document.querySelectorAll('.card.act')].map(el => el.innerText).join('\n'),
+  }));
+  if (home.n !== 1) throw new Error('共同管理者只該看到自己管理的活動：' + home.n);
+  if (!home.text.includes('共同管理') || !home.text.includes('陳怡君 建立')) throw new Error('首頁應標示共同管理：' + home.text);
+  if (home.text.includes('畢業祝福信')) throw new Error('不該看到沒有權限的活動');
+  await page.locator('.card.act').first().click();
+  await expectText(page, 'h2', '冬天的第一個問候');
+  await expectText(page, '#d-privacy', '信件內容使用者可見');
+  await expectText(page, '#d-coadmins', '共同管理者');
+  await expectText(page, '#d-coadmins .nm', '王小明');
+  await expectText(page, '#d-coadmins', '只有活動建立者可以新增或移除共同管理者');
+  if (await page.locator('[data-coadd], [data-corem]').count()) throw new Error('共同管理者不該有新增或移除按鈕');
+  if (await page.locator('#d-del').count()) throw new Error('共同管理者不該能刪除活動');
+  if (!(await page.locator('#d-edit').count()) || !(await page.locator('#d-open').count())) throw new Error('共同管理者應能編輯與停止寫信');
+  if (!(await page.locator('#d-roster').count())) throw new Error('共同管理者應看得到收信人名單');
+  await page.locator('[data-row]').filter({ hasText: '簡晨光' }).first().click();
+  if (await page.locator('.paper.mini .text').count()) throw new Error('共同管理者不該看到信件內容');
+  const api = await page.evaluate(async () => {
+    const out = { errs: {} };
+    try { await demoApi('addCoAdmin', { actId: 'A1', key: 'x' }); } catch (e) { out.errs.add = e.message; }
+    try { await demoApi('removeCoAdmin', { actId: 'A1', key: 'x' }); } catch (e) { out.errs.rem = e.message; }
+    try { await demoApi('deleteAct', { actId: 'A1' }); } catch (e) { out.errs.del = e.message; }
+    const d = await demoApi('actDetail', { actId: 'A1' });
+    out.detail = { full: d.full, canManage: d.canManageAdmins, canDelete: d.canDeleteAct, role: d.role, hasText: d.list.some(l => 'text' in l) };
+    const old = { ...demo.me };
+    demo.me = { userId: 'U99', displayName: '路人', name: '路人', isAdmin: false, isSuper: false };
+    try { await demoApi('actDetail', { actId: 'A1' }); out.errs.stranger = ''; } catch (e) { out.errs.stranger = e.message; }
+    try { await demoApi('addCoAdmin', { actId: 'A1', key: 'x' }); out.errs.strangerAdd = ''; } catch (e) { out.errs.strangerAdd = e.message; }
+    demo.me = old;
+    return out;
+  });
+  if (!api.errs.add || !api.errs.add.includes('只有活動建立者')) throw new Error('共同管理者應被拒新增：' + api.errs.add);
+  if (!api.errs.rem || !api.errs.rem.includes('只有活動建立者')) throw new Error('共同管理者應被拒移除：' + api.errs.rem);
+  if (!api.errs.del || !api.errs.del.includes('只有活動建立者')) throw new Error('共同管理者應被拒刪活動：' + api.errs.del);
+  if (api.detail.full || api.detail.hasText || api.detail.canManage || api.detail.canDelete || api.detail.role !== 'coadmin') throw new Error('權限旗標不對：' + JSON.stringify(api.detail));
+  if (!api.errs.stranger || !api.errs.stranger.includes('共同管理者')) throw new Error('路人應被拒絕看後台：' + api.errs.stranger);
+  if (!api.errs.strangerAdd) throw new Error('路人應被拒絕新增共同管理者');
+  await page.locator('#d-coadmins').scrollIntoViewIfNeeded();
+  await shot(page, 'coadmin-member');
+});
+
 await check('mydata：有入口到我寫過的信', '?demo=mydata&noguide', async page => {
   await expectText(page, 'h2', '我的個人資料');
   await expectText(page, '#m-mine', '查看我寫過的信');

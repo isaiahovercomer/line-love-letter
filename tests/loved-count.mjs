@@ -78,7 +78,8 @@ const privOk = !('text' in hidden) && !('image' in hidden) && !('vref' in hidden
   && shown.text === '悄悄話' && shown.vref === '約 3:16';
 console.log(`${privOk ? '✓' : '✗'} hostLetterView 只有 full 才附內容`);
 if (!privOk) fail++;
-const srcOk = /actDetail\(req\.actId, isSuperAdmin\(user\.userId\)\)/.test(gs)
+const srcOk = /actDetail\(req\.actId, user\)/.test(gs)
+  && /const full = isSuperAdmin\(user\.userId\)/.test(gs)
   && /if \(full\) Object\.assign\(v, \{ text:/.test(gs);
 console.log(`${srcOk ? '✓' : '✗'} actDetail 僅總管理者拿得到內容`);
 if (!srcOk) fail++;

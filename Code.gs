@@ -1,7 +1,7 @@
 /**
  * LINE 流通神聖的愛圖卡建立平台 — Google Apps Script 後端
  * 貼到 Google 試算表的「擴充功能 → Apps Script」。第一次（或更新欄位後）執行一次 setup()，再部署成網頁應用程式
- * （執行身分：我；存取權：所有人）。
+ * （執行身分：我；存取權：所有人）。共同管理者工作表若還沒有，第一次新增時會自動建立，不必為此再執行 setup()。
  */
 
 const CONFIG = {
@@ -9,7 +9,7 @@ const CONFIG = {
   IMAGE_FOLDER: 'LINE 流通神聖的愛圖卡照片', // 信裡附的照片存在雲端硬碟這個資料夾
 };
 
-const SH = { ROSTER: '名單', ACTS: '流通神聖的愛活動', LETTERS: '信件', OPENS: '收信紀錄', PUBLISHERS: '發布者', VERSES: '經文' };
+const SH = { ROSTER: '名單', ACTS: '流通神聖的愛活動', LETTERS: '信件', OPENS: '收信紀錄', PUBLISHERS: '發布者', VERSES: '經文', COADMINS: '共同管理者' };
 
 const HEADERS = {
   '名單': ['姓名', '手機', 'LINE userId', 'LINE名稱'],
@@ -18,12 +18,15 @@ const HEADERS = {
   '收信紀錄': ['時間', '信件代碼', '活動代碼', '收信人姓名', 'LINE名稱', 'LINE userId'],
   '發布者': ['LINE userId', '名稱', '備註'],
   '經文': ['出處', '經文（恢復本）', '分類'],
+  '共同管理者': ['活動代碼', 'LINE userId', '名稱', '加入時間', '加入者 userId'],
 };
+
 
 // 欄位位置（從 0 開始）
 const AC = { ID: 0, TITLE: 1, DESC: 2, OPEN: 3, CREATOR: 4, CREATED: 5, DEADLINE: 6, PAPER: 7 };
 const LT = { ID: 0, ACT: 1, FROM: 2, FROM_UID: 3, TO: 4, TEXT: 5, IMAGE: 6, PAPER: 7, TIME: 8, SENT: 9, VREF: 10, VTEXT: 11 };
 const OP = { TIME: 0, LETTER: 1, ACT: 2, NAME: 3, LINE_NAME: 4, UID: 5 };
+const CA = { ACT: 0, UID: 1, NAME: 2, TIME: 3, ADDED_BY: 4 };
 const PAPERS = ['rose', 'sky', 'kraft', 'mint', 'winter', 'xmas', 'newyear', 'thanks', 'grad', 'birthday', 'gospel', 'love', 'shepherd', 'build'];
 
 function setup() {
@@ -92,9 +95,11 @@ function run(user, req) {
     case 'createAct':    out = { ok: true, act: createAct(user, req.act || {}) }; break;
     case 'listActs':     out = { ok: true, acts: listActs(user) }; break;
     case 'updateAct':    own(); out = { ok: true, act: updateAct(req.actId, req.act || {}) }; break;
-    case 'actDetail':    own(); out = { ok: true, ...actDetail(req.actId, isSuperAdmin(user.userId)) }; break;
+    case 'actDetail':    own(); out = { ok: true, ...actDetail(req.actId, user) }; break;
     case 'setOpen':      own(); out = { ok: true, act: setOpen(req.actId, !!req.open) }; break;
-    case 'deleteAct':    own(); out = { ok: true, ...deleteAct(req.actId) }; break;
+    case 'deleteAct':    requireCreator(user, req.actId); out = { ok: true, ...deleteAct(req.actId) }; break;
+    case 'addCoAdmin':    out = { ok: true, ...addCoAdmin(user, req.actId, req.key) }; break;
+    case 'removeCoAdmin': out = { ok: true, ...removeCoAdmin(user, req.actId, req.key) }; break;
     case 'myData':       out = { ok: true, ...myData(user) }; break;
     case 'deleteMyData': out = { ok: true, ...deleteMyData(user) }; break;
     default: throw new Error('未知的動作');
@@ -104,7 +109,7 @@ function run(user, req) {
 
 /* ---------- 防重複送出：同一個人、同一個動作、同一個請求編號（rid），10 分鐘內只做一次 ---------- */
 // 前端每次按下按鈕產生一個 rid，連點或失敗重試都帶同一個；故意再寫一封新的信會是新的 rid，不受影響
-const ONCE_ACTIONS = ['bind', 'uploadImage', 'writeLetter', 'markSent', 'updateLetter', 'deleteLetter', 'createAct', 'updateAct', 'setOpen', 'deleteAct', 'deleteMyData'];
+const ONCE_ACTIONS = ['bind', 'uploadImage', 'writeLetter', 'markSent', 'updateLetter', 'deleteLetter', 'createAct', 'updateAct', 'setOpen', 'deleteAct', 'deleteMyData', 'addCoAdmin', 'removeCoAdmin'];
 const ONCE_PENDING = '__pending__';
 function once(user, req, fn) {
   const rid = String(req.rid || '');
@@ -266,7 +271,137 @@ function isSuperAdmin(uid) { return !!uid && superAdmins().includes(String(uid))
 function creatorOf(row) { const m = /\((U[0-9a-f]+)\)\s*$/.exec(String(row[AC.CREATOR] || '')); return m ? m[1] : ''; }
 function requireOwner(user, actId) {
   if (isSuperAdmin(user.userId) || isPublisher(user.userId)) return;
-  if (creatorOf(findActRow(actId).row) !== user.userId) throw new Error('只有活動建立者可以看這個活動的後台');
+  if (creatorOf(findActRow(actId).row) === user.userId) return;
+  if (isCoAdmin(user.userId, actId)) return;
+  throw new Error('只有活動建立者或共同管理者可以看這個活動的後台');
+}
+/** 只有活動建立者與網站總管理者可以新增／移除共同管理者，以及刪除活動 */
+function requireCreator(user, actId) {
+  if (isSuperAdmin(user.userId)) return;
+  if (creatorOf(findActRow(actId).row) === user.userId) return;
+  throw new Error('只有活動建立者可以做這個動作');
+}
+
+/* ---------- 共同管理者：工作表若還沒有會在第一次新增時自動建立，不必另外執行 setup() ---------- */
+function ensureCoAdminSheet() {
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName(SH.COADMINS);
+  if (sh) return sh;
+  const h = HEADERS[SH.COADMINS];
+  sh = ss.insertSheet(SH.COADMINS);
+  sh.getRange(1, 1, 1, h.length).setValues([h]).setFontWeight('bold');
+  sh.setFrozenRows(1);
+  return sh;
+}
+function coRows() {
+  const sh = SpreadsheetApp.getActive().getSheetByName(SH.COADMINS);
+  if (!sh) return [];
+  const v = sh.getDataRange().getValues();
+  v.shift();
+  return v;
+}
+/** 給前端用的短鑰，不是 LINE userId，避免出現在畫面上 */
+function coKey(actId, uid) {
+  const s = 'co:' + String(actId) + ':' + String(uid);
+  let h = 2166136261, h2 = 0;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+    h2 = (Math.imul(h2, 31) + s.charCodeAt(i)) | 0;
+  }
+  return (h >>> 0).toString(16) + (h2 >>> 0).toString(16);
+}
+function isCoAdmin(uid, actId) {
+  const u = String(uid || ''), a = String(actId || '');
+  return !!u && coRows().some(r => String(r[CA.ACT]) === a && String(r[CA.UID]).trim() === u);
+}
+function listCoAdmins(actId) {
+  return coRows().filter(r => String(r[CA.ACT]) === String(actId)).map(r => {
+    const uid = String(r[CA.UID]).trim();
+    return { name: String(r[CA.NAME] || ''), key: coKey(actId, uid) };
+  });
+}
+/** 這個活動裡已寫信（寄件人 userId）或已收信（收信紀錄 userId）的人，排除建立者與既有共同管理者 */
+function collectActPeople(actId) {
+  const people = {};
+  rows(SH.LETTERS).forEach(function (l) {
+    if (String(l[LT.ACT]) !== String(actId)) return;
+    const uid = String(l[LT.FROM_UID] || '').trim();
+    if (!uid) return;
+    if (!people[uid]) people[uid] = { uid: uid, name: String(l[LT.FROM] || ''), wrote: false, received: false };
+    people[uid].wrote = true;
+    if (l[LT.FROM]) people[uid].name = String(l[LT.FROM]);
+  });
+  rows(SH.OPENS).forEach(function (o) {
+    if (String(o[OP.ACT]) !== String(actId)) return;
+    const uid = String(o[OP.UID] || '').trim();
+    if (!uid) return;
+    if (!people[uid]) people[uid] = { uid: uid, name: String(o[OP.NAME] || o[OP.LINE_NAME] || ''), wrote: false, received: false };
+    people[uid].received = true;
+    if (!people[uid].name) people[uid].name = String(o[OP.NAME] || o[OP.LINE_NAME] || '');
+  });
+  return people;
+}
+function listCoAdminCandidates(actId, creatorUid) {
+  const taken = {};
+  taken[String(creatorUid || '')] = true;
+  coRows().forEach(function (r) {
+    if (String(r[CA.ACT]) === String(actId)) taken[String(r[CA.UID]).trim()] = true;
+  });
+  const out = [];
+  const people = collectActPeople(actId);
+  Object.keys(people).forEach(function (uid) {
+    if (taken[uid]) return;
+    const p = people[uid];
+    out.push({ name: p.name, key: coKey(actId, uid), via: p.wrote && p.received ? 'both' : p.wrote ? 'wrote' : 'received' });
+  });
+  return out.sort(function (a, b) { return a.name.localeCompare(b.name, 'zh-Hant'); });
+}
+function findActPersonByKey(actId, key, creatorUid) {
+  key = String(key || '');
+  const people = collectActPeople(actId);
+  for (const uid in people) {
+    if (takenHas(uid, actId, creatorUid)) continue;
+    if (coKey(actId, uid) === key) return people[uid];
+  }
+  return null;
+}
+function takenHas(uid, actId, creatorUid) {
+  if (String(uid) === String(creatorUid || '')) return true;
+  return coRows().some(r => String(r[CA.ACT]) === String(actId) && String(r[CA.UID]).trim() === String(uid));
+}
+function addCoAdmin(user, actId, key) {
+  requireCreator(user, actId);
+  const a = getAct(actId);
+  if (!a) throw new Error('找不到這個流通神聖的愛活動');
+  const creatorUid = creatorOf(findActRow(actId).row);
+  return withLock(() => {
+    const already = coRows().find(r => String(r[CA.ACT]) === String(actId) && coKey(actId, String(r[CA.UID]).trim()) === String(key || ''));
+    if (already) return { added: false, name: String(already[CA.NAME] || ''), coAdmins: listCoAdmins(actId), candidates: listCoAdminCandidates(actId, creatorUid) };
+    const person = findActPersonByKey(actId, key, creatorUid);
+    if (!person) throw new Error('只能新增這個活動裡已經寫信或已經收信的人');
+    ensureCoAdminSheet().appendRow(safeRow([String(actId), person.uid, person.name, new Date(), user.userId]));
+    return { added: true, name: person.name, coAdmins: listCoAdmins(actId), candidates: listCoAdminCandidates(actId, creatorUid) };
+  });
+}
+function removeCoAdmin(user, actId, key) {
+  requireCreator(user, actId);
+  const creatorUid = creatorOf(findActRow(actId).row);
+  return withLock(() => {
+    const sh = SpreadsheetApp.getActive().getSheetByName(SH.COADMINS);
+    if (!sh) return { removed: false, coAdmins: listCoAdmins(actId), candidates: listCoAdminCandidates(actId, creatorUid) };
+    const data = sh.getDataRange().getValues();
+    let name = '', removed = false;
+    for (let i = data.length - 1; i >= 1; i--) {
+      if (String(data[i][CA.ACT]) !== String(actId)) continue;
+      if (coKey(actId, String(data[i][CA.UID]).trim()) !== String(key || '')) continue;
+      name = String(data[i][CA.NAME] || '');
+      sh.deleteRow(i + 1);
+      removed = true;
+      break;
+    }
+    return { removed: removed, name: name, coAdmins: listCoAdmins(actId), candidates: listCoAdminCandidates(actId, creatorUid) };
+  });
 }
 
 /* ---------- 照片 ---------- */
@@ -390,8 +525,13 @@ function withStats(a, letters, opens) {
 function listActs(user) {
   const admin = isSuperAdmin(user.userId) || isPublisher(user.userId);
   const letters = rows(SH.LETTERS), opens = rows(SH.OPENS);
-  return rows(SH.ACTS).filter(r => admin || creatorOf(r) === user.userId)
-    .map(r => ({ ...withStats(rowToAct(r), letters, opens), mine: creatorOf(r) === user.userId }))
+  const co = {};
+  coRows().forEach(function (r) { if (String(r[CA.UID]).trim() === user.userId) co[String(r[CA.ACT])] = true; });
+  return rows(SH.ACTS).filter(r => admin || creatorOf(r) === user.userId || co[String(r[AC.ID])])
+    .map(r => {
+      const mine = creatorOf(r) === user.userId;
+      return { ...withStats(rowToAct(r), letters, opens), mine: mine, coadmin: !mine && !!co[String(r[AC.ID])] };
+    })
     .reverse();
 }
 
@@ -406,14 +546,19 @@ function hostLetterView(l, o, full) {
   return v;
 }
 
-/** 後台：每封信的寄件人、收信人與收信狀態；full（網站總管理者）才附信件內容 */
-function actDetail(id, full) {
+/** 後台：每封信的寄件人、收信人與收信狀態；full（網站總管理者）才附信件內容。也附共同管理者與可新增人選（不含 userId）。 */
+function actDetail(id, user) {
   const a = getAct(id);
   if (!a) throw new Error('找不到這個流通神聖的愛活動');
+  const full = isSuperAdmin(user.userId);
+  const creatorUid = creatorOf(findActRow(id).row);
+  const canManageAdmins = full || creatorUid === user.userId;
   const opens = rows(SH.OPENS).filter(o => String(o[OP.ACT]) === a.id);
   const letters = rows(SH.LETTERS).filter(l => String(l[LT.ACT]) === a.id)
     .map(l => hostLetterView(l, opens.find(o => String(o[OP.LETTER]) === String(l[LT.ID])), !!full)).reverse();
-  return { act: withStats(a), list: letters, full: !!full };
+  const role = full ? 'super' : creatorUid === user.userId ? 'creator' : isCoAdmin(user.userId, id) ? 'coadmin' : isPublisher(user.userId) ? 'publisher' : 'owner';
+  return { act: withStats(a), list: letters, full: !!full, canManageAdmins: canManageAdmins, canDeleteAct: canManageAdmins, role: role,
+    coAdmins: listCoAdmins(id), candidates: listCoAdminCandidates(id, creatorUid) };
 }
 
 function deleteAct(id) {
@@ -422,8 +567,11 @@ function deleteAct(id) {
     sheet(SH.ACTS).deleteRow(f.index);
     const letters = deleteRows(SH.LETTERS, r => String(r[LT.ACT]) === String(id));
     const opens = deleteRows(SH.OPENS, r => String(r[OP.ACT]) === String(id));
+    let coadmins = 0;
+    const csh = SpreadsheetApp.getActive().getSheetByName(SH.COADMINS);
+    if (csh) coadmins = deleteRows(SH.COADMINS, r => String(r[CA.ACT]) === String(id));
     clearLoved(id);
-    return { letters, opens };
+    return { letters, opens, coadmins };
   });
 }
 
@@ -549,7 +697,7 @@ function updateLetter(user, letterId, input) {
   });
 }
 
-/** 刪除一封信：寫信的人自己，或活動建立者／管理員 */
+/** 刪除一封信：寫信的人自己，或活動建立者／共同管理者／管理員 */
 function deleteLetter(user, letterId) {
   return withLock(() => {
     const f = findLetter(letterId);
@@ -645,7 +793,9 @@ function deleteMyData(user) {
     const roster = deleteRows(SH.ROSTER, r => String(r[2]).trim() === user.userId);
     const letters = deleteRows(SH.LETTERS, r => String(r[LT.FROM_UID]) === user.userId);
     const opens = deleteRows(SH.OPENS, r => String(r[OP.UID]) === user.userId || mine.has(String(r[OP.LETTER])));
+    let coadmins = 0;
+    if (SpreadsheetApp.getActive().getSheetByName(SH.COADMINS)) coadmins = deleteRows(SH.COADMINS, r => String(r[CA.UID]).trim() === user.userId);
     sessionSheet(); deleteRows(SESSION_SHEET, r => String(r[1]) === user.userId);
-    return { roster, letters, opens };
+    return { roster, letters, opens, coadmins };
   });
 }
