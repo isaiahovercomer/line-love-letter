@@ -1290,7 +1290,6 @@ function drawDetail() {
             <div class="btn-row" style="margin:8px 0 0"><button class="btn danger" type="button" data-ldel="${esc(l.id)}" style="min-height:38px">刪除這封信</button></div></div>` : ''}
         </div>`).join('') : `<div class="empty small">${list.length ? '這裡沒有信' : '還沒有人寫信。把寫信入口發到群組吧！'}</div>`}
     </div>
-    <p class="muted small">${full ? '點一下可看信件內容（你是網站管理者）。' : '點一下可刪除某封信。'}收信人登記的姓名和信上寫的大致相符（可加稱謂或小名），按下收信才算神聖的愛流通成功。</p>
     ${rosterHtml(a, list)}
     ${coAdminHtml(DETAIL)}
     <div class="btn-row">
