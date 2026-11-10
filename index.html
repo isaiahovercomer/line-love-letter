@@ -89,7 +89,7 @@
   .stat b { display: block; font-family: var(--serif); font-size: 26px; line-height: 1.2; }
   .stat span { font-size: 13px; color: var(--ink-2); }
   .tabs { display: flex; gap: 6px; margin: 14px 0 6px; }
-  .tabs button { flex: 1; min-height: 40px; border-radius: 999px; border: 1.5px solid var(--rule); background: transparent; font-size: 14px; cursor: pointer; }
+  .tabs button { flex: 1 1 auto; padding: 0 10px; white-space: nowrap; min-height: 40px; border-radius: 999px; border: 1.5px solid var(--rule); background: transparent; font-size: 14px; cursor: pointer; }
   .tabs button[aria-pressed=true] { background: var(--ink); color: #fff; border-color: var(--ink); }
   .pair { border-bottom: 1px solid var(--rule); padding: 12px 2px; }
   .pair:last-child { border-bottom: 0; }
@@ -389,12 +389,12 @@ const GUIDES = {
     ['💌', '寫一封信', '在信紙上填收信人的名字，寫下想對他說的悄悄話。可以換信紙顏色，也可以附一張照片。'],
     ['✍️', '名字要寫對', '收信人的名字要和他在這裡登記的姓名一樣（例如寫全名「陳怡君」），他才拆得開。'],
     ['📤', '儲存並送出', '按「儲存並送出」，選擇要傳給哪位朋友或群組。對方會收到只寫著「To. 他名字」的信封。'],
-    ['💞', '收信＝配對成功', '對方按「收信」並登入，姓名相符就能拆信。你寫的信列在頁面下方，可以重新送出；對方收信前可以編輯，也可以刪除。'],
+    ['💞', '收信＝神聖的愛流通成功', '對方按「收信」並登入，姓名相符就能拆信。你寫的信列在頁面下方，可以重新送出；對方收信前可以編輯，也可以刪除。'],
   ],
   host: [
     ['📮', '建立流通神聖的愛活動', '按「建立」填活動名稱、說明和寫信截止時間。建立後馬上跳出選單，把寫信入口發到群組。'],
     ['💌', '大家寫信、送出', '成員第一次寫信要填姓名和手機，之後寫信、選朋友或群組送出信封。'],
-    ['💞', '看配對', '點進活動就能看到「誰 → 誰」、是否已收信。點一下可看信件內容，必要時可刪除某封信。'],
+    ['💞', '看神聖的愛流通', '點進活動就能看到「誰 → 誰」、是否已收信。點一下可看信件內容，必要時可刪除某封信。'],
     ['⚙️', '管理活動', '活動頁最下方可以編輯、停止或重新開放寫信、刪除活動。首頁也可以把平台安裝到手機桌面。'],
   ],
 };
@@ -514,7 +514,7 @@ function writeForm(edit, presetTo) {
       <div class="sign">— ${esc(ME.name)}</div>
       <div class="date">${esc(today)}</div>
     </div>
-    <p class="lock-note">🔒 收信人要登入，而且登記的姓名和你寫的收信人一樣，才拆得開這封信。主辦人在後台看得到誰寫給誰和信的內容。</p>
+    <p class="lock-note">🔒 收信人要登入，而且登記的姓名和你寫的收信人一樣，才拆得開這封信。</p>
     <button class="btn block gold" id="w-send" type="button">${edit ? '儲存修改' : '儲存並送出 💌'}</button>
     ${edit ? '' : '<div id="w-mine"></div>'}${footHtml()}`);
 
@@ -639,7 +639,7 @@ function sentView(ok) {
     <div class="center fade-up">
       <div class="big-emoji">${ok ? '💌' : '📝'}</div>
       <h2>${ok ? '信送出了！' : '信已存好，還沒送出'}</h2>
-      <p class="muted">${ok ? `等「${esc(LETTER.to)}」按下收信，就算配對成功。` : '按下面的按鈕，選擇要傳給哪位朋友或群組。'}</p>
+      <p class="muted">${ok ? `等「${esc(LETTER.to)}」按下收信，就算神聖的愛流通成功。` : '按下面的按鈕，選擇要傳給哪位朋友或群組。'}</p>
     </div>
     <div class="env-stage"><div class="env" style="${paperVars(LETTER.paper)}"><div class="flap"></div><div class="seal">♥</div><div class="to"><small>To.</small><b>${esc(LETTER.to)}</b></div></div></div>
     <div class="btn-row">
@@ -822,13 +822,13 @@ const saveHome = () => cacheSet('home', { me: ME, acts: ACTS });
 function renderHome() {
   view(`${topHtml(ME.name || ME.displayName)}
     <h2>我的流通神聖的愛活動</h2>
-    <p class="muted small">建立活動 → 把寫信入口發到群組 → 大家寫信、傳給收信人 → 在這裡看配對。</p>
+    <p class="muted small">建立活動 → 把寫信入口發到群組 → 大家寫信、傳給收信人 → 在這裡看神聖的愛流通。</p>
     <button class="btn block gold" id="h-new" type="button">＋ 建立流通神聖的愛活動</button>
     ${isStandalone() ? '' : '<button class="btn ghost block" id="h-install" type="button" style="margin-top:10px">📲 安裝到手機桌面</button>'}
     ${ACTS.length ? ACTS.map(a => `
       <button class="card act" type="button" data-act="${esc(a.id)}">
         <div class="t"><h3>${esc(a.title)}</h3>${stateChip(a.state)}</div>
-        <div class="s">💌 ${a.letters} 封信・💞 配對成功 ${a.opened}${a.deadline ? `・截止 ${esc(shortTime(a.deadline))}` : ''}${a.mine === false ? `・${esc(a.creator)} 建立` : ''}</div>
+        <div class="s">💌 ${a.letters} 封信・💞 神聖的愛流通成功 ${a.opened}${a.deadline ? `・截止 ${esc(shortTime(a.deadline))}` : ''}${a.mine === false ? `・${esc(a.creator)} 建立` : ''}</div>
       </button>`).join('') : `<div class="card empty"><div class="big-emoji">💌</div>還沒有流通神聖的愛活動，按上面的按鈕建立第一個。</div>`}
     ${footHtml()}`, 'home');
   $('h-new').onclick = () => renderActForm();
@@ -890,7 +890,7 @@ function drawDetail() {
     ${a.deadline ? `<p class="small muted" style="margin:0">寫信截止：${esc(shortTime(a.deadline))}</p>` : ''}
     <div class="stats">
       <div class="stat"><b>${list.length}</b><span>信件</span></div>
-      <div class="stat"><b style="color:var(--ok)">${paired.length}</b><span>配對成功</span></div>
+      <div class="stat"><b style="color:var(--ok)">${paired.length}</b><span>神聖的愛<br>流通成功</span></div>
       <div class="stat"><b style="color:var(--gold-text)">${list.length - paired.length}</b><span>待收信</span></div>
     </div>
     <div class="btn-row">
@@ -899,7 +899,7 @@ function drawDetail() {
     </div>
     <div class="tabs" role="group" aria-label="篩選">
       <button type="button" data-f="all" aria-pressed="${FILTER === 'all'}">全部 ${list.length}</button>
-      <button type="button" data-f="paired" aria-pressed="${FILTER === 'paired'}">配對成功 ${paired.length}</button>
+      <button type="button" data-f="paired" aria-pressed="${FILTER === 'paired'}">神聖的愛流通成功 ${paired.length}</button>
       <button type="button" data-f="pending" aria-pressed="${FILTER === 'pending'}">待收信 ${list.length - paired.length}</button>
     </div>
     <div class="card" style="padding:4px 14px">
@@ -908,14 +908,14 @@ function drawDetail() {
           <button type="button" data-row="${esc(l.id)}" aria-expanded="${OPENED_ROW === l.id}">
             <span style="min-width:0"><span class="names">${esc(l.from)}<span class="arrow">→</span>${esc(l.to)}</span>
               <span class="when" style="display:block">${l.openedAt ? `${esc(l.openedBy)} 於 ${esc(l.openedAt)} 收信` : `寫於 ${esc(l.time)}`}</span></span>
-            ${l.openedAt ? '<span class="chip paired">💞 配對成功</span>' : l.sent ? '<span class="chip pending">未收信</span>' : '<span class="chip">未送出</span>'}
+            ${l.openedAt ? '<span class="chip paired">💞 神聖的愛流通成功</span>' : l.sent ? '<span class="chip pending">未收信</span>' : '<span class="chip">未送出</span>'}
           </button>
           ${OPENED_ROW === l.id ? `<div class="body"><div class="paper mini" style="${paperVars(l.paper)}"><div class="text">${esc(l.text)}</div>
             ${l.image ? `<div class="photo"><img src="${esc(l.image)}" alt="附上的照片" style="max-height:220px"></div>` : ''}${verseShow(l)}</div>
             <div class="btn-row" style="margin:8px 0 0"><button class="btn danger" type="button" data-ldel="${esc(l.id)}" style="min-height:38px">刪除這封信</button></div></div>` : ''}
         </div>`).join('') : `<div class="empty small">${list.length ? '這裡沒有信' : '還沒有人寫信。把寫信入口發到群組吧！'}</div>`}
     </div>
-    <p class="muted small">點一下可看信件內容。收信人登記的姓名和信上寫的相符，按下收信才算配對成功。</p>
+    <p class="muted small">點一下可看信件內容。收信人登記的姓名和信上寫的相符，按下收信才算神聖的愛流通成功。</p>
     <div class="btn-row">
       <button class="btn ghost" id="d-edit" type="button">編輯</button>
       <button class="btn ghost" id="d-open" type="button">${a.open ? '停止寫信' : '重新開放寫信'}</button>
