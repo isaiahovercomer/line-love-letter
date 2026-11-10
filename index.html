@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2F3343">
+<link rel="icon" href="img/in-christ.svg" type="image/svg+xml">
+<title>LINE傳情圖卡建立平台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://script.google.com" crossorigin>
+<link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root {
+    /* 平台配色固定 IN CHRIST：米白、海軍藍、金、磚紅；信紙各有自己的顏色 */
+    --sky: #FAF6EE; --sky-2: #F0E9DB; --card: #FFFDF8;
+    --ink: #2F3343; --ink-2: #67645F; --rule: #E4DCCC;
+    --gold: #C49356; --gold-text: #8A6431; --gold-soft: rgba(196,147,86,.16);
+    --stamp: #B03A2E; --ok: #2E6B4F;
+    --shadow: 0 1px 2px rgba(60,40,20,.05), 0 8px 24px rgba(60,40,20,.08);
+    --serif: "Noto Serif TC", "Songti TC", serif;
+    --sans: "Noto Sans TC", -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    /* 信紙（預設玫瑰） */
+    --p-paper: #FFF6F5; --p-ink: #5A2A30; --p-accent: #C8505E; --p-line: #F1D2D4; --p-env: #F6C9CC; --p-flap: #EFB3B8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--sky); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.6; -webkit-text-size-adjust: 100%; }
+  button, input, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  #app { max-width: 480px; margin: 0 auto; padding: 0 16px calc(96px + env(safe-area-inset-bottom)); }
+
+  header.top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 -16px 18px; padding: calc(18px + env(safe-area-inset-top)) 16px 16px; background: var(--ink); color: #F7F1E4; border-bottom: 3px solid var(--gold); }
+  header.top .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  header.top img { width: 38px; height: 38px; flex: none; }
+  header.top h1 { font-family: var(--serif); font-weight: 900; font-size: 21px; letter-spacing: .05em; margin: 0; white-space: nowrap; }
+  header.top .who { color: #C9C2B3; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .demo-note { background: var(--gold-soft); color: var(--gold-text); font-size: 13px; padding: 8px 12px; border-radius: 8px; margin: 0 0 14px; }
+
+  h2 { font-family: var(--serif); font-size: 22px; margin: 6px 0 4px; }
+  .muted { color: var(--ink-2); }
+  .small { font-size: 14px; }
+  .card { background: var(--card); border: 1px solid var(--rule); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); margin: 12px 0; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; padding: 10px 20px; border-radius: 999px; border: 0; background: var(--ink); color: #fff; font-weight: 700; cursor: pointer; text-decoration: none; }
+  .btn.block { display: flex; width: 100%; }
+  .btn.gold { background: var(--gold); color: #2B2113; }
+  .btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--rule); }
+  .btn.danger { background: transparent; color: var(--stamp); border: 1.5px solid #E7C6C1; }
+  .btn.armed { background: var(--stamp); color: #fff; }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+  .btn-row .btn { flex: 1 1 140px; }
+  .back { background: none; border: 0; color: var(--ink-2); padding: 6px 0; cursor: pointer; font-size: 15px; }
+  .link { background: none; border: 0; color: var(--gold-text); text-decoration: underline; cursor: pointer; padding: 4px 0; font-size: 14px; }
+  .foot { text-align: center; margin-top: 28px; }
+
+  label.f { display: block; margin: 14px 0 4px; font-weight: 700; font-size: 15px; }
+  .f-hint { font-size: 13px; color: var(--ink-2); margin: 2px 0 0; }
+  input.in, textarea.in { width: 100%; padding: 12px 14px; border: 1.5px solid var(--rule); border-radius: 10px; background: #fff; font-size: 16px; }
+  textarea.in { min-height: 96px; resize: vertical; }
+
+  .chip { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: var(--sky-2); color: var(--ink-2); white-space: nowrap; }
+  .chip.open { background: #E1EEE6; color: var(--ok); }
+  .chip.ended, .chip.closed { background: #F3E1DE; color: var(--stamp); }
+  .chip.paired { background: #E1EEE6; color: var(--ok); }
+  .chip.pending { background: var(--gold-soft); color: var(--gold-text); }
+
+  /* 活動列表 */
+  .act { display: block; width: 100%; text-align: left; cursor: pointer; }
+  .act .t { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .act h3 { margin: 0; font-family: var(--serif); font-size: 18px; }
+  .act .s { margin-top: 6px; font-size: 14px; color: var(--ink-2); }
+  .empty { text-align: center; padding: 28px 16px; color: var(--ink-2); }
+
+  /* 後台統計 */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
+  .stat { background: var(--card); border: 1px solid var(--rule); border-radius: 12px; padding: 10px 6px; text-align: center; }
+  .stat b { display: block; font-family: var(--serif); font-size: 26px; line-height: 1.2; }
+  .stat span { font-size: 13px; color: var(--ink-2); }
+  .tabs { display: flex; gap: 6px; margin: 14px 0 6px; }
+  .tabs button { flex: 1; min-height: 40px; border-radius: 999px; border: 1.5px solid var(--rule); background: transparent; font-size: 14px; cursor: pointer; }
+  .tabs button[aria-pressed=true] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .pair { border-bottom: 1px solid var(--rule); padding: 12px 2px; }
+  .pair:last-child { border-bottom: 0; }
+  .pair > button { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 8px; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+  .pair .names { font-weight: 700; min-width: 0; }
+  .pair .names .arrow { color: var(--gold); margin: 0 6px; }
+  .pair .when { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+  .pair .body { margin-top: 10px; }
+
+  /* 信紙 */
+  .papers { display: flex; gap: 10px; align-items: center; margin: 4px 0 12px; }
+  .papers button { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 0 1.5px var(--rule); cursor: pointer; }
+  .papers button[aria-pressed=true] { box-shadow: 0 0 0 2.5px var(--ink); }
+  .paper { position: relative; background-color: var(--p-paper); color: var(--p-ink); border-radius: 6px 6px 10px 10px; border-top: 6px solid var(--p-accent);
+    padding: 16px 20px 24px; box-shadow: 0 2px 4px rgba(60,30,30,.06), 0 14px 32px rgba(90,40,40,.12); font-family: var(--serif); line-height: 32px;
+    background-image: repeating-linear-gradient(to bottom, transparent 0 31px, var(--p-line) 31px 32px); background-position: 0 15px; }
+  .paper .stampmark { position: absolute; top: 12px; right: 14px; width: 42px; height: 50px; border: 2px dashed var(--p-accent); border-radius: 4px; display: grid; place-items: center; color: var(--p-accent); font-size: 20px; transform: rotate(4deg); background: var(--p-paper); line-height: 1; }
+  .paper .actname { font-family: var(--sans); font-size: 12px; color: var(--p-accent); font-weight: 700; letter-spacing: .1em; height: 32px; }
+  .paper .dear { display: flex; align-items: baseline; gap: 6px; font-size: 19px; height: 32px; padding-right: 50px; }
+  .paper .dear input { flex: 1; min-width: 0; height: 30px; border: 0; border-bottom: 1.5px dashed var(--p-accent); background: transparent; font-family: var(--serif); font-size: 19px; font-weight: 700; color: var(--p-ink); padding: 0 4px; border-radius: 0; }
+  .paper .dear input::placeholder { color: color-mix(in srgb, var(--p-ink) 40%, transparent); font-weight: 500; }
+  .paper textarea { display: block; width: 100%; min-height: 224px; border: 0; background: transparent; resize: none; font-family: var(--serif); font-size: 17px; line-height: 32px; color: var(--p-ink); padding: 0; margin: 0; overflow: hidden; }
+  .paper textarea:focus, .paper .dear input:focus { outline: none; }
+  .paper .text { white-space: pre-wrap; word-break: break-word; font-size: 17px; min-height: 96px; }
+  .paper .sign { text-align: right; font-size: 17px; font-weight: 700; }
+  .paper .date { text-align: right; font-family: var(--sans); font-size: 13px; opacity: .75; }
+  .paper .photo { margin: 8px 0 8px; line-height: 0; }
+  .paper .photo img { width: 100%; max-height: 360px; object-fit: cover; border-radius: 4px; border: 6px solid #fff; box-shadow: 0 4px 12px rgba(0,0,0,.12); transform: rotate(-1.2deg); }
+  .photo-pick { display: flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: 15px; color: var(--p-accent); background: none; border: 1.5px dashed var(--p-accent); border-radius: 8px; padding: 0 12px; height: 40px; margin: 12px 0 12px; cursor: pointer; }
+  .photo-wrap { position: relative; }
+  .photo-x { position: absolute; top: 4px; right: 4px; width: 34px; height: 34px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 18px; cursor: pointer; line-height: 1; }
+  .lock-note { font-size: 13px; color: var(--ink-2); background: var(--card); border: 1px solid var(--rule); border-radius: 10px; padding: 10px 12px; margin: 14px 0; }
+  .paper.mini { padding: 10px 14px 14px; line-height: 28px; background-image: repeating-linear-gradient(to bottom, transparent 0 27px, var(--p-line) 27px 28px); background-position: 0 9px; box-shadow: none; border: 1px solid var(--p-line); border-top: 4px solid var(--p-accent); }
+  .paper.mini .text { font-size: 15px; min-height: 0; }
+
+  /* 信封 */
+  .env-stage { perspective: 900px; margin: 20px auto 8px; max-width: 340px; }
+  .env { position: relative; aspect-ratio: 7 / 5; background: var(--p-env); border-radius: 10px; box-shadow: 0 2px 4px rgba(60,30,30,.08), 0 18px 40px rgba(90,40,40,.18); }
+  .env::before { content: ""; position: absolute; inset: 0; border-radius: 10px; background: linear-gradient(to top right, transparent 49.6%, rgba(255,255,255,.28) 50%, transparent 50.4%), linear-gradient(to top left, transparent 49.6%, rgba(255,255,255,.28) 50%, transparent 50.4%); }
+  .env .flap { position: absolute; left: 0; right: 0; top: 0; height: 58%; background: var(--p-flap); clip-path: polygon(0 0, 100% 0, 50% 100%); transform-origin: top; transition: transform .7s ease; border-radius: 10px 10px 0 0; z-index: 2; }
+  .env .seal { position: absolute; left: 50%; top: 58%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: var(--p-accent); color: #fff; display: grid; place-items: center; font-size: 24px; z-index: 3; box-shadow: 0 2px 6px rgba(0,0,0,.25); transition: opacity .3s; }
+  .env .to { position: absolute; left: 0; right: 0; bottom: 14%; text-align: center; color: var(--p-ink); font-family: var(--serif); z-index: 1; }
+  .env .to small { display: block; font-size: 13px; opacity: .75; font-family: var(--sans); }
+  .env .to b { font-size: 24px; }
+  .env.open .flap { transform: rotateX(180deg); z-index: 0; }
+  .env.open .seal { opacity: 0; }
+  .center { text-align: center; }
+  .big-emoji { font-size: 44px; line-height: 1; margin: 18px 0 6px; }
+  .fade-up { animation: fadeUp .6s ease both; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .env .flap, .fade-up { transition: none; animation: none; } }
+
+  .loading { display: flex; justify-content: center; gap: 8px; padding: 80px 0; }
+  .loading .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--gold); animation: blink 1s infinite alternate; }
+  .loading .dot:nth-child(2) { animation-delay: .2s; } .loading .dot:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { from { opacity: .25; } to { opacity: 1; } }
+  .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px); background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 14px; opacity: 0; pointer-events: none; transition: .25s; max-width: calc(100% - 32px); text-align: center; z-index: 9; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .sent-list .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--rule); font-size: 15px; }
+  .sent-list .row:last-child { border-bottom: 0; }
+</style>
+</head>
+<body>
+<main id="app"><div class="loading" role="status"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ======== 只需要改這兩行 ======== */
+const LIFF_ID = '請填 LIFF ID';
+const GAS_URL = '請填 Apps Script 網頁應用程式網址';
+/* ================================ */
+
+const PARAMS = new URLSearchParams(location.search);
+const DEMO = LIFF_ID.startsWith('請填') || PARAMS.has('demo');
+const DEMO_MODE = PARAMS.get('demo') || '';
+
+const $app = document.getElementById('app');
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const view = html => { $app.innerHTML = html; window.scrollTo(0, 0); };
+const loading = () => `<div class="loading" role="status"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>`;
+const isHttps = u => /^https:\/\//.test(u || '');
+const liffBase = `https://liff.line.me/${LIFF_ID}`;
+const actUrl = (id, to) => `${liffBase}?act=${encodeURIComponent(id)}${to ? '&to=' + encodeURIComponent(to) : ''}`;
+const letterUrl = id => `${liffBase}?letter=${encodeURIComponent(id)}`;
+const fwdUrl = id => `${liffBase}?fwd=${encodeURIComponent(id)}`;
+const shareUrl = id => `${liffBase}?share=${encodeURIComponent(id)}`;
+const STATE_TEXT = { open: '開放寫信', ended: '已截止', closed: '已停止' };
+const stateChip = s => `<span class="chip ${s}">${STATE_TEXT[s] || ''}</span>`;
+const shortTime = s => { const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(s || ''); return m ? `${+m[2]}/${+m[3]} ${m[4]}:${m[5]}` : ''; };
+
+let toastTimer;
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+/* ---------- 信紙樣式 ---------- */
+const PAPERS = {
+  rose:  { name: '玫瑰', paper: '#FFF6F5', ink: '#5A2A30', accent: '#C8505E', line: '#F1D2D4', env: '#F6C9CC', flap: '#EFB3B8' },
+  sky:   { name: '晴空', paper: '#F5F9FD', ink: '#22374E', accent: '#3F6FA8', line: '#D5E1EE', env: '#CFDDEE', flap: '#B9CDE5' },
+  kraft: { name: '牛皮', paper: '#FBF6EC', ink: '#4A3826', accent: '#A86F32', line: '#E9DBC3', env: '#E2C9A0', flap: '#D4B584' },
+  mint:  { name: '薄荷', paper: '#F4FAF6', ink: '#1F3F2E', accent: '#3D8A62', line: '#D2E7DA', env: '#C9E3D3', flap: '#B1D6BF' },
+};
+const paperOf = k => PAPERS[k] || PAPERS.rose;
+const paperVars = k => { const p = paperOf(k); return `--p-paper:${p.paper};--p-ink:${p.ink};--p-accent:${p.accent};--p-line:${p.line};--p-env:${p.env};--p-flap:${p.flap}`; };
+
+/* ================= 預覽模式用的假資料 ================= */
+const demo = {
+  me: { userId: 'Udemo', displayName: '預覽使用者', name: ['bind', 'newbie'].includes(DEMO_MODE) ? '' : '陳怡君', isAdmin: true },
+  acts: [
+    { id: 'A1', title: '聖誕節傳情', desc: '寫一封悄悄話給你想感謝的弟兄姊妹，可以附一張照片。12/24 前都可以寫。', deadline: '2026-12-24 23:59', open: true, created: '2026/11/10 16:00', creator: '簡晨光', mine: true },
+    { id: 'A2', title: '畢業祝福信', desc: '', deadline: '', open: false, created: '2026/6/1 10:00', creator: '簡晨光', mine: true },
+  ],
+  letters: [
+    { id: 'L1', actId: 'A1', from: '王小明', fromUid: 'U1', to: '陳怡君', text: '怡君姊妹：\n謝謝你這一年每週都來接我去小排，\n你的陪伴讓我很得激勵。\n聖誕快樂！', image: '', paper: 'rose', time: '2026/11/10 18:02', sent: true, openedAt: '2026/11/10 19:30', openedBy: '陳怡君' },
+    { id: 'L2', actId: 'A1', from: '陳怡君', fromUid: 'Udemo', to: '林志豪', text: '志豪弟兄，謝謝你在青年聚會的服事，辛苦了！', image: '', paper: 'sky', time: '2026/11/10 20:14', sent: true, openedAt: '', openedBy: '' },
+    { id: 'L3', actId: 'A1', from: '簡晨光', fromUid: 'U3', to: '王小明', text: '小明，願主祝福你的新工作！', image: '', paper: 'mint', time: '2026/11/11 07:40', sent: false, openedAt: '', openedBy: '' },
+    { id: 'L4', actId: 'A2', from: '林志豪', fromUid: 'U4', to: '簡晨光', text: '畢業快樂！', image: '', paper: 'kraft', time: '2026/6/2 12:00', sent: true, openedAt: '2026/6/2 13:10', openedBy: '簡晨光' },
+  ],
+};
+if (DEMO) window.liff = { isInClient: () => false, isLoggedIn: () => true, closeWindow() {}, isApiAvailable: () => false, getContext: () => null };
+const demoState = a => !a.open ? 'closed' : (a.deadline && new Date(a.deadline.replace(' ', 'T')) < new Date() ? 'ended' : 'open');
+const demoStats = a => { const ls = demo.letters.filter(l => l.actId === a.id); return { ...a, state: demoState(a), letters: ls.length, opened: ls.filter(l => l.openedAt).length }; };
+const demoContent = l => ({ ...l, actTitle: (demo.acts.find(a => a.id === l.actId) || {}).title || '' });
+
+async function demoApi(action, d) {
+  await new Promise(r => setTimeout(r, 250));
+  const act = id => demo.acts.find(a => a.id === id);
+  const letter = id => demo.letters.find(l => l.id === id);
+  switch (action) {
+    case 'me': return { ok: true, ...demo.me };
+    case 'session': return { ok: true, token: 'demo', expires: Date.now() + 864e5 };
+    case 'act': { const a = act(d.actId); return { ok: true, act: a ? { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, state: demoState(a) } : null }; }
+    case 'letterCard': { const l = letter(d.letterId); return { ok: true, card: l ? { id: l.id, to: l.to, paper: l.paper, actId: l.actId, actTitle: act(l.actId).title } : null }; }
+    case 'bind': {
+      if (!d.name || String(d.phone).replace(/\D/g, '').length < 9) throw new Error('請填寫姓名和完整手機號碼');
+      demo.me.name = d.name; return { ok: true, name: d.name };
+    }
+    case 'uploadImage': return { ok: true, url: d.data };
+    case 'writeLetter': {
+      if (!d.letter.to) throw new Error('請填寫收信人的名字');
+      if (!d.letter.text) throw new Error('請寫下要給對方的悄悄話');
+      const l = { id: 'L' + Date.now(), actId: d.actId, from: demo.me.name, fromUid: 'Udemo', ...d.letter, time: '剛剛', sent: false, openedAt: '', openedBy: '' };
+      demo.letters.push(l); return { ok: true, letter: { id: l.id, actId: l.actId, actTitle: act(l.actId).title, from: l.from, to: l.to, paper: l.paper } };
+    }
+    case 'markSent': letter(d.letterId).sent = true; return { ok: true, id: d.letterId };
+    case 'myLetters': return { ok: true, letters: demo.letters.filter(l => l.fromUid === 'Udemo' && l.actId === d.actId).reverse() };
+    case 'openLetter': {
+      const l = letter(d.letterId);
+      if (l.fromUid === 'Udemo') return { ok: true, status: 'mine', letter: demoContent(l), openedAt: l.openedAt };
+      if (!demo.me.name) return { ok: true, status: 'need_bind', to: l.to };
+      if (DEMO_MODE === 'wrong') return { ok: true, status: 'wrong_person', to: l.to, name: '王小明' };
+      const first = !l.openedAt; if (first) { l.openedAt = '剛剛'; l.openedBy = demo.me.name; }
+      return { ok: true, status: 'opened', first, letter: demoContent(l), openedAt: l.openedAt };
+    }
+    case 'createAct': { if (!d.act.title) throw new Error('請填寫活動名稱'); const a = { id: 'A' + Date.now(), ...d.act, open: true, created: '剛剛', creator: '預覽使用者', mine: true }; demo.acts.unshift(a); return { ok: true, act: demoStats(a) }; }
+    case 'updateAct': { const a = act(d.actId); Object.assign(a, d.act); return { ok: true, act: demoStats(a) }; }
+    case 'listActs': return { ok: true, acts: demo.acts.map(demoStats) };
+    case 'actDetail': { const a = act(d.actId); return { ok: true, act: demoStats(a), list: demo.letters.filter(l => l.actId === a.id).slice().reverse() }; }
+    case 'setOpen': { const a = act(d.actId); a.open = d.open; return { ok: true, act: demoStats(a) }; }
+    case 'deleteAct': { const n = demo.letters.filter(l => l.actId === d.actId).length; demo.acts = demo.acts.filter(a => a.id !== d.actId); demo.letters = demo.letters.filter(l => l.actId !== d.actId); return { ok: true, letters: n, opens: 0 }; }
+    case 'myData': return { ok: true, found: !!demo.me.name, name: demo.me.name, phone: '0912345678', lineName: '預覽使用者', sent: 1, received: 1 };
+    case 'deleteMyData': demo.me.name = ''; return { ok: true, roster: 1, letters: 1, opens: 1 };
+  }
+}
+
+/* ---------- 登入通行證：60 天內不用再登入 ---------- */
+const SESSION_KEY = 'loveletter.session';
+const getSession = () => { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); return s && s.expires > Date.now() + 60000 ? s : null; } catch (e) { return null; } };
+const setSession = s => { try { s ? localStorage.setItem(SESSION_KEY, JSON.stringify({ token: s.token, expires: s.expires })) : localStorage.removeItem(SESSION_KEY); } catch (e) {} };
+const PUBLIC = ['act', 'letterCard'];
+
+async function api(action, data = {}) {
+  if (DEMO) return demoApi(action, data);
+  const body = { action, ...data };
+  if (!PUBLIC.includes(action)) {
+    const s = action === 'session' ? null : getSession();
+    if (s) body.session = s.token; else body.idToken = liff.getIDToken();
+  }
+  const r = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
+  const j = await r.json();
+  if (!j.ok) {
+    if (j.error === 'SESSION_EXPIRED') {
+      setSession(null);
+      if (liff.isLoggedIn()) return api(action, data);
+      liff.login({ redirectUri: location.href }); throw new Error('登入已過期，正在重新登入');
+    }
+    if (j.error === 'TOKEN_EXPIRED') { liff.logout(); liff.login({ redirectUri: location.href }); throw new Error('登入已過期，正在重新登入'); }
+    throw new Error(j.error);
+  }
+  return j;
+}
+
+/* ================= 入口 ================= */
+let ME = null;
+async function main() {
+  try {
+    const route = PARAMS.has('letter') || ['letter', 'wrong', 'newbie'].includes(DEMO_MODE) ? 'letter'
+      : PARAMS.has('act') || ['write', 'bind'].includes(DEMO_MODE) ? 'write'
+      : PARAMS.has('fwd') ? 'fwd' : PARAMS.has('share') ? 'share' : PARAMS.has('mydata') || DEMO_MODE === 'mydata' ? 'mydata' : 'home';
+    // 信封與寫信頁的公開資料先抓，跟 LINE 登入同時進行
+    const pre = route === 'letter' ? api('letterCard', { letterId: PARAMS.get('letter') || 'L1' })
+      : route === 'write' ? api('act', { actId: PARAMS.get('act') || 'A1' }) : null;
+    if (pre) pre.catch(() => {});
+    if (!DEMO) {
+      await liff.init({ liffId: LIFF_ID });
+      if (!liff.isLoggedIn() && !getSession()) { liff.login({ redirectUri: location.href }); return; }
+      if (liff.isLoggedIn() && !getSession()) { try { setSession(await api('session')); } catch (e) {} }
+    }
+    if (route === 'letter') return letterFlow(await pre);
+    if (route === 'write') return writeFlow(await pre);
+    if (route === 'fwd') return forwardLetterFlow(PARAMS.get('fwd'));
+    if (route === 'share') return forwardActFlow(PARAMS.get('share'));
+    if (route === 'mydata') return myDataFlow();
+    return homeFlow();
+  } catch (e) {
+    view(`${topHtml()}<div class="card center"><p>${esc(e.message)}</p><p class="muted small">請關閉後從 LINE 重新開啟一次。</p></div>`);
+  }
+}
+
+const topHtml = (who = '') => `<header class="top"><div class="brand"><img src="img/in-christ.svg" alt=""><h1>傳情圖卡</h1></div><span class="who">${esc(who)}</span></header>${DEMO ? '<div class="demo-note">預覽模式：使用範例資料，不會真的送出。</div>' : ''}`;
+const footHtml = () => `<div class="foot"><button class="link" type="button" onclick="location.href='?mydata${DEMO ? '&demo=mydata' : ''}'">我的個人資料</button></div>`;
+
+/** 兩段式確認：第一次按變成「再按一次確認」 */
+function armThen(btn, label, fn) {
+  if (btn.classList.contains('armed')) { btn.classList.remove('armed'); return fn(); }
+  const old = btn.textContent; btn.textContent = label; btn.classList.add('armed');
+  setTimeout(() => { if (btn.isConnected && btn.classList.contains('armed')) { btn.classList.remove('armed'); btn.textContent = old; } }, 4000);
+}
+async function busy(btn, fn) {
+  const old = btn.innerHTML; btn.disabled = true; btn.textContent = '處理中…';
+  try { return await fn(); } catch (e) { toast(e.message); } finally { if (btn.isConnected) { btn.disabled = false; btn.innerHTML = old; } }
+}
+
+/* ================= 第一次登入：姓名＋手機 ================= */
+function bindView(title, hint, done, preset = '') {
+  view(`${topHtml()}
+    <h2>${esc(title)}</h2>
+    <p class="muted small">${hint}</p>
+    <div class="card">
+      <label class="f" for="b-name">姓名</label>
+      <input class="in" id="b-name" autocomplete="name" maxlength="30" value="${esc(preset)}" placeholder="例如：陳怡君">
+      <label class="f" for="b-phone">手機</label>
+      <input class="in" id="b-phone" inputmode="tel" autocomplete="tel" maxlength="15" placeholder="0912345678">
+      <p class="f-hint">只用來確認是你本人，之後用這個 LINE 開啟就不用再填。</p>
+      <div class="btn-row"><button class="btn block" id="b-go" type="button">確認</button></div>
+    </div>${footHtml()}`);
+  $('b-go').onclick = e => busy(e.currentTarget, async () => {
+    const r = await api('bind', { name: $('b-name').value.trim(), phone: $('b-phone').value.trim() });
+    ME = { ...(ME || {}), name: r.name };
+    await done();
+  });
+}
+
+/* ================= 寫信 ================= */
+let ACT = null, LETTER = null, PHOTO = '';
+const draftKey = id => 'loveletter.draft.' + id;
+const readDraft = id => { try { return JSON.parse(localStorage.getItem(draftKey(id)) || 'null') || {}; } catch (e) { return {}; } };
+const saveDraft = (id, d) => { try { localStorage.setItem(draftKey(id), JSON.stringify(d)); } catch (e) {} };
+const clearDraft = id => { try { localStorage.removeItem(draftKey(id)); } catch (e) {} };
+
+async function writeFlow(pre) {
+  ACT = pre && pre.act;
+  if (!ACT) return view(`${topHtml()}<div class="card center"><div class="big-emoji">📭</div><p>找不到這個傳情活動，可能已經被刪除。</p></div>`);
+  ME = await api('me');
+  if (!ME.name) return bindView('先認識一下你', `第一次寫信，請填你的姓名和手機。<br>收到信的人會看到你的姓名。`, () => writeForm());
+  writeForm();
+}
+
+function writeForm() {
+  if (ACT.state !== 'open') {
+    return view(`${topHtml(ME.name)}<div class="card center"><div class="big-emoji">⏳</div><h2>${esc(ACT.title)}</h2><p>${ACT.state === 'ended' ? '這個傳情活動已經截止寫信了。' : '主辦人已經停止這個活動的寫信。'}</p></div>${footHtml()}`);
+  }
+  const d = readDraft(ACT.id);
+  const paper = d.paper || 'rose';
+  PHOTO = d.photo || '';
+  const to = PARAMS.get('to') || d.to || '';
+  const today = new Date().toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
+  view(`${topHtml(ME.name)}
+    <h2>${esc(ACT.title)}</h2>
+    ${ACT.desc ? `<p class="muted small" style="white-space:pre-wrap">${esc(ACT.desc)}</p>` : ''}
+    ${ACT.deadline ? `<p class="small muted">寫信截止：${esc(shortTime(ACT.deadline))}</p>` : ''}
+    <div class="papers" role="group" aria-label="選信紙">
+      <span class="small muted">信紙</span>
+      ${Object.entries(PAPERS).map(([k, p]) => `<button type="button" data-paper="${k}" aria-pressed="${k === paper}" aria-label="${p.name}" title="${p.name}" style="background:${p.accent}"></button>`).join('')}
+    </div>
+    <div class="paper" id="paper" style="${paperVars(paper)}">
+      <div class="stampmark" aria-hidden="true">♥</div>
+      <div class="actname">${esc(ACT.title)}</div>
+      <div class="dear"><span>親愛的</span><input id="w-to" maxlength="30" value="${esc(to)}" placeholder="收信人的名字" aria-label="收信人的名字"><span>：</span></div>
+      <textarea id="w-text" maxlength="1000" placeholder="寫下想對他說的悄悄話…" aria-label="悄悄話">${esc(d.text || '')}</textarea>
+      <div id="w-photo"></div>
+      <div class="sign">— ${esc(ME.name)}</div>
+      <div class="date">${esc(today)}</div>
+    </div>
+    <p class="lock-note">🔒 收信人要登入，而且登記的姓名和你寫的收信人一樣，才拆得開這封信。主辦人在後台看得到誰寫給誰和信的內容。</p>
+    <button class="btn block gold" id="w-send" type="button">儲存並送出 💌</button>
+    <div id="w-mine"></div>${footHtml()}`);
+
+  let cur = paper;
+  const keep = () => saveDraft(ACT.id, { to: $('w-to').value, text: $('w-text').value, paper: cur, photo: PHOTO });
+  document.querySelectorAll('[data-paper]').forEach(b => b.onclick = () => {
+    cur = b.dataset.paper;
+    document.querySelectorAll('[data-paper]').forEach(x => x.setAttribute('aria-pressed', x === b));
+    $('paper').setAttribute('style', paperVars(cur)); keep();
+  });
+  const ta = $('w-text');
+  const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.max(224, Math.ceil(ta.scrollHeight / 32) * 32) + 'px'; };
+  ta.oninput = () => { grow(); keep(); };
+  $('w-to').oninput = keep;
+  grow();
+  drawPhoto(keep);
+  $('w-send').onclick = e => busy(e.currentTarget, async () => {
+    const letter = { to: $('w-to').value.trim(), text: $('w-text').value.trim(), paper: cur, image: PHOTO };
+    if (!letter.to) { $('w-to').focus(); throw new Error('請填寫收信人的名字'); }
+    if (!letter.text) { ta.focus(); throw new Error('請寫下要給對方的悄悄話'); }
+    const r = await api('writeLetter', { actId: ACT.id, letter });
+    clearDraft(ACT.id); PHOTO = '';
+    LETTER = r.letter;
+    const ok = await sendLetter(LETTER);
+    sentView(ok);
+  });
+  drawMine();
+}
+
+function drawPhoto(keep) {
+  const box = $('w-photo');
+  if (PHOTO) {
+    box.innerHTML = `<div class="photo photo-wrap"><img src="${esc(PHOTO)}" alt="附上的照片"><button class="photo-x" id="p-x" type="button" aria-label="移除照片">×</button></div>`;
+    $('p-x').onclick = () => { PHOTO = ''; drawPhoto(keep); keep(); };
+  } else {
+    box.innerHTML = `<button class="photo-pick" id="p-pick" type="button">📷 附一張照片（可不附）</button><input type="file" id="p-file" accept="image/*" hidden>`;
+    $('p-pick').onclick = () => $('p-file').click();
+    $('p-file').onchange = async e => {
+      const f = e.target.files && e.target.files[0]; e.target.value = '';
+      if (!f) return;
+      $('p-pick').textContent = '照片上傳中…'; $('p-pick').disabled = true;
+      try {
+        const data = await shrinkImage(f, 1200, 0.85);
+        PHOTO = (await api('uploadImage', { data, mime: 'image/jpeg' })).url;
+        drawPhoto(keep); keep();
+      } catch (err) { toast('上傳失敗：' + err.message); drawPhoto(keep); }
+    };
+  }
+}
+
+function shrinkImage(file, maxW, quality) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxW / img.naturalWidth);
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
+      const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+      g.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(img.src);
+      resolve(c.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => reject(new Error('無法讀取這張照片'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+async function drawMine() {
+  const box = $('w-mine'); if (!box) return;
+  try {
+    const { letters } = await api('myLetters', { actId: ACT.id });
+    if (!letters.length || !box.isConnected) return;
+    box.innerHTML = `<div class="card sent-list"><b>我在這個活動寫的信</b>${letters.map(l => `
+      <div class="row"><span>給 <b>${esc(l.to)}</b></span>${l.openedAt ? `<span class="chip paired">💞 已收信</span>`
+        : l.sent ? `<span class="chip pending">已送出・未收</span>` : `<button class="btn ghost" style="min-height:36px;padding:4px 14px" type="button" data-resend="${esc(l.id)}">送出</button>`}</div>`).join('')}</div>`;
+    box.querySelectorAll('[data-resend]').forEach(b => b.onclick = () => {
+      const l = letters.find(x => x.id === b.dataset.resend);
+      sendLetter({ ...l, actTitle: ACT.title }).then(ok => ok && drawMine());
+    });
+  } catch (e) {}
+}
+
+function sentView(ok) {
+  view(`${topHtml(ME.name)}
+    <div class="center fade-up">
+      <div class="big-emoji">${ok ? '💌' : '📝'}</div>
+      <h2>${ok ? '信送出了！' : '信已存好，還沒送出'}</h2>
+      <p class="muted">${ok ? `等「${esc(LETTER.to)}」按下收信，就算配對成功。` : '按下面的按鈕，選擇要傳給哪位朋友或群組。'}</p>
+    </div>
+    <div class="env-stage"><div class="env" style="${paperVars(LETTER.paper)}"><div class="flap"></div><div class="seal">♥</div><div class="to"><small>To.</small><b>${esc(LETTER.to)}</b></div></div></div>
+    <div class="btn-row">
+      <button class="btn ${ok ? 'ghost' : 'gold'} block" id="s-again" type="button">${ok ? '再傳給其他人' : '選擇朋友或群組送出'}</button>
+      <button class="btn block" id="s-new" type="button">再寫一封</button>
+    </div>${footHtml()}`);
+  $('s-again').onclick = async () => { if (await sendLetter(LETTER)) sentView(true); };
+  $('s-new').onclick = () => writeForm();
+}
+
+/* ================= 收信 ================= */
+async function letterFlow(pre) {
+  const card = pre && pre.card;
+  if (!card) return view(`${topHtml()}<div class="card center"><div class="big-emoji">📭</div><p>找不到這封信，可能已經被刪除。</p></div>`);
+  view(`${topHtml()}
+    <p class="center muted small" style="margin-top:20px">${esc(card.actTitle)}</p>
+    <h2 class="center">有一封給「${esc(card.to)}」的信</h2>
+    <div class="env-stage"><div class="env" id="env" style="${paperVars(card.paper)}"><div class="flap"></div><div class="seal">♥</div><div class="to"><small>To.</small><b>${esc(card.to)}</b></div></div></div>
+    <p class="center muted small">只有「${esc(card.to)}」本人拆得開</p>
+    <button class="btn block gold" id="l-open" type="button" style="margin-top:12px">收信</button>
+    ${footHtml()}`);
+  $('l-open').onclick = e => busy(e.currentTarget, () => tryOpen(card));
+}
+
+async function tryOpen(card) {
+  const r = await api('openLetter', { letterId: card.id });
+  if (r.status === 'need_bind') {
+    return bindView('收信前，先確認你是誰', `請填你的姓名和手機。<b>姓名要和信封上的「${esc(r.to)}」一樣</b>，才拆得開這封信。`, async () => {
+      view(loading()); const again = await api('openLetter', { letterId: card.id }); showOpened(card, again);
+    }, '');
+  }
+  showOpened(card, r);
+}
+
+function showOpened(card, r) {
+  if (r.status === 'need_bind') return tryOpen(card);
+  if (r.status === 'wrong_person') {
+    return view(`${topHtml(r.name)}
+      <div class="card center fade-up"><div class="big-emoji">🔒</div>
+        <h2>這封信不是給你的</h2>
+        <p>這封信寫給「<b>${esc(r.to)}</b>」，你登記的姓名是「<b>${esc(r.name)}</b>」，所以拆不開。</p>
+        <p class="muted small">如果你就是「${esc(r.to)}」，可能是寫信的人用了不同的寫法，請他用你登記的姓名再寄一次。</p>
+      </div>${footHtml()}`);
+  }
+  // 拆信動畫：信封打開後，信紙滑上來
+  const env = $('env');
+  const reveal = () => drawLetter(r);
+  if (env) { env.classList.add('open'); setTimeout(reveal, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 750); }
+  else reveal();
+}
+
+function drawLetter(r) {
+  const l = r.letter;
+  ME = ME || {};
+  view(`${topHtml()}
+    <p class="center small" style="margin:18px 0 4px;color:var(--ok)">${r.status === 'mine' ? '這是你寫的信' + (r.openedAt ? '・對方已收信 💞' : '・對方還沒收信') : r.first ? '💞 收信成功！' : '你已經收過這封信了'}</p>
+    <div class="paper fade-up" style="${paperVars(l.paper)}">
+      <div class="stampmark" aria-hidden="true">♥</div>
+      <div class="actname">${esc(l.actTitle)}</div>
+      <div class="dear"><span>親愛的 <b>${esc(l.to)}</b>：</span></div>
+      <div class="text">${esc(l.text)}</div>
+      ${isHttps(l.image) || /^data:image/.test(l.image) ? `<div class="photo"><img src="${esc(l.image)}" alt="寫信人附上的照片"></div>` : ''}
+      <div class="sign">— ${esc(l.from)}</div>
+      <div class="date">${esc(l.time)}</div>
+    </div>
+    <div class="btn-row" style="margin-top:20px">
+      ${r.status === 'mine' ? '' : `<a class="btn gold" href="${esc(DEMO ? '?demo=write&to=' + encodeURIComponent(l.from) : actUrl(l.actId, l.from))}">回信給 ${esc(l.from)}</a>`}
+      <a class="btn ghost" href="${esc(DEMO ? '?demo=write' : actUrl(l.actId))}">我也要寫一封</a>
+    </div>${footHtml()}`);
+}
+
+/* ================= 轉傳 ================= */
+async function forwardLetterFlow(id) {
+  const { card } = await api('letterCard', { letterId: id });
+  if (!card) return view(`${topHtml()}<div class="card center"><p>找不到這封信。</p></div>`);
+  view(`${topHtml()}<div class="card center"><div class="big-emoji">💌</div><p>把這封給「${esc(card.to)}」的信轉傳出去</p>
+    <button class="btn block gold" id="f-go" type="button">選擇朋友或群組</button></div>`);
+  $('f-go').onclick = async () => { if (await sendLetter(card) && liff.isInClient()) liff.closeWindow(); };
+}
+
+async function forwardActFlow(id) {
+  const { act } = await api('act', { actId: id });
+  if (!act) return view(`${topHtml()}<div class="card center"><p>找不到這個傳情活動。</p></div>`);
+  view(`${topHtml()}<div class="card center"><div class="big-emoji">💌</div><p>轉傳「${esc(act.title)}」的寫信入口</p>
+    <button class="btn block gold" id="f-go" type="button">選擇朋友或群組</button></div>`);
+  $('f-go').onclick = async () => { if (await sendAct(act) && liff.isInClient()) liff.closeWindow(); };
+}
+
+/* ================= 主辦人平台 ================= */
+let ACTS = [];
+async function homeFlow() {
+  view(`${topHtml()}${loading()}`);
+  const [me, list] = await Promise.all([api('me'), api('listActs')]);
+  ME = me; ACTS = list.acts;
+  renderHome();
+}
+
+function renderHome() {
+  view(`${topHtml(ME.name || ME.displayName)}
+    <h2>我的傳情活動</h2>
+    <p class="muted small">建立活動 → 把寫信入口發到群組 → 大家寫信、傳給收信人 → 在這裡看配對。</p>
+    <button class="btn block gold" id="h-new" type="button">＋ 建立傳情活動</button>
+    ${ACTS.length ? ACTS.map(a => `
+      <button class="card act" type="button" data-act="${esc(a.id)}">
+        <div class="t"><h3>${esc(a.title)}</h3>${stateChip(a.state)}</div>
+        <div class="s">💌 ${a.letters} 封信・💞 配對成功 ${a.opened}${a.deadline ? `・截止 ${esc(shortTime(a.deadline))}` : ''}${a.mine === false ? `・${esc(a.creator)} 建立` : ''}</div>
+      </button>`).join('') : `<div class="card empty"><div class="big-emoji">💌</div>還沒有傳情活動，按上面的按鈕建立第一個。</div>`}
+    ${footHtml()}`);
+  $('h-new').onclick = () => renderActForm();
+  document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => renderDetail(b.dataset.act));
+}
+
+function renderActForm(a) {
+  const dl = a && a.deadline ? a.deadline.replace(' ', 'T') : '';
+  view(`${topHtml(ME.name || ME.displayName)}
+    <button class="back" type="button" id="f-back">‹ 返回</button>
+    <h2>${a ? '編輯傳情活動' : '建立傳情活動'}</h2>
+    <div class="card">
+      <label class="f" for="a-title">活動名稱</label>
+      <input class="in" id="a-title" maxlength="40" value="${esc(a ? a.title : '')}" placeholder="例如：聖誕節傳情">
+      <label class="f" for="a-desc">說明（可不填）</label>
+      <textarea class="in" id="a-desc" maxlength="500" placeholder="例如：寫一封悄悄話給你想感謝的人。">${esc(a ? a.desc : '')}</textarea>
+      <label class="f" for="a-dl">寫信截止時間（可不填）</label>
+      <input class="in" id="a-dl" type="datetime-local" value="${esc(dl)}">
+      <div class="btn-row"><button class="btn block" id="a-save" type="button">${a ? '儲存' : '建立並發到群組'}</button></div>
+    </div>`);
+  $('f-back').onclick = () => a ? renderDetail(a.id) : renderHome();
+  $('a-save').onclick = e => busy(e.currentTarget, async () => {
+    const input = { title: $('a-title').value.trim(), desc: $('a-desc').value.trim(), deadline: $('a-dl').value.replace('T', ' ') };
+    if (!input.title) { $('a-title').focus(); throw new Error('請填寫活動名稱'); }
+    if (a) { await api('updateAct', { actId: a.id, act: input }); toast('已儲存'); return renderDetail(a.id); }
+    const r = await api('createAct', { act: input });
+    ACTS.unshift(r.act);
+    await sendAct(r.act);
+    renderDetail(r.act.id);
+  });
+}
+
+let DETAIL = null, FILTER = 'all', OPENED_ROW = '';
+async function renderDetail(id) {
+  view(`${topHtml(ME.name || ME.displayName)}${loading()}`);
+  DETAIL = await api('actDetail', { actId: id });
+  FILTER = 'all'; OPENED_ROW = '';
+  const i = ACTS.findIndex(x => x.id === id); if (i >= 0) ACTS[i] = { ...ACTS[i], ...DETAIL.act };
+  drawDetail();
+}
+
+function drawDetail() {
+  const a = DETAIL.act, list = DETAIL.list;
+  const paired = list.filter(l => l.openedAt);
+  const shown = FILTER === 'paired' ? paired : FILTER === 'pending' ? list.filter(l => !l.openedAt) : list;
+  view(`${topHtml(ME.name || ME.displayName)}
+    <button class="back" type="button" id="d-back">‹ 我的傳情活動</button>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><h2>${esc(a.title)}</h2>${stateChip(a.state)}</div>
+    ${a.deadline ? `<p class="small muted" style="margin:0">寫信截止：${esc(shortTime(a.deadline))}</p>` : ''}
+    <div class="stats">
+      <div class="stat"><b>${list.length}</b><span>信件</span></div>
+      <div class="stat"><b style="color:var(--ok)">${paired.length}</b><span>配對成功</span></div>
+      <div class="stat"><b style="color:var(--gold-text)">${list.length - paired.length}</b><span>待收信</span></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn gold" id="d-share" type="button">發寫信入口到群組</button>
+      <a class="btn ghost" href="${esc(DEMO ? '?demo=write' : actUrl(a.id))}">我也寫一封</a>
+    </div>
+    <div class="tabs" role="group" aria-label="篩選">
+      <button type="button" data-f="all" aria-pressed="${FILTER === 'all'}">全部 ${list.length}</button>
+      <button type="button" data-f="paired" aria-pressed="${FILTER === 'paired'}">配對成功 ${paired.length}</button>
+      <button type="button" data-f="pending" aria-pressed="${FILTER === 'pending'}">待收信 ${list.length - paired.length}</button>
+    </div>
+    <div class="card" style="padding:4px 14px">
+      ${shown.length ? shown.map(l => `
+        <div class="pair">
+          <button type="button" data-row="${esc(l.id)}" aria-expanded="${OPENED_ROW === l.id}">
+            <span style="min-width:0"><span class="names">${esc(l.from)}<span class="arrow">→</span>${esc(l.to)}</span>
+              <span class="when" style="display:block">${l.openedAt ? `${esc(l.openedBy)} 於 ${esc(l.openedAt)} 收信` : `寫於 ${esc(l.time)}`}</span></span>
+            ${l.openedAt ? '<span class="chip paired">💞 配對成功</span>' : l.sent ? '<span class="chip pending">未收信</span>' : '<span class="chip">未送出</span>'}
+          </button>
+          ${OPENED_ROW === l.id ? `<div class="body"><div class="paper mini" style="${paperVars(l.paper)}"><div class="text">${esc(l.text)}</div>
+            ${l.image ? `<div class="photo"><img src="${esc(l.image)}" alt="附上的照片" style="max-height:220px"></div>` : ''}</div></div>` : ''}
+        </div>`).join('') : `<div class="empty small">${list.length ? '這裡沒有信' : '還沒有人寫信。把寫信入口發到群組吧！'}</div>`}
+    </div>
+    <p class="muted small">點一下可看信件內容。收信人登記的姓名和信上寫的相符，按下收信才算配對成功。</p>
+    <div class="btn-row">
+      <button class="btn ghost" id="d-edit" type="button">編輯</button>
+      <button class="btn ghost" id="d-open" type="button">${a.open ? '停止寫信' : '重新開放寫信'}</button>
+      <button class="btn danger" id="d-del" type="button">刪除活動</button>
+    </div>${footHtml()}`);
+  $('d-back').onclick = () => renderHome();
+  $('d-share').onclick = () => sendAct(a);
+  $('d-edit').onclick = () => renderActForm(a);
+  $('d-open').onclick = e => busy(e.currentTarget, async () => { DETAIL.act = (await api('setOpen', { actId: a.id, open: !a.open })).act; drawDetail(); });
+  $('d-del').onclick = e => armThen(e.currentTarget, `確定刪除？${list.length} 封信會一起刪掉`, () => busy(e.currentTarget, async () => {
+    await api('deleteAct', { actId: a.id }); ACTS = ACTS.filter(x => x.id !== a.id); toast('已刪除'); renderHome();
+  }));
+  document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { FILTER = b.dataset.f; drawDetail(); });
+  document.querySelectorAll('[data-row]').forEach(b => b.onclick = () => { OPENED_ROW = OPENED_ROW === b.dataset.row ? '' : b.dataset.row; const y = scrollY; drawDetail(); scrollTo(0, y); });
+}
+
+/* ================= 我的個人資料 ================= */
+async function myDataFlow() {
+  view(`${topHtml()}${loading()}`);
+  const d = await api('myData');
+  view(`${topHtml(d.name)}
+    <button class="back" type="button" onclick="location.href='./${DEMO ? '?demo' : ''}'">‹ 返回</button>
+    <h2>我的個人資料</h2>
+    <div class="card">${d.found ? `
+      <p>姓名：<b>${esc(d.name)}</b><br>手機：${esc(d.phone)}<br>LINE 名稱：${esc(d.lineName)}</p>
+      <p class="small muted">寫過 ${d.sent} 封信・收過 ${d.received} 封信</p>` : '<p>目前沒有你的資料。</p>'}
+    </div>
+    ${d.found || d.sent ? `<p class="small muted">刪除後，你的姓名手機、你寫的信（含照片連結）與收信紀錄都會刪掉，下次使用要重新填寫。</p>
+    <button class="btn danger block" id="m-del" type="button">刪除我的資料</button>` : ''}`);
+  const del = $('m-del');
+  if (del) del.onclick = e => armThen(e.currentTarget, '再按一次確定刪除', () => busy(e.currentTarget, async () => {
+    await api('deleteMyData'); setSession(null); toast('已刪除你的資料'); myDataFlow();
+  }));
+}
+
+/* ================= 傳到 LINE ================= */
+async function pick(messages, okText) {
+  if (DEMO) { toast('預覽模式：正式版會在這裡跳出朋友／群組選單'); return true; }
+  if (!liff.isLoggedIn()) { toast('需要先登入 LINE 一次'); setTimeout(() => liff.login({ redirectUri: location.href }), 600); return false; }
+  if (!liff.isApiAvailable('shareTargetPicker')) { toast('無法開啟選單，請確認 LIFF 已開啟 Share target picker'); return false; }
+  try {
+    const res = await liff.shareTargetPicker(messages, { isMultiple: true });
+    toast(res ? okText : '已取消');
+    return !!res;
+  } catch (e) { toast('傳送失敗：' + e.message); return false; }
+}
+
+async function sendLetter(l) {
+  const ok = await pick([letterFlex(l)], '信已送出');
+  if (ok) { try { await api('markSent', { letterId: l.id }); } catch (e) {} }
+  return ok;
+}
+const sendAct = a => pick([actFlex(a)], '已發到群組');
+
+/** 信封圖卡：只寫收信人，內容要按「收信」才看得到 */
+function letterFlex(l) {
+  const p = paperOf(l.paper);
+  return { type: 'flex', altText: `💌 有一封給 ${l.to} 的傳情信`.slice(0, 400), contents: {
+    type: 'bubble', size: 'kilo',
+    styles: { body: { backgroundColor: p.paper }, footer: { backgroundColor: p.paper } },
+    body: { type: 'box', layout: 'vertical', paddingAll: '18px', contents: [
+      { type: 'text', text: '💌 ' + (l.actTitle || '傳情信'), size: 'xs', color: p.accent, weight: 'bold', wrap: true },
+      { type: 'box', layout: 'vertical', margin: 'md', backgroundColor: p.env, cornerRadius: '10px', paddingAll: '16px', paddingTop: '22px', contents: [
+        { type: 'box', layout: 'vertical', width: '44px', height: '44px', cornerRadius: '22px', backgroundColor: p.accent, justifyContent: 'center', alignItems: 'center',
+          contents: [{ type: 'text', text: '♥', color: '#FFFFFF', size: 'lg', align: 'center' }] },
+        { type: 'text', text: 'To.', size: 'xs', color: p.ink, margin: 'lg' },
+        { type: 'text', text: String(l.to), size: 'xl', weight: 'bold', color: p.ink, wrap: true },
+        { type: 'text', text: '只有本人拆得開', size: 'xxs', color: p.ink, margin: 'sm' } ] } ] },
+    footer: { type: 'box', layout: 'vertical', paddingAll: '14px', paddingTop: '0px', spacing: 'xs', contents: [
+      { type: 'button', style: 'primary', color: p.accent, height: 'sm', action: { type: 'uri', label: '收信', uri: letterUrl(l.id) } },
+      { type: 'button', style: 'link', height: 'sm', color: p.ink, action: { type: 'uri', label: '轉傳給其他朋友', uri: fwdUrl(l.id) } } ] },
+  } };
+}
+
+/** 寫信入口卡：發到群組，大家按「寫一封傳情信」 */
+function actFlex(a) {
+  const p = PAPERS.rose;
+  const body = [
+    { type: 'text', text: '💌 傳情圖卡', size: 'xs', color: p.accent, weight: 'bold' },
+    { type: 'text', text: a.title, size: 'xl', weight: 'bold', color: p.ink, wrap: true, margin: 'sm' } ];
+  if (a.desc) body.push({ type: 'text', text: a.desc.length > 160 ? a.desc.slice(0, 158) + '…' : a.desc, size: 'sm', color: '#7A5A5E', wrap: true, margin: 'md' });
+  if (shortTime(a.deadline)) body.push({ type: 'text', text: '寫信截止 ' + shortTime(a.deadline), size: 'xs', color: '#7A5A5E', margin: 'md' });
+  return { type: 'flex', altText: `💌 ${a.title}：寫一封傳情信`.slice(0, 400), contents: {
+    type: 'bubble',
+    styles: { body: { backgroundColor: p.paper }, footer: { backgroundColor: p.paper } },
+    body: { type: 'box', layout: 'vertical', paddingAll: '20px', contents: body },
+    footer: { type: 'box', layout: 'vertical', paddingAll: '16px', paddingTop: '0px', spacing: 'xs', contents: [
+      { type: 'button', style: 'primary', color: p.accent, height: 'sm', action: { type: 'uri', label: '寫一封傳情信', uri: actUrl(a.id) } },
+      { type: 'button', style: 'link', height: 'sm', color: p.ink, action: { type: 'uri', label: '轉傳給其他群組或朋友', uri: shareUrl(a.id) } } ] },
+  } };
+}
+
+main();
+</script>
+</body>
+</html>
