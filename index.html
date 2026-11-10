@@ -150,6 +150,16 @@
   .install .app-icon { border-radius: 22px; box-shadow: var(--shadow); }
   .install h1 { font-family: var(--serif); font-weight: 900; font-size: 24px; margin: 14px 0 4px; }
   .install-steps { text-align: left; background: var(--card); border: 1px solid var(--rule); border-radius: 14px; padding: 14px 18px 14px 38px; margin: 18px 0 0; line-height: 1.9; }
+  .guide-bg { position: fixed; inset: 0; background: rgba(30,33,48,.55); display: grid; place-items: end center; z-index: 20; padding: 16px; }
+  @media (min-height: 640px) { .guide-bg { place-items: center; } }
+  .guide { width: 100%; max-width: 420px; background: var(--card); border-radius: 18px; padding: 24px 20px 18px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+  .guide .g-emoji { font-size: 40px; line-height: 1; text-align: center; }
+  .guide h3 { font-family: var(--serif); font-size: 20px; text-align: center; margin: 10px 0 6px; }
+  .guide p { margin: 0; color: var(--ink-2); font-size: 15px; text-align: center; min-height: 72px; }
+  .guide .dots { display: flex; justify-content: center; gap: 6px; margin: 14px 0; }
+  .guide .dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--rule); }
+  .guide .dots span.on { background: var(--gold); width: 18px; border-radius: 4px; }
+  .guide .btn-row { margin: 0; }
   .sent-list .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--rule); font-size: 15px; }
   .sent-list .row:last-child { border-bottom: 0; }
   .mine-item { border-bottom: 1px solid var(--rule); padding-bottom: 10px; }
@@ -324,7 +334,52 @@ async function main() {
 }
 
 const topHtml = (who = '') => `<header class="top"><div class="brand"><img src="img/in-christ.svg" alt=""><h1>流通神聖的愛圖卡</h1></div><span class="who">${esc(who)}</span></header>${DEMO ? '<div class="demo-note">預覽模式：使用範例資料，不會真的送出。</div>' : ''}`;
-const footHtml = () => `<div class="foot"><button class="link" type="button" onclick="location.href='?mydata${DEMO ? '&demo=mydata' : ''}'">我的個人資料</button></div>`;
+const footHtml = () => `<div class="foot"><button class="link" type="button" onclick="openGuide(GUIDE_KIND, true)">使用說明</button>　<button class="link" type="button" onclick="location.href='?mydata${DEMO ? '&demo=mydata' : ''}'">我的個人資料</button></div>`;
+
+/* ---------- 使用說明：第一次登入後自動出現，之後可從頁尾再打開 ---------- */
+const GUIDES = {
+  writer: [
+    ['💌', '寫一封信', '在信紙上填收信人的名字，寫下想對他說的悄悄話。可以換信紙顏色，也可以附一張照片。'],
+    ['✍️', '名字要寫對', '收信人的名字要和他在這裡登記的姓名一樣（例如寫全名「陳怡君」），他才拆得開。'],
+    ['📤', '儲存並送出', '按「儲存並送出」，選擇要傳給哪位朋友或群組。對方會收到只寫著「To. 他名字」的信封。'],
+    ['💞', '收信＝配對成功', '對方按「收信」並登入，姓名相符就能拆信。你寫的信列在頁面下方，可以重新送出；對方收信前可以編輯，也可以刪除。'],
+  ],
+  host: [
+    ['📮', '建立流通神聖的愛活動', '按「建立」填活動名稱、說明和寫信截止時間。建立後馬上跳出選單，把寫信入口發到群組。'],
+    ['💌', '大家寫信、送出', '成員第一次寫信要填姓名和手機，之後寫信、選朋友或群組送出信封。'],
+    ['💞', '看配對', '點進活動就能看到「誰 → 誰」、是否已收信。點一下可看信件內容，必要時可刪除某封信。'],
+    ['⚙️', '管理活動', '活動頁最下方可以編輯、停止或重新開放寫信、刪除活動。首頁也可以把平台安裝到手機桌面。'],
+  ],
+};
+let GUIDE_KIND = 'writer';
+const guideSeen = k => { try { return localStorage.getItem('loveletter.guide.' + k) === '1'; } catch (e) { return false; } };
+function openGuide(kind, force) {
+  kind = kind || 'writer';
+  if (!force && (guideSeen(kind) || PARAMS.has('noguide'))) return;
+  try { localStorage.setItem('loveletter.guide.' + kind, '1'); } catch (e) {}
+  const pages = GUIDES[kind];
+  let i = 0;
+  const bg = document.createElement('div');
+  bg.className = 'guide-bg';
+  bg.setAttribute('role', 'dialog'); bg.setAttribute('aria-modal', 'true'); bg.setAttribute('aria-label', '使用說明');
+  const close = () => bg.remove();
+  const draw = () => {
+    const [e, t, d] = pages[i];
+    bg.innerHTML = `<div class="guide"><div class="g-emoji">${e}</div><h3>${esc(t)}</h3><p>${esc(d)}</p>
+      <div class="dots">${pages.map((_, k) => `<span class="${k === i ? 'on' : ''}"></span>`).join('')}</div>
+      <div class="btn-row">${i ? '<button class="btn ghost" type="button" data-g="prev">上一步</button>' : '<button class="btn ghost" type="button" data-g="skip">略過</button>'}
+      <button class="btn gold" type="button" data-g="next">${i === pages.length - 1 ? '開始使用' : '下一步'}</button></div></div>`;
+    bg.querySelector('[data-g=next]').focus();
+  };
+  bg.onclick = ev => {
+    const g = ev.target.dataset && ev.target.dataset.g;
+    if (ev.target === bg || g === 'skip') return close();
+    if (g === 'prev') { i--; draw(); }
+    if (g === 'next') { if (i === pages.length - 1) close(); else { i++; draw(); } }
+  };
+  bg.onkeydown = ev => { if (ev.key === 'Escape') close(); };
+  document.body.appendChild(bg); draw();
+}
 
 /** 兩段式確認：第一次按變成「再按一次確認」 */
 function armThen(btn, label, fn) {
@@ -368,8 +423,9 @@ async function writeFlow(pre) {
   ACT = pre && pre.act;
   if (!ACT) return view(`${topHtml()}<div class="card center"><div class="big-emoji">📭</div><p>找不到這個傳情活動，可能已經被刪除。</p></div>`);
   ME = await api('me');
-  if (!ME.name) return bindView('先認識一下你', `第一次寫信，請填你的姓名和手機。<br>收到信的人會看到你的姓名。`, () => writeForm());
-  writeForm();
+  GUIDE_KIND = 'writer';
+  if (!ME.name) return bindView('先認識一下你', `第一次寫信，請填你的姓名和手機。<br>收到信的人會看到你的姓名。`, () => { writeForm(); openGuide('writer'); });
+  writeForm(); openGuide('writer');
 }
 
 function writeForm(edit) {
@@ -518,6 +574,7 @@ function sentView(ok) {
 
 /* ================= 收信 ================= */
 async function letterFlow(pre) {
+  GUIDE_KIND = 'writer';
   const card = pre && pre.card;
   if (!card) return view(`${topHtml()}<div class="card center"><div class="big-emoji">📭</div><p>找不到這封信，可能已經被刪除。</p></div>`);
   view(`${topHtml()}
@@ -643,7 +700,8 @@ async function homeFlow() {
   view(`${topHtml()}${loading()}`);
   const [me, list] = await Promise.all([api('me'), api('listActs')]);
   ME = me; ACTS = list.acts;
-  renderHome();
+  GUIDE_KIND = 'host';
+  renderHome(); openGuide('host');
 }
 
 function renderHome() {
