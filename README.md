@@ -5,11 +5,11 @@
 - 網址（GitHub Pages）：https://isaiahovercomer.github.io/line-love-letter/
 - 前端：`index.html`（GitHub Pages，在 LINE 以 LIFF 開啟）；改最上面的 `LIFF_ID`、`GAS_URL`
 - 後端：`Code.gs`（Google Apps Script 網頁應用程式，執行身分「我」、存取權「所有人」），貼上後執行一次 `setup()`
-- 試算表工作表：名單、流通神聖的愛活動、信件、收信紀錄、發布者（管理員 userId）、經文、隱藏的 登入
-- 網站總管理者：在 Apps Script「專案設定 → 指令碼屬性」設定 `SUPER_ADMIN`（LINE userId，多位用逗號分隔）。只有總管理者在後台看得到信件內容；活動建立人與發布者只能看誰寫給誰、是否已送出與收信。
+- 試算表工作表：名單、流通神聖的愛活動、信件、收信紀錄、發布者（管理員 userId）、經文、共同管理者、隱藏的 登入。共同管理者工作表若還沒有，第一次新增共同管理者時會自動建立，不必為此再執行 setup()。
+- 網站總管理者：在 Apps Script「專案設定 → 指令碼屬性」設定 `SUPER_ADMIN`（LINE userId，多位用逗號分隔）。只有總管理者在後台看得到信件內容；活動建立人、共同管理者與發布者只能看誰寫給誰、是否已送出與收信。活動建立者（與總管理者）可以把已經寫信或已經收信的人加為共同管理者；共同管理者有同樣的後台檢視與管理權限，但不能新增／移除共同管理者，也不能刪除活動。
 - LIFF：Full、scopes openid＋profile、開啟 shareTargetPicker
 
-寫信時可選日常或節日／場合信紙（含愛情、牧養、建造、福音等）。點選主題會配上輕柔背景音樂，可停止；收信的人要自己按「打開聲音聆聽」。LINE 圖卡與活動標題旁邊會顯示「已有 XX 人寫信」「已有 XX 個人收到愛」（送出當下的人數，圖卡發出後不會再變）。每個使用者可在首頁或「我的個人資料」查看「我寫過的信」（跨活動、寫給誰、是否已送出或對方已收信）。活動後台最下方有收信人名單（已送出、不重複收信人），可複製或截圖存下來，不含信件內容。頁面上不使用十字架圖示或表情符號。
+寫信時可選日常或節日／場合信紙（含愛情、牧養、建造、福音等）。點選主題會配上輕柔背景音樂，可停止；收信的人要自己按「打開聲音聆聽」。LINE 圖卡與活動標題旁邊會顯示「已有 XX 人寫信」「已有 XX 個人收到愛」（送出當下的人數，圖卡發出後不會再變）。每個使用者可在首頁或「我的個人資料」查看「我寫過的信」（跨活動、寫給誰、是否已送出或對方已收信）。活動後台有收信人名單（已送出、不重複收信人，可複製或截圖，不含信件內容），以及共同管理者名單（點選已寫信或已收信的人即可新增；還沒打開信的收信人還不能新增）。頁面上不使用十字架圖示或表情符號。
 
 ## 更新步驟
 
@@ -18,7 +18,7 @@
 
 ## 預覽與測試
 
-預覽：`?demo`（主辦人平台）、`?demo=admin`（網站總管理者，看得到信件內容）、`?demo=write`、`?demo=bind`、`?demo=letter`、`?demo=wrong`、`?demo=newbie`、`?demo=mydata`、`?demo=mine`（我寫過的信）；加 `&noguide` 不跳使用說明。
+預覽：`?demo`（主辦人平台）、`?demo=admin`（網站總管理者，看得到信件內容）、`?demo=coadmin`（共同管理者，看得到後台但沒有信件內容，也不能新增其他人）、`?demo=write`、`?demo=bind`、`?demo=letter`、`?demo=wrong`、`?demo=newbie`、`?demo=mydata`、`?demo=mine`（我寫過的信）；加 `&noguide` 不跳使用說明。
 `letter`、`wrong`、`newbie` 先顯示信封，按「收信」才進入對應狀態。
 
 煙霧測試（只開預覽頁、不連後端）：在 repo 根目錄開一個靜態伺服器，例如 `python3 -m http.server 18765`，然後
@@ -27,6 +27,7 @@
 NODE_PATH=<有安裝 playwright 的 node_modules> BASE_URL=http://127.0.0.1:18765/ node tests/demo-smoke.mjs
 node tests/no-cross.mjs
 node tests/loved-count.mjs
+node tests/coadmin.mjs
 ```
 
 加 `SHOTS_DIR=_shots` 會順便存 `after-*.png` 截圖（`_shots/` 已在 `.gitignore`，不會被提交）。

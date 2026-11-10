@@ -211,6 +211,15 @@
   .roster-list .row:last-child { border-bottom: 0; }
   .roster-list .nm { font-weight: 700; min-width: 0; word-break: break-word; }
   .roster-list .st { font-size: 13px; color: var(--ink-2); text-align: right; flex: none; }
+  .coadmin-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 22px 0 6px; }
+  .coadmin-head h3 { margin: 0; font-family: var(--serif); font-size: 18px; }
+  .co-list .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+  .co-list .row:last-child { border-bottom: 0; }
+  .co-list .nm { font-weight: 700; }
+  .co-cands { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 4px; }
+  .co-cands button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px 14px; border-radius: 999px; border: 1.5px solid var(--rule); background: var(--sky-2); color: var(--ink); font-size: 14px; font-weight: 700; cursor: pointer; }
+  .co-cands button .via { font-size: 12px; font-weight: 500; color: var(--ink-2); }
+  .co-cands button:disabled { opacity: .55; cursor: default; }
 </style>
 </head>
 <body>
@@ -371,18 +380,21 @@ const verseShow = l => l.vref || l.vtext ? `<div class="verse-show"><div class="
 
 /* ================= 預覽模式用的假資料 ================= */
 const demo = {
-  me: { userId: 'Udemo', displayName: '預覽使用者', name: ['bind', 'newbie'].includes(DEMO_MODE) ? '' : '陳怡君', isAdmin: true, isSuper: DEMO_MODE === 'admin' },  // ?demo=admin：網站總管理者視角
+  me: { userId: DEMO_MODE === 'coadmin' ? 'U1' : 'Udemo', displayName: DEMO_MODE === 'coadmin' ? '王小明' : '預覽使用者', name: ['bind', 'newbie'].includes(DEMO_MODE) ? '' : (DEMO_MODE === 'coadmin' ? '王小明' : '陳怡君'), isAdmin: DEMO_MODE !== 'coadmin', isSuper: DEMO_MODE === 'admin' },  // ?demo=admin 總管理者；?demo=coadmin 共同管理者
   acts: [
-    { id: 'A1', title: '冬天的第一個問候', desc: '寫一封悄悄話給你想感謝的弟兄姊妹，可以附一張照片。12/24 前都可以寫。', deadline: '2026-12-24 23:59', paper: 'winter', open: true, created: '2026/11/10 16:00', creator: '簡晨光', mine: true },
-    { id: 'A2', title: '畢業祝福信', desc: '', deadline: '', open: false, created: '2026/6/1 10:00', creator: '簡晨光', mine: true },
+    { id: 'A1', title: '冬天的第一個問候', desc: '寫一封悄悄話給你想感謝的弟兄姊妹，可以附一張照片。12/24 前都可以寫。', deadline: '2026-12-24 23:59', paper: 'winter', open: true, created: '2026/11/10 16:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
+    { id: 'A2', title: '畢業祝福信', desc: '', deadline: '', open: false, created: '2026/6/1 10:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
+  ],
+  coAdmins: [
+    { actId: 'A1', uid: 'U1', name: '王小明' },
   ],
   letters: [
-    { id: 'L1', actId: 'A1', from: '王小明', fromUid: 'U1', to: '陳怡君', vref: '腓立比書 1:6', vtext: '（預覽：這裡會顯示寫信人選的經文）', text: '怡君姊妹：\n謝謝你這一年每週都來接我去小排，\n你的陪伴讓我很得激勵。\n聖誕快樂！', image: '', paper: 'rose', time: '2026/11/10 18:02', sent: true, openedAt: '2026/11/10 19:30', openedBy: '陳怡君' },
+    { id: 'L1', actId: 'A1', from: '王小明', fromUid: 'U1', to: '陳怡君', vref: '腓立比書 1:6', vtext: '（預覽：這裡會顯示寫信人選的經文）', text: '怡君姊妹：\n謝謝你這一年每週都來接我去小排，\n你的陪伴讓我很得激勵。\n聖誕快樂！', image: '', paper: 'rose', time: '2026/11/10 18:02', sent: true, openedAt: '2026/11/10 19:30', openedBy: '陳怡君', openedUid: 'Udemo' },
     { id: 'L2', actId: 'A1', from: '陳怡君', fromUid: 'Udemo', to: '林志豪', text: '志豪弟兄，謝謝你在青年聚會的服事，辛苦了！', image: '', paper: 'sky', time: '2026/11/10 20:14', sent: true, openedAt: '', openedBy: '' },
     { id: 'L3', actId: 'A1', from: '簡晨光', fromUid: 'U3', to: '王小明', text: '小明，願主祝福你的新工作！', image: '', paper: 'mint', time: '2026/11/11 07:40', sent: false, openedAt: '', openedBy: '' },
-    { id: 'L4', actId: 'A2', from: '林志豪', fromUid: 'U4', to: '簡晨光', text: '畢業快樂！', image: '', paper: 'kraft', time: '2026/6/2 12:00', sent: true, openedAt: '2026/6/2 13:10', openedBy: '簡晨光' },
+    { id: 'L4', actId: 'A2', from: '林志豪', fromUid: 'U4', to: '簡晨光', text: '畢業快樂！', image: '', paper: 'kraft', time: '2026/6/2 12:00', sent: true, openedAt: '2026/6/2 13:10', openedBy: '簡晨光', openedUid: 'U3' },
     { id: 'L5', actId: 'A1', from: '陳怡君', fromUid: 'Udemo', to: '王小明', text: '小明弟兄，謝謝你常關心新人。', image: '', paper: 'mint', time: '2026/11/11 08:20', sent: false, openedAt: '', openedBy: '' },
-    { id: 'L6', actId: 'A2', from: '陳怡君', fromUid: 'Udemo', to: '李美玲', vref: '腓立比書 1:3', vtext: '我每逢想念你們，就感謝我的神。', text: '美玲，畢業快樂，願主帶領你下一階段的路程。', image: '', paper: 'grad', time: '2026/6/1 21:05', sent: true, openedAt: '2026/6/2 09:10', openedBy: '李美玲' },
+    { id: 'L6', actId: 'A2', from: '陳怡君', fromUid: 'Udemo', to: '李美玲', vref: '腓立比書 1:3', vtext: '我每逢想念你們，就感謝我的神。', text: '美玲，畢業快樂，願主帶領你下一階段的路程。', image: '', paper: 'grad', time: '2026/6/1 21:05', sent: true, openedAt: '2026/6/2 09:10', openedBy: '李美玲', openedUid: 'U5' },
   ],
 };
 // 預覽：選單不會真的打開，直接當作「已選好」
@@ -403,6 +415,82 @@ const demoCounts = (actId, extraTo, extraFrom) => {
 const demoLoved = (actId, extraTo) => demoCounts(actId, extraTo).loved;
 const demoStats = a => { const ls = demo.letters.filter(l => l.actId === a.id); const c = demoCounts(a.id); return { ...a, state: demoState(a), letters: ls.length, opened: ls.filter(l => l.openedAt).length, loved: c.loved, writers: c.writers }; };
 const demoContent = l => ({ ...l, actTitle: (demo.acts.find(a => a.id === l.actId) || {}).title || '' });
+/** 與後端 coKey 相同演算法，畫面只用短鑰，不出現 LINE userId */
+function demoCoKey(actId, uid) {
+  const s = 'co:' + String(actId) + ':' + String(uid);
+  let h = 2166136261, h2 = 0;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+    h2 = (Math.imul(h2, 31) + s.charCodeAt(i)) | 0;
+  }
+  return (h >>> 0).toString(16) + (h2 >>> 0).toString(16);
+}
+function demoCreatorUid(a) { return (a && a.creatorUid) || ''; }
+function demoIsCreator(actId) { const a = demo.acts.find(x => x.id === actId); return !!a && demoCreatorUid(a) === demo.me.userId; }
+function demoIsCoAdmin(actId) { return demo.coAdmins.some(c => c.actId === actId && c.uid === demo.me.userId); }
+function demoRequireOwner(actId) {
+  if (demo.me.isSuper || demoIsCreator(actId) || demoIsCoAdmin(actId)) return;
+  throw new Error('只有活動建立者或共同管理者可以看這個活動的後台');
+}
+function demoRequireCreator(actId) {
+  if (demo.me.isSuper || demoIsCreator(actId)) return;
+  throw new Error('只有活動建立者可以做這個動作');
+}
+function demoCollectPeople(actId) {
+  const people = {};
+  demo.letters.filter(l => l.actId === actId).forEach(l => {
+    const uid = String(l.fromUid || '').trim();
+    if (!uid) return;
+    if (!people[uid]) people[uid] = { uid, name: l.from || '', wrote: false, received: false };
+    people[uid].wrote = true;
+    if (l.from) people[uid].name = l.from;
+  });
+  demo.letters.filter(l => l.actId === actId && l.openedUid).forEach(l => {
+    const uid = String(l.openedUid).trim();
+    if (!uid) return;
+    if (!people[uid]) people[uid] = { uid, name: l.openedBy || '', wrote: false, received: false };
+    people[uid].received = true;
+    if (!people[uid].name) people[uid].name = l.openedBy || '';
+  });
+  return people;
+}
+function demoListCoAdmins(actId) {
+  return demo.coAdmins.filter(c => c.actId === actId).map(c => ({ name: c.name, key: demoCoKey(actId, c.uid) }));
+}
+function demoListCandidates(actId) {
+  const a = demo.acts.find(x => x.id === actId);
+  const taken = { [demoCreatorUid(a)]: true };
+  demo.coAdmins.filter(c => c.actId === actId).forEach(c => { taken[c.uid] = true; });
+  const out = [];
+  const people = demoCollectPeople(actId);
+  Object.keys(people).forEach(uid => {
+    if (taken[uid]) return;
+    const p = people[uid];
+    out.push({ name: p.name, key: demoCoKey(actId, uid), via: p.wrote && p.received ? 'both' : p.wrote ? 'wrote' : 'received' });
+  });
+  return out.sort((x, y) => x.name.localeCompare(y.name, 'zh-Hant'));
+}
+function demoFindByKey(actId, key) {
+  const a = demo.acts.find(x => x.id === actId);
+  const taken = { [demoCreatorUid(a)]: true };
+  demo.coAdmins.filter(c => c.actId === actId).forEach(c => { taken[c.uid] = true; });
+  const people = demoCollectPeople(actId);
+  for (const uid of Object.keys(people)) {
+    if (taken[uid]) continue;
+    if (demoCoKey(actId, uid) === String(key || '')) return people[uid];
+  }
+  return null;
+}
+function demoActFlags(a) {
+  const mine = demoCreatorUid(a) === demo.me.userId;
+  const coadmin = !mine && demoIsCoAdmin(a.id);
+  return { ...demoStats(a), mine, coadmin };
+}
+function demoVisibleActs() {
+  return demo.acts.filter(a => demo.me.isSuper || demoCreatorUid(a) === demo.me.userId || demoIsCoAdmin(a.id) || (demo.me.isAdmin && DEMO_MODE !== 'coadmin'))
+    .map(demoActFlags);
+}
 
 async function demoApi(action, d) {
   await new Promise(r => setTimeout(r, 250));
@@ -410,12 +498,12 @@ async function demoApi(action, d) {
   const letter = id => demo.letters.find(l => l.id === id);
   switch (action) {
     case 'me': return { ok: true, ...demo.me };
-    case 'home': return { ok: true, me: { ...demo.me }, acts: demo.acts.map(demoStats) };
+    case 'home': return { ok: true, me: { ...demo.me }, acts: demoVisibleActs() };
     case 'writeBoot': {
       const a = act(d.actId);
       const st = a ? demoStats(a) : null;
       return { ok: true, me: { ...demo.me }, act: a ? { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, paper: a.paper, state: st.state, opened: st.opened, loved: st.loved, writers: st.writers } : null,
-        verses: (await demoApi('verses', {})).verses, letters: demo.letters.filter(l => l.fromUid === 'Udemo' && l.actId === d.actId).reverse() };
+        verses: (await demoApi('verses', {})).verses, letters: demo.letters.filter(l => l.fromUid === demo.me.userId && l.actId === d.actId).reverse() };
     }
     case 'session': return { ok: true, token: 'demo', expires: Date.now() + 864e5 };
     case 'act': { const a = act(d.actId); const st = a ? demoStats(a) : null; return { ok: true, act: a ? { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, paper: a.paper, state: st.state, opened: st.opened, loved: st.loved, writers: st.writers } : null }; }
@@ -428,38 +516,57 @@ async function demoApi(action, d) {
     case 'writeLetter': {
       if (!d.letter.to) throw new Error('請填寫收信人的名字');
       if (!d.letter.text) throw new Error('請寫下要給對方的悄悄話');
-      const l = { id: 'L' + Date.now(), actId: d.actId, from: demo.me.name, fromUid: 'Udemo', ...d.letter, time: '剛剛', sent: false, openedAt: '', openedBy: '' };
-      demo.letters.push(l); const wc = demoCounts(l.actId, l.to, 'Udemo'); return { ok: true, letter: { id: l.id, actId: l.actId, actTitle: act(l.actId).title, from: l.from, to: l.to, paper: l.paper, loved: wc.loved, writers: wc.writers } };
+      const l = { id: 'L' + Date.now(), actId: d.actId, from: demo.me.name, fromUid: demo.me.userId, ...d.letter, time: '剛剛', sent: false, openedAt: '', openedBy: '' };
+      demo.letters.push(l); const wc = demoCounts(l.actId, l.to, demo.me.userId); return { ok: true, letter: { id: l.id, actId: l.actId, actTitle: act(l.actId).title, from: l.from, to: l.to, paper: l.paper, loved: wc.loved, writers: wc.writers } };
     }
     case 'updateLetter': {
       const l = letter(d.letterId); if (l.openedAt) throw new Error('對方已經收信了，不能再修改');
       const changedTo = l.to !== d.letter.to; Object.assign(l, d.letter); if (changedTo) l.sent = false;
       const uc = demoCounts(l.actId, l.to, l.fromUid); return { ok: true, letter: { id: l.id, actId: l.actId, actTitle: act(l.actId).title, from: l.from, to: l.to, paper: l.paper, changedTo, loved: uc.loved, writers: uc.writers } };
     }
-    case 'deleteLetter': demo.letters = demo.letters.filter(l => l.id !== d.letterId); return { ok: true, id: d.letterId, opens: 0 };
+    case 'deleteLetter': { const l = letter(d.letterId); if (l && l.fromUid !== demo.me.userId) demoRequireOwner(l.actId); demo.letters = demo.letters.filter(x => x.id !== d.letterId); return { ok: true, id: d.letterId, opens: 0 }; }
     case 'verses': return { ok: true, verses: VERSE_REFS };
     case 'markSent': { const l = letter(d.letterId); l.sent = true; const mc = demoCounts(l.actId); return { ok: true, id: d.letterId, loved: mc.loved, writers: mc.writers }; }
-    case 'myLetters': return { ok: true, letters: demo.letters.filter(l => l.fromUid === 'Udemo' && (!d.actId || l.actId === d.actId)).slice().reverse().map(demoContent) };
+    case 'myLetters': return { ok: true, letters: demo.letters.filter(l => l.fromUid === demo.me.userId && (!d.actId || l.actId === d.actId)).slice().reverse().map(demoContent) };
     case 'openLetter': {
       const l = letter(d.letterId);
-      if (l.fromUid === 'Udemo') return { ok: true, status: 'mine', letter: demoContent(l), openedAt: l.openedAt };
+      if (l.fromUid === demo.me.userId) return { ok: true, status: 'mine', letter: demoContent(l), openedAt: l.openedAt };
       if (!demo.me.name) return { ok: true, status: 'need_bind', to: l.to };
       if (DEMO_MODE === 'wrong') return { ok: true, status: 'wrong_person', to: l.to, name: '王小明' };
-      const first = !l.openedAt; if (first) { l.openedAt = '剛剛'; l.openedBy = demo.me.name; }
+      const first = !l.openedAt; if (first) { l.openedAt = '剛剛'; l.openedBy = demo.me.name; l.openedUid = demo.me.userId; }
       return { ok: true, status: 'opened', first, letter: demoContent(l), openedAt: l.openedAt };
     }
-    case 'createAct': { if (!d.act.title) throw new Error('請填寫活動名稱'); const a = { id: 'A' + Date.now(), ...d.act, open: true, created: '剛剛', creator: '預覽使用者', mine: true }; demo.acts.unshift(a); return { ok: true, act: demoStats(a) }; }
-    case 'updateAct': { const a = act(d.actId); Object.assign(a, d.act); return { ok: true, act: demoStats(a) }; }
-    case 'listActs': return { ok: true, acts: demo.acts.map(demoStats) };
+    case 'createAct': { if (!d.act.title) throw new Error('請填寫活動名稱'); const a = { id: 'A' + Date.now(), ...d.act, open: true, created: '剛剛', creator: demo.me.name || '預覽使用者', creatorUid: demo.me.userId, mine: true }; demo.acts.unshift(a); return { ok: true, act: demoActFlags(a) }; }
+    case 'updateAct': { demoRequireOwner(d.actId); const a = act(d.actId); Object.assign(a, d.act); return { ok: true, act: demoActFlags(a) }; }
+    case 'listActs': return { ok: true, acts: demoVisibleActs() };
     case 'actDetail': {   // 跟後端一樣：只有網站總管理者拿得到信件內容
+      demoRequireOwner(d.actId);
       const a = act(d.actId), full = !!demo.me.isSuper;
+      const canManageAdmins = full || demoIsCreator(d.actId);
+      const role = full ? 'super' : demoIsCreator(d.actId) ? 'creator' : demoIsCoAdmin(d.actId) ? 'coadmin' : 'owner';
       const list = demo.letters.filter(l => l.actId === a.id).slice().reverse().map(({ id, from, to, paper, time, sent, openedAt, openedBy, text, image, vref, vtext }) =>
         ({ id, from, to, paper, time, sent, openedAt, openedBy, ...(full ? { text, image, vref, vtext } : {}) }));
-      return { ok: true, act: demoStats(a), list, full };
+      return { ok: true, act: demoActFlags(a), list, full, canManageAdmins, canDeleteAct: canManageAdmins, role, coAdmins: demoListCoAdmins(d.actId), candidates: demoListCandidates(d.actId) };
     }
-    case 'setOpen': { const a = act(d.actId); a.open = d.open; return { ok: true, act: demoStats(a) }; }
-    case 'deleteAct': { const n = demo.letters.filter(l => l.actId === d.actId).length; demo.acts = demo.acts.filter(a => a.id !== d.actId); demo.letters = demo.letters.filter(l => l.actId !== d.actId); return { ok: true, letters: n, opens: 0 }; }
-    case 'myData': return { ok: true, found: !!demo.me.name, name: demo.me.name, phone: '0912345678', lineName: '預覽使用者', sent: demo.letters.filter(l => l.fromUid === 'Udemo').length, received: 1 };
+    case 'setOpen': { demoRequireOwner(d.actId); const a = act(d.actId); a.open = d.open; return { ok: true, act: demoActFlags(a) }; }
+    case 'deleteAct': { demoRequireCreator(d.actId); const n = demo.letters.filter(l => l.actId === d.actId).length; demo.acts = demo.acts.filter(a => a.id !== d.actId); demo.letters = demo.letters.filter(l => l.actId !== d.actId); demo.coAdmins = demo.coAdmins.filter(c => c.actId !== d.actId); return { ok: true, letters: n, opens: 0 }; }
+    case 'addCoAdmin': {
+      demoRequireCreator(d.actId);
+      const already = demo.coAdmins.find(c => c.actId === d.actId && demoCoKey(d.actId, c.uid) === String(d.key || ''));
+      if (already) return { ok: true, added: false, name: already.name, coAdmins: demoListCoAdmins(d.actId), candidates: demoListCandidates(d.actId) };
+      const person = demoFindByKey(d.actId, d.key);
+      if (!person) throw new Error('只能新增這個活動裡已經寫信或已經收信的人');
+      demo.coAdmins.push({ actId: d.actId, uid: person.uid, name: person.name });
+      return { ok: true, added: true, name: person.name, coAdmins: demoListCoAdmins(d.actId), candidates: demoListCandidates(d.actId) };
+    }
+    case 'removeCoAdmin': {
+      demoRequireCreator(d.actId);
+      const i = demo.coAdmins.findIndex(c => c.actId === d.actId && demoCoKey(d.actId, c.uid) === String(d.key || ''));
+      let name = '', removed = false;
+      if (i >= 0) { name = demo.coAdmins[i].name; demo.coAdmins.splice(i, 1); removed = true; }
+      return { ok: true, removed, name, coAdmins: demoListCoAdmins(d.actId), candidates: demoListCandidates(d.actId) };
+    }
+    case 'myData': return { ok: true, found: !!demo.me.name, name: demo.me.name, phone: '0912345678', lineName: demo.me.displayName, sent: demo.letters.filter(l => l.fromUid === demo.me.userId).length, received: 1 };
     case 'deleteMyData': demo.me.name = ''; return { ok: true, roster: 1, letters: 1, opens: 1 };
   }
 }
@@ -557,8 +664,9 @@ const GUIDES = {
   host: [
     ['📮', '建立流通神聖的愛活動', '按「建立」填活動名稱、說明和寫信截止時間，也可以選預設信紙。建立後馬上跳出選單，把寫信入口發到群組。'],
     ['✉️', '大家寫信、送出', '成員第一次寫信要填姓名和手機，之後寫信、選朋友或群組送出信封。圖卡上活動標題旁邊會顯示「已有 XX 人寫信」「已有 XX 個人收到愛」。'],
-    ['🔒', '看神聖的愛流通', '點進活動就能看到「誰 → 誰」、是否已送出與收信。活動建立人看不到信件內容，只有網站總管理者看得到。必要時可刪除某封信。'],
-    ['⚙️', '管理活動', '活動頁最下方有收信人名單，可複製或截圖存下來。也可以編輯、停止或重新開放寫信、刪除活動。首頁可以查看自己寫過的信，或把平台安裝到手機桌面。'],
+    ['🔒', '看神聖的愛流通', '點進活動就能看到「誰 → 誰」、是否已送出與收信。活動建立人與共同管理者看不到信件內容，只有網站總管理者看得到。必要時可刪除某封信。'],
+    ['👥', '共同管理者', '活動建立者可以把已經寫信或已經收信的人加為共同管理者（點選名字即可）。共同管理者和建立者一樣可以看後台、編輯活動、停止寫信、刪除信件，但看不到信件內容，也不能新增或移除共同管理者，也不能刪除活動。還沒打開信的收信人還不能新增（尚未連結 LINE 帳號）。'],
+    ['⚙️', '管理活動', '活動頁最下方有收信人名單，可複製或截圖存下來。也可以編輯、停止或重新開放寫信。只有活動建立者可以刪除活動、新增或移除共同管理者。首頁可以查看自己寫過的信，或把平台安裝到手機桌面。'],
   ],
 };
 let GUIDE_KIND = 'writer';
@@ -1015,7 +1123,7 @@ function renderHome() {
       <button class="card act" type="button" data-act="${esc(a.id)}">
         <div class="t"><h3>${esc(a.title)}</h3>${stateChip(a.state)}</div>
         ${actCountBadges(a)}
-        <div class="s"><span class="nowrap">✉️ ${a.letters} 封信</span>・<span class="nowrap">🕊️ 神聖的愛流通成功 ${a.opened}</span>${a.deadline ? `・<span class="nowrap">截止 ${esc(shortTime(a.deadline))}</span>` : ''}${a.mine === false ? `・${esc(a.creator)} 建立` : ''}</div>
+        <div class="s"><span class="nowrap">✉️ ${a.letters} 封信</span>・<span class="nowrap">🕊️ 神聖的愛流通成功 ${a.opened}</span>${a.deadline ? `・<span class="nowrap">截止 ${esc(shortTime(a.deadline))}</span>` : ''}${a.coadmin ? '・共同管理' : ''}${a.mine === false ? `・${esc(a.creator)} 建立` : ''}</div>
       </button>`).join('') : `<div class="card empty"><div class="big-emoji">✉️</div>還沒有流通神聖的愛活動，按上面的按鈕建立第一個。</div>`}
     <button class="card mine-entry" type="button" id="h-mine">
       <div class="t"><h3>我寫過的信</h3><span aria-hidden="true">✉️</span></div>
@@ -1116,16 +1224,17 @@ function drawDetail() {
     </div>
     <p class="muted small">${full ? '點一下可看信件內容（你是網站管理者）。' : '點一下可刪除某封信。'}收信人登記的姓名和信上寫的大致相符（可加稱謂或小名），按下收信才算神聖的愛流通成功。</p>
     ${rosterHtml(a, list)}
+    ${coAdminHtml(DETAIL)}
     <div class="btn-row">
       <button class="btn ghost" id="d-edit" type="button">編輯</button>
       <button class="btn ghost" id="d-open" type="button">${a.open ? '停止寫信' : '重新開放寫信'}</button>
-      <button class="btn danger" id="d-del" type="button">刪除活動</button>
+      ${DETAIL.canDeleteAct === true ? '<button class="btn danger" id="d-del" type="button">刪除活動</button>' : ''}
     </div>${footHtml()}`, 'detail:' + a.id);
   $('d-back').onclick = () => renderHome();
   $('d-share').onclick = e => busy(e.currentTarget, () => sendAct(a));
   $('d-edit').onclick = () => renderActForm(a);
   $('d-open').onclick = e => busy(e.currentTarget, async rid => { DETAIL.act = (await api('setOpen', { actId: a.id, open: !a.open, rid })).act; drawDetail(); });
-  $('d-del').onclick = e => armThen(e.currentTarget, `確定刪除？${list.length} 封信會一起刪掉`, () => busy(e.currentTarget, async rid => {
+  if ($('d-del')) $('d-del').onclick = e => armThen(e.currentTarget, `確定刪除？${list.length} 封信會一起刪掉`, () => busy(e.currentTarget, async rid => {
     await api('deleteAct', { actId: a.id, rid }); ACTS = ACTS.filter(x => x.id !== a.id); saveHome(); cacheDel('detail:' + a.id); toast('已刪除'); renderHome();
   }));
   document.querySelectorAll('[data-ldel]').forEach(b => b.onclick = () => armThen(b, '確定刪除？刪了無法復原', () => busy(b, async rid => {
@@ -1139,6 +1248,7 @@ function drawDetail() {
   document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { FILTER = b.dataset.f; drawDetail(); });
   document.querySelectorAll('[data-row]').forEach(b => b.onclick = () => { OPENED_ROW = OPENED_ROW === b.dataset.row ? '' : b.dataset.row; const y = scrollY; drawDetail(); scrollTo(0, y); });
   bindRosterActions(a, list);
+  bindCoAdminActions();
 }
 
 
@@ -1213,6 +1323,43 @@ function rosterHtml(act, list) {
       ${roster.length ? roster.map(g => `<div class="row"><span class="nm">${esc(g.name)}</span><span class="st">${g.total} 封・${esc(rosterStatus(g))}</span></div>`).join('') : '<div class="empty small">還沒有已送出的收信人</div>'}
     </div>
   </section>`;
+}
+function coAdminHtml(d) {
+  const list = (d && d.coAdmins) || [];
+  const cands = (d && d.candidates) || [];
+  const manage = d && d.canManageAdmins === true;
+  const viaLabel = { wrote: '寫過信', received: '已收信', both: '寫過信・已收信' };
+  return `<section id="d-coadmins">
+    <div class="coadmin-head"><h3>共同管理者（${list.length}）</h3></div>
+    <p class="muted small">共同管理者和建立者一樣可以看後台、編輯活動、停止或重新開放寫信、刪除信件；看不到信件內容。只有活動建立者可以新增或移除共同管理者，以及刪除活動。</p>
+    <div class="card co-list" style="padding:4px 14px">
+      ${list.length ? list.map(c => `<div class="row"><span class="nm">${esc(c.name)}</span>${manage ? `<button class="btn danger" type="button" data-corem="${esc(c.key)}" style="min-height:36px;padding:4px 12px">移除</button>` : ''}</div>`).join('') : '<div class="empty small">還沒有共同管理者</div>'}
+    </div>
+    ${manage ? `<p class="muted small" style="margin:14px 0 4px">點選名字即可新增。名單來自這個活動裡已經寫信或已經收信的人。</p>
+      <div class="co-cands">${cands.length ? cands.map(c => `<button type="button" data-coadd="${esc(c.key)}">${esc(c.name)}<span class="via">${esc(viaLabel[c.via] || '')}</span></button>`).join('') : '<span class="muted small">目前沒有可新增的人</span>'}</div>
+      <p class="muted small">還沒打開信的收信人還不能新增（尚未連結 LINE 帳號）。</p>` : '<p class="muted small">只有活動建立者可以新增或移除共同管理者。</p>'}
+  </section>`;
+}
+function bindCoAdminActions() {
+  document.querySelectorAll('[data-coadd]').forEach(b => b.onclick = () => {
+    const name = (b.childNodes[0] && b.childNodes[0].textContent || '').trim();
+    armThen(b, `確定新增「${name || '這位'}」為共同管理者？`, () => busy(b, async rid => {
+      const r = await api('addCoAdmin', { actId: DETAIL.act.id, key: b.dataset.coadd, rid });
+      DETAIL.coAdmins = r.coAdmins; DETAIL.candidates = r.candidates;
+      toast(r.added === false ? '已經是共同管理者' : '已新增共同管理者');
+      drawDetail();
+    }));
+  });
+  document.querySelectorAll('[data-corem]').forEach(b => b.onclick = () => {
+    const row = b.closest('.row');
+    const name = row && row.querySelector('.nm') ? row.querySelector('.nm').textContent : '這位';
+    armThen(b, `確定移除「${name}」？`, () => busy(b, async rid => {
+      const r = await api('removeCoAdmin', { actId: DETAIL.act.id, key: b.dataset.corem, rid });
+      DETAIL.coAdmins = r.coAdmins; DETAIL.candidates = r.candidates;
+      toast(r.removed ? '已移除' : '已不在名單中');
+      drawDetail();
+    }));
+  });
 }
 function bindRosterActions(act, list) {
   const roster = rosterOf(list);
