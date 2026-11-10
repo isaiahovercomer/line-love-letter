@@ -102,6 +102,7 @@ function run(user, req) {
     case 'removeCoAdmin': out = { ok: true, ...removeCoAdmin(user, req.actId, req.key) }; break;
     case 'myData':       out = { ok: true, ...myData(user) }; break;
     case 'deleteMyData': out = { ok: true, ...deleteMyData(user) }; break;
+    case 'overview':     out = { ok: true, ...listOverview(user) }; break;
     default: throw new Error('未知的動作');
   }
   return out;
@@ -798,4 +799,28 @@ function deleteMyData(user) {
     sessionSheet(); deleteRows(SESSION_SHEET, r => String(r[1]) === user.userId);
     return { roster, letters, opens, coadmins };
   });
+}
+
+/** 網站總管理者專用：列出已登記的人（不含 LINE userId、不含登入通行證） */
+function requireSuper(user) {
+  if (!isSuperAdmin(user.userId)) throw new Error('只有網站總管理者可以看登記總覽');
+}
+function listOverview(user) {
+  requireSuper(user);
+  const letters = rows(SH.LETTERS);
+  const opens = rows(SH.OPENS);
+  const people = rows(SH.ROSTER).map(function (r) {
+    const uid = String(r[2] || '').trim();
+    const rec = {
+      name: String(r[0] || ''),
+      phone: String(r[1] || ''),
+      lineName: String(r[3] || ''),
+      written: letters.filter(function (l) { return String(l[LT.FROM_UID] || '').trim() === uid; }).length,
+      received: opens.filter(function (o) { return String(o[OP.UID] || '').trim() === uid; }).length
+    };
+    if (r.length > 4 && r[4]) rec.time = fmt(r[4]);
+    return rec;
+  });
+  people.sort(function (a, b) { return a.name.localeCompare(b.name, 'zh-Hant'); });
+  return { total: people.length, people: people };
 }

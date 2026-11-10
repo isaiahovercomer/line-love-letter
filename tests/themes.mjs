@@ -32,8 +32,8 @@ for (const t of themes) {
 check('19 組主題 SVG 齊全（含舊版聖誕）', missing.length === 0);
 check('新 SVG 合計不超過 60 KB', total <= 60 * 1024);
 console.log('  SVG 合計', total, 'bytes');
-check('sw 快取 v15 且含主題 SVG',
-  /loveletter-v15/.test(sw) && themes.every(t => sw.includes(`./img/themes/${t}.svg`)));
+check('sw 快取 v16 且含主題 SVG',
+  /loveletter-v16/.test(sw) && themes.every(t => sw.includes(`./img/themes/${t}.svg`)));
 check('Code.gs 白名單含新場合且保留舊版 xmas',
   /midautumn/.test(gs) && /duanwu/.test(gs) && /chuxi/.test(gs)
   && /winterbreak/.test(gs) && /summer/.test(gs) && /xmas/.test(gs)
