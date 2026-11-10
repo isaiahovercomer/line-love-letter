@@ -24,7 +24,7 @@ const HEADERS = {
 const AC = { ID: 0, TITLE: 1, DESC: 2, OPEN: 3, CREATOR: 4, CREATED: 5, DEADLINE: 6, PAPER: 7 };
 const LT = { ID: 0, ACT: 1, FROM: 2, FROM_UID: 3, TO: 4, TEXT: 5, IMAGE: 6, PAPER: 7, TIME: 8, SENT: 9, VREF: 10, VTEXT: 11 };
 const OP = { TIME: 0, LETTER: 1, ACT: 2, NAME: 3, LINE_NAME: 4, UID: 5 };
-const PAPERS = ['rose', 'sky', 'kraft', 'mint', 'winter', 'xmas', 'newyear', 'thanks', 'grad', 'birthday', 'gospel'];
+const PAPERS = ['rose', 'sky', 'kraft', 'mint', 'winter', 'xmas', 'newyear', 'thanks', 'grad', 'birthday', 'gospel', 'love', 'shepherd', 'build'];
 
 function setup() {
   const ss = SpreadsheetApp.getActive();
@@ -92,7 +92,7 @@ function run(user, req) {
     case 'createAct':    out = { ok: true, act: createAct(user, req.act || {}) }; break;
     case 'listActs':     out = { ok: true, acts: listActs(user) }; break;
     case 'updateAct':    own(); out = { ok: true, act: updateAct(req.actId, req.act || {}) }; break;
-    case 'actDetail':    own(); out = { ok: true, ...actDetail(req.actId) }; break;
+    case 'actDetail':    own(); out = { ok: true, ...actDetail(req.actId, isSuperAdmin(user.userId)) }; break;
     case 'setOpen':      own(); out = { ok: true, act: setOpen(req.actId, !!req.open) }; break;
     case 'deleteAct':    own(); out = { ok: true, ...deleteAct(req.actId) }; break;
     case 'myData':       out = { ok: true, ...myData(user) }; break;
@@ -212,7 +212,7 @@ function deleteRows(name, test) {
 
 /* ---------- 名單：姓名＋手機第一次登記後綁定 LINE ---------- */
 function rosterRow(user) { return rows(SH.ROSTER).find(r => String(r[2]).trim() === user.userId); }
-function meOf(user) { return { userId: user.userId, displayName: user.displayName, name: rosterName(user), isAdmin: isPublisher(user.userId) }; }
+function meOf(user) { const sup = isSuperAdmin(user.userId); return { userId: user.userId, displayName: user.displayName, name: rosterName(user), isAdmin: sup || isPublisher(user.userId), isSuper: sup }; }
 function rosterName(user) { const r = rosterRow(user); return r ? String(r[0]) : ''; }
 
 function bind(user, name, phone) {
@@ -238,10 +238,15 @@ function bind(user, name, phone) {
 }
 
 /* ---------- 權限 ---------- */
+// 發布者（「發布者」工作表）＝管理員：看得到所有活動的後台（配對、名單），但和活動建立者一樣看不到信件內容。
+// 網站總管理者：Apps Script「專案設定 → 指令碼屬性」的 SUPER_ADMIN（LINE userId，多位用逗號分隔），
+// 只有他們在後台看得到各活動信件的內容。userId 不寫在程式裡。
 function isPublisher(uid) { return rows(SH.PUBLISHERS).some(r => String(r[0]).trim() === uid); }
+function superAdmins() { return String(PropertiesService.getScriptProperties().getProperty('SUPER_ADMIN') || '').split(/[\s,，;；]+/).filter(Boolean); }
+function isSuperAdmin(uid) { return !!uid && superAdmins().includes(String(uid)); }
 function creatorOf(row) { const m = /\((U[0-9a-f]+)\)\s*$/.exec(String(row[AC.CREATOR] || '')); return m ? m[1] : ''; }
 function requireOwner(user, actId) {
-  if (isPublisher(user.userId)) return;
+  if (isSuperAdmin(user.userId) || isPublisher(user.userId)) return;
   if (creatorOf(findActRow(actId).row) !== user.userId) throw new Error('只有活動建立者可以看這個活動的後台');
 }
 
@@ -274,7 +279,26 @@ function stateOf(a) {
   return d && d < new Date() ? 'ended' : 'open';
 }
 function openedCount(actId) { return new Set(rows(SH.OPENS).filter(o => String(o[OP.ACT]) === String(actId)).map(o => String(o[OP.LETTER]))).size; }
-function publicAct(a) { return { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, paper: a.paper, state: stateOf(a), opened: openedCount(a.id) }; }
+/** 已有 XX 個人收到愛：該活動中「已送出」信件的不重複收信人（normName）。extraTo 會把正要送出的這一封也算進去。公開總數，短暫快取。 */
+function lovedCount(actId, extraTo) {
+  const cache = CacheService.getScriptCache(), key = 'loved:' + String(actId);
+  if (extraTo == null || extraTo === '') {
+    const hit = cache.get(key);
+    if (hit != null) return +hit;
+  }
+  const names = {};
+  rows(SH.LETTERS).forEach(function (l) {
+    if (String(l[LT.ACT]) !== String(actId) || !isTrue(l[LT.SENT])) return;
+    const n = normName(l[LT.TO]);
+    if (n) names[n] = true;
+  });
+  if (extraTo) { const n = normName(extraTo); if (n) names[n] = true; }
+  const n = Object.keys(names).length;
+  if (extraTo == null || extraTo === '') { try { cache.put(key, String(n), 60); } catch (e) {} }
+  return n;
+}
+function clearLoved(actId) { try { CacheService.getScriptCache().remove('loved:' + String(actId)); } catch (e) {} }
+function publicAct(a) { return { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, paper: a.paper, state: stateOf(a), opened: openedCount(a.id), loved: lovedCount(a.id) }; }
 function findActRow(id) {
   const data = sheet(SH.ACTS).getDataRange().getValues();
   for (let i = 1; i < data.length; i++) if (String(data[i][AC.ID]) === String(id)) return { index: i + 1, row: data[i] };
@@ -326,26 +350,32 @@ function withStats(a, letters, opens) {
 }
 
 function listActs(user) {
-  const admin = isPublisher(user.userId);
+  const admin = isSuperAdmin(user.userId) || isPublisher(user.userId);
   const letters = rows(SH.LETTERS), opens = rows(SH.OPENS);
   return rows(SH.ACTS).filter(r => admin || creatorOf(r) === user.userId)
     .map(r => ({ ...withStats(rowToAct(r), letters, opens), mine: creatorOf(r) === user.userId }))
     .reverse();
 }
 
-/** 後台：每封信的寄件人、收信人、內容與收信狀態 */
-function actDetail(id) {
+/**
+ * 後台的一列信：寄件人、收信人、時間、是否送出／收信。
+ * 信件內容（悄悄話、照片、經文）只有 full = true（網站總管理者）才放進去；活動建立者與發布者拿不到。
+ */
+function hostLetterView(l, o, full) {
+  const v = { id: String(l[LT.ID]), from: String(l[LT.FROM]), to: String(l[LT.TO]), paper: String(l[LT.PAPER] || 'rose'),
+    time: fmt(l[LT.TIME]), sent: isTrue(l[LT.SENT]), openedAt: o ? fmt(o[OP.TIME]) : '', openedBy: o ? String(o[OP.NAME]) : '' };
+  if (full) Object.assign(v, { text: String(l[LT.TEXT]), image: String(l[LT.IMAGE] || ''), vref: String(l[LT.VREF] || ''), vtext: String(l[LT.VTEXT] || '') });
+  return v;
+}
+
+/** 後台：每封信的寄件人、收信人與收信狀態；full（網站總管理者）才附信件內容 */
+function actDetail(id, full) {
   const a = getAct(id);
   if (!a) throw new Error('找不到這個流通神聖的愛活動');
   const opens = rows(SH.OPENS).filter(o => String(o[OP.ACT]) === a.id);
-  const letters = rows(SH.LETTERS).filter(l => String(l[LT.ACT]) === a.id).map(l => {
-    const o = opens.find(o => String(o[OP.LETTER]) === String(l[LT.ID]));
-    return { id: String(l[LT.ID]), from: String(l[LT.FROM]), to: String(l[LT.TO]), text: String(l[LT.TEXT]), image: String(l[LT.IMAGE] || ''),
-      paper: String(l[LT.PAPER] || 'rose'), time: fmt(l[LT.TIME]), sent: isTrue(l[LT.SENT]),
-      vref: String(l[LT.VREF] || ''), vtext: String(l[LT.VTEXT] || ''),
-      openedAt: o ? fmt(o[OP.TIME]) : '', openedBy: o ? String(o[OP.NAME]) : '' };
-  }).reverse();
-  return { act: withStats(a), list: letters };
+  const letters = rows(SH.LETTERS).filter(l => String(l[LT.ACT]) === a.id)
+    .map(l => hostLetterView(l, opens.find(o => String(o[OP.LETTER]) === String(l[LT.ID])), !!full)).reverse();
+  return { act: withStats(a), list: letters, full: !!full };
 }
 
 function deleteAct(id) {
@@ -354,6 +384,7 @@ function deleteAct(id) {
     sheet(SH.ACTS).deleteRow(f.index);
     const letters = deleteRows(SH.LETTERS, r => String(r[LT.ACT]) === String(id));
     const opens = deleteRows(SH.OPENS, r => String(r[OP.ACT]) === String(id));
+    clearLoved(id);
     return { letters, opens };
   });
 }
@@ -447,7 +478,7 @@ function writeLetter(user, actId, input) {
   const { to, text, image, paper, vref, vtext } = cleanLetterInput(input);
   const id = newId('L');
   withLock(() => sheet(SH.LETTERS).appendRow(safeRow([id, a.id, from, user.userId, to, text, image, paper, new Date(), false, vref, vtext])));
-  return { id, actId: a.id, actTitle: a.title, from, to, paper, opened: openedCount(a.id) };
+  return { id, actId: a.id, actTitle: a.title, from, to, paper, opened: openedCount(a.id), loved: lovedCount(a.id, to) };
 }
 
 function cleanLetterInput(input) {
@@ -473,7 +504,8 @@ function updateLetter(user, letterId, input) {
     sh.getRange(f.index, LT.VREF + 1, 1, 2).setValues([safeRow([l.vref, l.vtext])]);
     const changedTo = normName(f.row[LT.TO]) !== normName(l.to);
     if (changedTo) sh.getRange(f.index, LT.SENT + 1).setValue(false); // 換了收信人，要重新送出
-    return { id: String(letterId), actId: a.id, actTitle: a.title, from: String(f.row[LT.FROM]), to: l.to, paper: l.paper, changedTo, opened: openedCount(a.id) };
+    clearLoved(a.id);
+    return { id: String(letterId), actId: a.id, actTitle: a.title, from: String(f.row[LT.FROM]), to: l.to, paper: l.paper, changedTo, opened: openedCount(a.id), loved: lovedCount(a.id, l.to) };
   });
 }
 
@@ -483,8 +515,10 @@ function deleteLetter(user, letterId) {
     const f = findLetter(letterId);
     if (!f) throw new Error('找不到這封信，可能已經被刪除');
     if (String(f.row[LT.FROM_UID]) !== user.userId) requireOwner(user, f.row[LT.ACT]);
+    const actId = String(f.row[LT.ACT]);
     sheet(SH.LETTERS).deleteRow(f.index);
     const opens = deleteRows(SH.OPENS, r => String(r[OP.LETTER]) === String(letterId));
+    clearLoved(actId);
     return { id: String(letterId), opens };
   });
 }
@@ -495,7 +529,9 @@ function markSent(user, letterId) {
     const f = findLetter(letterId);
     if (!f || String(f.row[LT.FROM_UID]) !== user.userId) throw new Error('找不到這封信');
     sheet(SH.LETTERS).getRange(f.index, LT.SENT + 1).setValue(true);
-    return { id: letterId };
+    const actId = String(f.row[LT.ACT]);
+    clearLoved(actId);
+    return { id: letterId, loved: lovedCount(actId) };
   });
 }
 
@@ -514,7 +550,7 @@ function letterCard(id) {
   const f = findLetter(id);
   if (!f) return null;
   const a = getAct(f.row[LT.ACT]);
-  return { id: String(id), to: String(f.row[LT.TO]), paper: String(f.row[LT.PAPER] || 'rose'), actId: String(f.row[LT.ACT]), actTitle: a ? a.title : '', opened: openedCount(f.row[LT.ACT]) };
+  return { id: String(id), to: String(f.row[LT.TO]), paper: String(f.row[LT.PAPER] || 'rose'), actId: String(f.row[LT.ACT]), actTitle: a ? a.title : '', opened: openedCount(f.row[LT.ACT]), loved: lovedCount(f.row[LT.ACT], f.row[LT.TO]) };
 }
 
 function letterContent(r, a) {

@@ -134,3 +134,17 @@
 未測：正式 LIFF 登入、真實後端（依限制不打真實後端）、Service Worker（本機為 http，不會註冊）。
 
 SUCCESS
+
+## C–K（t123u–t136u，Grok 接手，t132u 核准）
+
+- 配色「米白暖杏」：`--sky #FAF6F0`、`--sky-2 #F3EADC`、`--card #FFFFFF`、`--gold #A9824E`、`--gold-text #7E5B2C`、`--on-gold #1F1709`、`--rule #EADFCE`（金色按鈕對比 ≥ AA）
+- 隱私：活動建立人／發布者看不到信件內容；只有指令碼屬性 `SUPER_ADMIN` 的總管理者看得到。預覽 `?demo=admin`
+- 節日／場合獨自一行，與日常左對齊（390／320）
+- 21 條恢復本經文出處全部在頁面內換行，依 福音／祝福／愛 分組
+- 新增信紙：愛情、牧養、建造；福音符號改為書本，畫面與原始檔皆無十字架
+- `img/in-christ.svg` 中央改為鴿子與橄欖枝，保留金色圓印與外圈 IN CHRIST
+- LINE 圖卡顯示「已有 XX 個人收到愛」（該活動已送出信件的不重複收信人數，含正要送出的這一封；0 不顯示；發出後不會自動更新）
+- 每款主題輕柔原創 CC0 背景音樂（約 28 秒循環、loudnorm −24 LUFS、音量 0.35、點選後才載入）。寫信頁說明「點選主題，會配上相應的背景音樂」；收信頁「🔈 打開聲音聆聽」
+- 使用說明與 README 已更新
+- 測試：`demo-smoke` 17/17、`no-double-submit` 15/15、`no-cross`、`loved-count`；gitleaks
+- 後端需手動把 `Code.gs` 貼回 Apps Script，部署新版本，執行一次 `resetVerseRefs`，並設定 `SUPER_ADMIN`
