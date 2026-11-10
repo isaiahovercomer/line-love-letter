@@ -9,19 +9,20 @@ const CONFIG = {
   IMAGE_FOLDER: 'LINE 流通神聖的愛圖卡照片', // 信裡附的照片存在雲端硬碟這個資料夾
 };
 
-const SH = { ROSTER: '名單', ACTS: '流通神聖的愛活動', LETTERS: '信件', OPENS: '收信紀錄', PUBLISHERS: '發布者' };
+const SH = { ROSTER: '名單', ACTS: '流通神聖的愛活動', LETTERS: '信件', OPENS: '收信紀錄', PUBLISHERS: '發布者', VERSES: '經文' };
 
 const HEADERS = {
   '名單': ['姓名', '手機', 'LINE userId', 'LINE名稱'],
   '流通神聖的愛活動': ['活動代碼', '活動名稱', '說明', '開放寫信', '建立者', '建立時間', '截止時間'],
-  '信件': ['信件代碼', '活動代碼', '寄件人姓名', '寄件人 userId', '收信人姓名', '悄悄話', '照片網址', '信紙', '寫信時間', '已送出'],
+  '信件': ['信件代碼', '活動代碼', '寄件人姓名', '寄件人 userId', '收信人姓名', '悄悄話', '照片網址', '信紙', '寫信時間', '已送出', '經文出處', '經文內容'],
   '收信紀錄': ['時間', '信件代碼', '活動代碼', '收信人姓名', 'LINE名稱', 'LINE userId'],
   '發布者': ['LINE userId', '名稱', '備註'],
+  '經文': ['出處', '經文（請貼上恢復本經文）', '分類'],
 };
 
 // 欄位位置（從 0 開始）
 const AC = { ID: 0, TITLE: 1, DESC: 2, OPEN: 3, CREATOR: 4, CREATED: 5, DEADLINE: 6 };
-const LT = { ID: 0, ACT: 1, FROM: 2, FROM_UID: 3, TO: 4, TEXT: 5, IMAGE: 6, PAPER: 7, TIME: 8, SENT: 9 };
+const LT = { ID: 0, ACT: 1, FROM: 2, FROM_UID: 3, TO: 4, TEXT: 5, IMAGE: 6, PAPER: 7, TIME: 8, SENT: 9, VREF: 10, VTEXT: 11 };
 const OP = { TIME: 0, LETTER: 1, ACT: 2, NAME: 3, LINE_NAME: 4, UID: 5 };
 const PAPERS = ['rose', 'sky', 'kraft', 'mint'];
 
@@ -40,6 +41,7 @@ function setup() {
   const def = ss.getSheetByName('工作表1') || ss.getSheetByName('Sheet1');
   if (def && def.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(def);
   imageFolder();
+  verseSheet();
 }
 
 function doGet() { return json({ ok: true, msg: '流通神聖的愛圖卡系統運作中' }); }
@@ -51,6 +53,8 @@ function doPost(e) {
     if (req.action === 'act') {                       // 公開：活動標題與說明（寫信頁、入口卡）
       const a = getAct(req.actId);
       out = { ok: true, act: a ? publicAct(a) : null };
+    } else if (req.action === 'verses') {             // 公開：寫信頁的備選經文
+      out = { ok: true, verses: listVerses() };
     } else if (req.action === 'letterCard') {         // 公開：信封資訊（不含內容）
       out = { ok: true, card: letterCard(req.letterId) };
     } else {
@@ -297,6 +301,7 @@ function actDetail(id) {
     const o = opens.find(o => String(o[OP.LETTER]) === String(l[LT.ID]));
     return { id: String(l[LT.ID]), from: String(l[LT.FROM]), to: String(l[LT.TO]), text: String(l[LT.TEXT]), image: String(l[LT.IMAGE] || ''),
       paper: String(l[LT.PAPER] || 'rose'), time: fmt(l[LT.TIME]), sent: isTrue(l[LT.SENT]),
+      vref: String(l[LT.VREF] || ''), vtext: String(l[LT.VTEXT] || ''),
       openedAt: o ? fmt(o[OP.TIME]) : '', openedBy: o ? String(o[OP.NAME]) : '' };
   }).reverse();
   return { act: withStats(a), list: letters };
@@ -310,6 +315,32 @@ function deleteAct(id) {
     const opens = deleteRows(SH.OPENS, r => String(r[OP.ACT]) === String(id));
     return { letters, opens };
   });
+}
+
+/* ---------- 備選經文：出處先填好，經文內容由主辦人貼上恢復本 ---------- */
+const VERSE_SEED = [
+  ['約翰福音 3:16', '福音'], ['羅馬書 5:8', '福音'], ['約翰一書 4:9-10', '福音'], ['以弗所書 2:8', '福音'],
+  ['約翰福音 10:10', '福音'], ['馬太福音 11:28', '福音'], ['約翰一書 4:19', '愛'], ['哥林多前書 13:4-7', '愛'],
+  ['羅馬書 8:38-39', '愛'], ['以弗所書 3:17-19', '愛'], ['耶利米書 31:3', '愛'], ['民數記 6:24-26', '祝福'],
+  ['哥林多後書 13:14', '祝福'], ['腓立比書 4:6-7', '祝福'], ['詩篇 23:1', '祝福'], ['以賽亞書 41:10', '祝福'],
+  ['腓立比書 1:6', '祝福'], ['帖撒羅尼迦前書 5:16-18', '祝福'],
+];
+function verseSheet() {
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName(SH.VERSES);
+  if (!sh) {
+    sh = ss.insertSheet(SH.VERSES);
+    sh.getRange(1, 1, 1, 3).setValues([HEADERS[SH.VERSES]]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    sh.getRange(2, 1, VERSE_SEED.length, 3).setValues(VERSE_SEED.map(v => [v[0], '', v[1]]));
+    sh.setColumnWidth(2, 480);
+  }
+  return sh;
+}
+function listVerses() {
+  verseSheet();
+  return rows(SH.VERSES).filter(r => String(r[0]).trim())
+    .map(r => ({ ref: clip(r[0], 40), text: clip(r[1], 500), cat: clip(r[2], 10) }));
 }
 
 /* ---------- 寫信、收信 ---------- */
@@ -326,9 +357,9 @@ function writeLetter(user, actId, input) {
   if (st !== 'open') throw new Error(st === 'ended' ? '這個流通神聖的愛活動已經截止寫信' : '主辦人已經停止這個活動的寫信');
   const from = rosterName(user);
   if (!from) throw new Error('NEED_BIND');
-  const { to, text, image, paper } = cleanLetterInput(input);
+  const { to, text, image, paper, vref, vtext } = cleanLetterInput(input);
   const id = newId('L');
-  withLock(() => sheet(SH.LETTERS).appendRow([id, a.id, from, user.userId, to, text, image, paper, new Date(), false]));
+  withLock(() => sheet(SH.LETTERS).appendRow([id, a.id, from, user.userId, to, text, image, paper, new Date(), false, vref, vtext]));
   return { id, actId: a.id, actTitle: a.title, from, to, paper };
 }
 
@@ -338,7 +369,7 @@ function cleanLetterInput(input) {
   if (!text) throw new Error('請寫下要給對方的悄悄話');
   const image = /^https:\/\/lh3\.googleusercontent\.com\/d\/[\w-]+$/.test(input.image || '') ? input.image : '';
   const paper = PAPERS.includes(input.paper) ? input.paper : 'rose';
-  return { to, text, image, paper };
+  return { to, text, image, paper, vref: clip(input.vref, 40), vtext: clip(input.vtext, 500) };
 }
 
 /** 寫信的人修改自己的信：對方還沒收信、活動還開放寫信時才能改 */
@@ -352,6 +383,7 @@ function updateLetter(user, letterId, input) {
     if (!a || stateOf(a) !== 'open') throw new Error('這個活動已經停止寫信，不能再修改');
     const sh = sheet(SH.LETTERS);
     sh.getRange(f.index, LT.TO + 1, 1, 4).setValues([[l.to, l.text, l.image, l.paper]]);
+    sh.getRange(f.index, LT.VREF + 1, 1, 2).setValues([[l.vref, l.vtext]]);
     const changedTo = normName(f.row[LT.TO]) !== normName(l.to);
     if (changedTo) sh.getRange(f.index, LT.SENT + 1).setValue(false); // 換了收信人，要重新送出
     return { id: String(letterId), actId: a.id, actTitle: a.title, from: String(f.row[LT.FROM]), to: l.to, paper: l.paper, changedTo };
@@ -385,7 +417,8 @@ function myLetters(user, actId) {
   return rows(SH.LETTERS).filter(l => String(l[LT.FROM_UID]) === user.userId && (!actId || String(l[LT.ACT]) === String(actId))).map(l => {
     const o = opens.find(o => String(o[OP.LETTER]) === String(l[LT.ID]));
     return { id: String(l[LT.ID]), actId: String(l[LT.ACT]), to: String(l[LT.TO]), text: String(l[LT.TEXT]), image: String(l[LT.IMAGE] || ''),
-      paper: String(l[LT.PAPER] || 'rose'), time: fmt(l[LT.TIME]), sent: isTrue(l[LT.SENT]), openedAt: o ? fmt(o[OP.TIME]) : '' };
+      paper: String(l[LT.PAPER] || 'rose'), time: fmt(l[LT.TIME]), sent: isTrue(l[LT.SENT]), openedAt: o ? fmt(o[OP.TIME]) : '',
+      vref: String(l[LT.VREF] || ''), vtext: String(l[LT.VTEXT] || '') };
   }).reverse();
 }
 
@@ -399,7 +432,8 @@ function letterCard(id) {
 
 function letterContent(r, a) {
   return { id: String(r[LT.ID]), actId: String(r[LT.ACT]), actTitle: a ? a.title : '', from: String(r[LT.FROM]), to: String(r[LT.TO]),
-    text: String(r[LT.TEXT]), image: String(r[LT.IMAGE] || ''), paper: String(r[LT.PAPER] || 'rose'), time: fmt(r[LT.TIME]) };
+    text: String(r[LT.TEXT]), image: String(r[LT.IMAGE] || ''), paper: String(r[LT.PAPER] || 'rose'), time: fmt(r[LT.TIME]),
+    vref: String(r[LT.VREF] || ''), vtext: String(r[LT.VTEXT] || '') };
 }
 
 /** 按「收信」：登記姓名與收信人相符才拆信，第一次拆信記入收信紀錄（＝配對成功） */

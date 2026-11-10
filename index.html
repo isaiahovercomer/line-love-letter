@@ -121,6 +121,17 @@
   .photo-pick { display: flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: 15px; color: var(--p-accent); background: none; border: 1.5px dashed var(--p-accent); border-radius: 8px; padding: 0 12px; height: 40px; margin: 12px 0 12px; cursor: pointer; }
   .photo-wrap { position: relative; }
   .photo-x { position: absolute; top: 4px; right: 4px; width: 34px; height: 34px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 18px; cursor: pointer; line-height: 1; }
+  .verse { margin: 0 0 8px; }
+  .verse .v-title { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--p-accent); height: 32px; display: flex; align-items: center; gap: 6px; }
+  .verse input { width: 100%; height: 32px; border: 0; border-bottom: 1.5px dashed var(--p-accent); background: transparent; font-family: var(--serif); font-size: 16px; font-weight: 700; color: var(--p-ink); padding: 0 2px; border-radius: 0; }
+  .verse textarea { min-height: 96px !important; }
+  .verse input:focus, .verse textarea:focus { outline: none; }
+  .verse-picks { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0 6px; margin: 0 -4px; font-family: var(--sans); line-height: 1.4; scrollbar-width: none; }
+  .verse-picks button { flex: none; border: 1.5px solid var(--p-line); background: #fff; color: var(--p-ink); border-radius: 999px; padding: 5px 12px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+  .verse-picks button[aria-pressed=true] { background: var(--p-accent); border-color: var(--p-accent); color: #fff; }
+  .verse-show { border-left: 3px solid var(--p-accent); padding-left: 12px; margin: 8px 0; }
+  .verse-show .ref { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--p-accent); }
+  .verse-show .vt { white-space: pre-wrap; font-size: 16px; }
   .lock-note { font-size: 13px; color: var(--ink-2); background: var(--card); border: 1px solid var(--rule); border-radius: 10px; padding: 10px 12px; margin: 14px 0; }
   .paper.mini { padding: 10px 14px 14px; line-height: 28px; background-image: repeating-linear-gradient(to bottom, transparent 0 27px, var(--p-line) 27px 28px); background-position: 0 9px; box-shadow: none; border: 1px solid var(--p-line); border-top: 4px solid var(--p-accent); }
   .paper.mini .text { font-size: 15px; min-height: 0; }
@@ -214,6 +225,18 @@ const PAPERS = {
 const paperOf = k => PAPERS[k] || PAPERS.rose;
 const paperVars = k => { const p = paperOf(k); return `--p-paper:${p.paper};--p-ink:${p.ink};--p-accent:${p.accent};--p-line:${p.line};--p-env:${p.env};--p-flap:${p.flap}`; };
 
+/* ---------- 備選經文（出處；經文內容由主辦人在試算表「經文」工作表貼上恢復本） ---------- */
+const VERSE_REFS = [
+  ['約翰福音 3:16', '福音'], ['羅馬書 5:8', '福音'], ['約翰一書 4:9-10', '福音'], ['以弗所書 2:8', '福音'],
+  ['約翰福音 10:10', '福音'], ['馬太福音 11:28', '福音'], ['約翰一書 4:19', '愛'], ['哥林多前書 13:4-7', '愛'],
+  ['羅馬書 8:38-39', '愛'], ['以弗所書 3:17-19', '愛'], ['耶利米書 31:3', '愛'], ['民數記 6:24-26', '祝福'],
+  ['哥林多後書 13:14', '祝福'], ['腓立比書 4:6-7', '祝福'], ['詩篇 23:1', '祝福'], ['以賽亞書 41:10', '祝福'],
+  ['腓立比書 1:6', '祝福'], ['帖撒羅尼迦前書 5:16-18', '祝福'],
+].map(([ref, cat]) => ({ ref, cat, text: '' }));
+let VERSES = VERSE_REFS;
+const loadVerses = () => api('verses').then(r => { if (r.verses && r.verses.length) VERSES = r.verses; }).catch(() => {});
+const verseShow = l => l.vref || l.vtext ? `<div class="verse-show"><div class="ref">📖 我想送給你的聖經經文${l.vref ? '：' + esc(l.vref) : ''}</div>${l.vtext ? `<div class="vt">${esc(l.vtext)}</div>` : ''}</div>` : '';
+
 /* ================= 預覽模式用的假資料 ================= */
 const demo = {
   me: { userId: 'Udemo', displayName: '預覽使用者', name: ['bind', 'newbie'].includes(DEMO_MODE) ? '' : '陳怡君', isAdmin: true },
@@ -222,7 +245,7 @@ const demo = {
     { id: 'A2', title: '畢業祝福信', desc: '', deadline: '', open: false, created: '2026/6/1 10:00', creator: '簡晨光', mine: true },
   ],
   letters: [
-    { id: 'L1', actId: 'A1', from: '王小明', fromUid: 'U1', to: '陳怡君', text: '怡君姊妹：\n謝謝你這一年每週都來接我去小排，\n你的陪伴讓我很得激勵。\n聖誕快樂！', image: '', paper: 'rose', time: '2026/11/10 18:02', sent: true, openedAt: '2026/11/10 19:30', openedBy: '陳怡君' },
+    { id: 'L1', actId: 'A1', from: '王小明', fromUid: 'U1', to: '陳怡君', vref: '腓立比書 1:6', vtext: '（預覽：這裡會顯示寫信人選的經文）', text: '怡君姊妹：\n謝謝你這一年每週都來接我去小排，\n你的陪伴讓我很得激勵。\n聖誕快樂！', image: '', paper: 'rose', time: '2026/11/10 18:02', sent: true, openedAt: '2026/11/10 19:30', openedBy: '陳怡君' },
     { id: 'L2', actId: 'A1', from: '陳怡君', fromUid: 'Udemo', to: '林志豪', text: '志豪弟兄，謝謝你在青年聚會的服事，辛苦了！', image: '', paper: 'sky', time: '2026/11/10 20:14', sent: true, openedAt: '', openedBy: '' },
     { id: 'L3', actId: 'A1', from: '簡晨光', fromUid: 'U3', to: '王小明', text: '小明，願主祝福你的新工作！', image: '', paper: 'mint', time: '2026/11/11 07:40', sent: false, openedAt: '', openedBy: '' },
     { id: 'L4', actId: 'A2', from: '林志豪', fromUid: 'U4', to: '簡晨光', text: '畢業快樂！', image: '', paper: 'kraft', time: '2026/6/2 12:00', sent: true, openedAt: '2026/6/2 13:10', openedBy: '簡晨光' },
@@ -259,6 +282,7 @@ async function demoApi(action, d) {
       return { ok: true, letter: { id: l.id, actId: l.actId, actTitle: act(l.actId).title, from: l.from, to: l.to, paper: l.paper, changedTo } };
     }
     case 'deleteLetter': demo.letters = demo.letters.filter(l => l.id !== d.letterId); return { ok: true, id: d.letterId, opens: 0 };
+    case 'verses': return { ok: true, verses: VERSE_REFS.map((v, i) => i < 3 ? { ...v, text: '（預覽：這裡會顯示主辦人貼上的恢復本經文）' } : v) };
     case 'markSent': letter(d.letterId).sent = true; return { ok: true, id: d.letterId };
     case 'myLetters': return { ok: true, letters: demo.letters.filter(l => l.fromUid === 'Udemo' && l.actId === d.actId).reverse() };
     case 'openLetter': {
@@ -284,7 +308,7 @@ async function demoApi(action, d) {
 const SESSION_KEY = 'loveletter.session';
 const getSession = () => { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); return s && s.expires > Date.now() + 60000 ? s : null; } catch (e) { return null; } };
 const setSession = s => { try { s ? localStorage.setItem(SESSION_KEY, JSON.stringify({ token: s.token, expires: s.expires })) : localStorage.removeItem(SESSION_KEY); } catch (e) {} };
-const PUBLIC = ['act', 'letterCard'];
+const PUBLIC = ['act', 'letterCard', 'verses'];
 
 async function api(action, data = {}) {
   if (DEMO) return demoApi(action, data);
@@ -424,7 +448,7 @@ const clearDraft = id => { try { localStorage.removeItem(draftKey(id)); } catch 
 async function writeFlow(pre) {
   ACT = pre && pre.act;
   if (!ACT) return view(`${topHtml()}<div class="card center"><div class="big-emoji">📭</div><p>找不到這個流通神聖的愛活動，可能已經被刪除。</p></div>`);
-  ME = await api('me');
+  [ME] = await Promise.all([api('me'), loadVerses()]);
   GUIDE_KIND = 'writer';
   if (!ME.name) return bindView('先認識一下你', `第一次寫信，請填你的姓名和手機。<br>收到信的人會看到你的姓名。`, () => { writeForm(); openGuide('writer'); });
   writeForm(); openGuide('writer');
@@ -453,6 +477,12 @@ function writeForm(edit, presetTo) {
       <div class="dear"><span>親愛的</span><input id="w-to" maxlength="30" value="${esc(to)}" placeholder="收信人的名字" aria-label="收信人的名字"><span>：</span></div>
       <textarea id="w-text" maxlength="1000" placeholder="寫下想對他說的悄悄話…" aria-label="悄悄話">${esc(d.text || '')}</textarea>
       <div id="w-photo"></div>
+      <div class="verse">
+        <div class="v-title">📖 我想送給你的聖經經文（可不填）</div>
+        <div class="verse-picks" id="v-picks" role="group" aria-label="備選經文">${VERSES.map((v, i) => `<button type="button" data-v="${i}" aria-pressed="${v.ref === (d.vref || '')}">${esc(v.ref)}</button>`).join('')}</div>
+        <input id="v-ref" maxlength="40" value="${esc(d.vref || '')}" placeholder="出處，例如：約翰福音 3:16" aria-label="經文出處">
+        <textarea id="v-text" maxlength="500" placeholder="經文內容（可自己填寫，或點上面的備選經文）" aria-label="經文內容">${esc(d.vtext || '')}</textarea>
+      </div>
       <div class="sign">— ${esc(ME.name)}</div>
       <div class="date">${esc(today)}</div>
     </div>
@@ -461,7 +491,7 @@ function writeForm(edit, presetTo) {
     ${edit ? '' : '<div id="w-mine"></div>'}${footHtml()}`);
 
   let cur = paper;
-  const keep = () => { if (!edit) saveDraft(ACT.id, { to: $('w-to').value, text: $('w-text').value, paper: cur, photo: PHOTO }); };
+  const keep = () => { if (!edit) saveDraft(ACT.id, { to: $('w-to').value, text: $('w-text').value, paper: cur, photo: PHOTO, vref: $('v-ref').value, vtext: $('v-text').value }); };
   if (edit) $('w-cancel').onclick = () => { PHOTO = ''; writeForm(); };
   document.querySelectorAll('[data-paper]').forEach(b => b.onclick = () => {
     cur = b.dataset.paper;
@@ -473,9 +503,26 @@ function writeForm(edit, presetTo) {
   ta.oninput = () => { grow(); keep(); };
   $('w-to').oninput = keep;
   grow();
+  const vt = $('v-text');
+  const vgrow = () => { vt.style.height = 'auto'; vt.style.height = Math.max(96, Math.ceil(vt.scrollHeight / 32) * 32) + 'px'; };
+  vt.oninput = () => { vgrow(); keep(); };
+  $('v-ref').oninput = () => { document.querySelectorAll('[data-v]').forEach(x => x.setAttribute('aria-pressed', 'false')); keep(); };
+  vgrow();
+  document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => {
+    const v = VERSES[+b.dataset.v];
+    const on = b.getAttribute('aria-pressed') === 'true';
+    document.querySelectorAll('[data-v]').forEach(x => x.setAttribute('aria-pressed', 'false'));
+    if (on) { $('v-ref').value = ''; vt.value = ''; }
+    else {
+      b.setAttribute('aria-pressed', 'true');
+      $('v-ref').value = v.ref; vt.value = v.text || '';
+      if (!v.text) { vt.focus(); toast('請把這節經文貼在下面'); }
+    }
+    vgrow(); keep();
+  });
   drawPhoto(keep);
   $('w-send').onclick = e => busy(e.currentTarget, async () => {
-    const letter = { to: $('w-to').value.trim(), text: $('w-text').value.trim(), paper: cur, image: PHOTO };
+    const letter = { to: $('w-to').value.trim(), text: $('w-text').value.trim(), paper: cur, image: PHOTO, vref: $('v-ref').value.trim(), vtext: vt.value.trim() };
     if (!letter.to) { $('w-to').focus(); throw new Error('請填寫收信人的名字'); }
     if (!letter.text) { ta.focus(); throw new Error('請寫下要給對方的悄悄話'); }
     if (edit) {
@@ -622,6 +669,7 @@ async function writeFrom(actId, to) {
   if (!act) throw new Error('找不到這個活動，可能已經被刪除');
   ACT = act;
   if (!ME || !ME.name) ME = await api('me');
+  await loadVerses();
   writeForm(undefined, to);
   if (!to) $('w-to').focus();
   openGuide('writer');
@@ -638,6 +686,7 @@ function drawLetter(r) {
       <div class="dear"><span>親愛的 <b>${esc(l.to)}</b>：</span></div>
       <div class="text">${esc(l.text)}</div>
       ${isHttps(l.image) || /^data:image/.test(l.image) ? `<div class="photo"><img src="${esc(l.image)}" alt="寫信人附上的照片"></div>` : ''}
+      ${verseShow(l)}
       <div class="sign">— ${esc(l.from)}</div>
       <div class="date">${esc(l.time)}</div>
     </div>
@@ -803,7 +852,7 @@ function drawDetail() {
             ${l.openedAt ? '<span class="chip paired">💞 配對成功</span>' : l.sent ? '<span class="chip pending">未收信</span>' : '<span class="chip">未送出</span>'}
           </button>
           ${OPENED_ROW === l.id ? `<div class="body"><div class="paper mini" style="${paperVars(l.paper)}"><div class="text">${esc(l.text)}</div>
-            ${l.image ? `<div class="photo"><img src="${esc(l.image)}" alt="附上的照片" style="max-height:220px"></div>` : ''}</div>
+            ${l.image ? `<div class="photo"><img src="${esc(l.image)}" alt="附上的照片" style="max-height:220px"></div>` : ''}${verseShow(l)}</div>
             <div class="btn-row" style="margin:8px 0 0"><button class="btn danger" type="button" data-ldel="${esc(l.id)}" style="min-height:38px">刪除這封信</button></div></div>` : ''}
         </div>`).join('') : `<div class="empty small">${list.length ? '這裡沒有信' : '還沒有人寫信。把寫信入口發到群組吧！'}</div>`}
     </div>
