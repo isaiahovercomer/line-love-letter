@@ -556,9 +556,12 @@ function markSent(user, letterId) {
 
 function myLetters(user, actId) {
   const opens = rows(SH.OPENS);
+  const titles = {};
+  rows(SH.ACTS).forEach(function (r) { titles[String(r[AC.ID])] = String(r[AC.TITLE] || ''); });
   return rows(SH.LETTERS).filter(l => String(l[LT.FROM_UID]) === user.userId && (!actId || String(l[LT.ACT]) === String(actId))).map(l => {
     const o = opens.find(o => String(o[OP.LETTER]) === String(l[LT.ID]));
-    return { id: String(l[LT.ID]), actId: String(l[LT.ACT]), to: String(l[LT.TO]), text: String(l[LT.TEXT]), image: String(l[LT.IMAGE] || ''),
+    const aid = String(l[LT.ACT]);
+    return { id: String(l[LT.ID]), actId: aid, actTitle: titles[aid] || '', from: String(l[LT.FROM]), to: String(l[LT.TO]), text: String(l[LT.TEXT]), image: String(l[LT.IMAGE] || ''),
       paper: String(l[LT.PAPER] || 'rose'), time: fmt(l[LT.TIME]), sent: isTrue(l[LT.SENT]), openedAt: o ? fmt(o[OP.TIME]) : '',
       vref: String(l[LT.VREF] || ''), vtext: String(l[LT.VTEXT] || '') };
   }).reverse();

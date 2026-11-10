@@ -188,7 +188,7 @@ await check('privacy-admin：總管理者看得到信件內容', '?demo=admin&no
   await expectText(page, 'h2', '我的流通神聖的愛活動');
   await page.locator('.card.act').first().click();
   if (await page.locator('#d-privacy').count()) throw new Error('總管理者不該看到鎖定說明');
-  await page.locator('[data-row]').first().click();
+  await page.locator('[data-row]').filter({ hasText: '簡晨光' }).first().click();
   await expectText(page, '.paper.mini .text', '願主祝福你的新工作');
 });
 
@@ -264,6 +264,77 @@ await check('loved-flex：圖卡文案與人數', '?demo=write&noguide', async p
   if (texts.none.some(t => /收到愛/.test(t))) throw new Error('人數為 0 時不該顯示：' + texts.none.join('|'));
   if (!texts.act.some(t => t === '已有 2 個人收到愛')) throw new Error('活動圖卡沒有正確人數：' + texts.act.join('|'));
   if (texts.letter.some(t => /收到信/.test(t))) throw new Error('圖卡仍用舊文案');
+});
+
+await check('my-letters：跨活動列出自己寫過的信', '?demo=mine&noguide', async page => {
+  await expectText(page, 'h2', '我寫過的信');
+  await expectText(page, '#ml-sum', '你已寫信給 3 位');
+  const rows = page.locator('#ml-list [data-ml]');
+  if (await rows.count() !== 3) throw new Error('應有 3 封自己的信，實際 ' + await rows.count());
+  const body = await page.locator('#ml-list').innerText();
+  if (!body.includes('林志豪') || !body.includes('王小明') || !body.includes('李美玲')) throw new Error('缺少收信人：' + body);
+  if (!body.includes('冬天的第一個問候') || !body.includes('畢業祝福信')) throw new Error('缺少活動名稱：' + body);
+  if (!body.includes('未送出') || !body.includes('已送出') || !body.includes('對方已收信')) throw new Error('三種狀態不齊：' + body);
+  if (body.includes('謝謝你這一年') || body.includes('願主祝福你的新工作') || body.includes('畢業快樂！')) throw new Error('列表不該出現別人的信件內容');
+  const ids = await rows.evaluateAll(els => els.map(e => e.getAttribute('data-ml')));
+  if (ids.some(id => !['L2', 'L5', 'L6'].includes(id))) throw new Error('出現別人的信：' + ids.join(','));
+  // 最新在前：L5 (11/11) 、L2 (11/10) 、L6 (6/1)
+  if (ids[0] !== 'L5' || ids[1] !== 'L2' || ids[2] !== 'L6') throw new Error('未依寫信時間新到舊：' + ids.join(','));
+  await shot(page, 'my-letters');
+  await rows.filter({ hasText: '李美玲' }).click();
+  await expectText(page, '#ml-status', '這是你寫的信');
+  await expectText(page, '#ml-status', '對方已收信');
+  await expectText(page, '.paper .text', '美玲，畢業快樂');
+  await expectText(page, '.paper .actname', '畢業祝福信');
+  if (await page.locator('.paper .text', { hasText: '謝謝你這一年' }).count()) throw new Error('不該看到別人的信');
+  await page.waitForTimeout(800); // 等信紙淡入再截圖
+  await shot(page, 'my-letter-opened');
+});
+
+await check('my-letters：可從首頁與我的資料進入', '?demo&noguide', async page => {
+  await expectText(page, '#h-mine', '我寫過的信');
+  await page.locator('#h-mine-sum').filter({ hasText: '你已寫信給 3 位' }).waitFor({ timeout: 5000 });
+  await page.locator('#h-mine').click();
+  await expectText(page, 'h2', '我寫過的信');
+});
+
+await check('roster：活動後台收信人名單可複製與截圖', '?demo&noguide', async page => {
+  await expectText(page, 'h2', '我的流通神聖的愛活動');
+  await page.locator('.card.act').first().click();
+  await expectText(page, '#d-roster h3', '收信人名單（2 人）');
+  const text = await page.locator('#d-roster').innerText();
+  if (!text.includes('陳怡君') || !text.includes('林志豪')) throw new Error('名單缺人：' + text);
+  if (text.includes('王小明')) throw new Error('未送出的不該列入：' + text);
+  if (!text.includes('已收信') || !text.includes('已送出未收')) throw new Error('狀態不齊：' + text);
+  if (text.includes('謝謝你這一年') || text.includes('悄悄話') || text.includes('志豪弟兄')) throw new Error('名單不該有信件內容：' + text);
+  const logic = await page.evaluate(() => {
+    const roster = rosterOf(DETAIL.list);
+    const loved = demoLoved('A1');
+    return { n: roster.length, loved, names: roster.map(g => g.name), opened: roster.filter(g => g.opened > 0).length, text: rosterText(DETAIL.act, roster) };
+  });
+  if (logic.n !== logic.loved || logic.n !== 2) throw new Error('人數應與「已有 N 個人收到愛」相同：' + JSON.stringify(logic));
+  await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(BASE).origin });
+  await page.locator('#d-copy').click();
+  await expectText(page, '.toast', '已複製收信人名單');
+  const clip = await page.evaluate(() => navigator.clipboard.readText()).catch(() => '');
+  if (clip) {
+    if (!clip.includes('冬天的第一個問候') || !clip.includes('陳怡君') || !clip.includes('林志豪')) throw new Error('複製內容不完整：' + clip);
+    if (clip.includes('謝謝你這一年') || clip.includes('志豪弟兄')) throw new Error('複製內容含信件正文：' + clip);
+  }
+  await page.locator('#d-roster').scrollIntoViewIfNeeded();
+  await shot(page, 'roster');
+  const download = page.waitForEvent('download', { timeout: 8000 });
+  await page.locator('#d-shot').click();
+  const dl = await download;
+  if (!/\.png$/i.test(dl.suggestedFilename() || '')) throw new Error('截圖檔名不是 PNG：' + dl.suggestedFilename());
+  const path = SHOTS ? join(SHOTS, 'after-roster-shot.png') : undefined;
+  if (path) await dl.saveAs(path);
+});
+
+await check('mydata：有入口到我寫過的信', '?demo=mydata&noguide', async page => {
+  await expectText(page, 'h2', '我的個人資料');
+  await expectText(page, '#m-mine', '查看我寫過的信');
+  await expectText(page, '.card', '寫過 3 封信');
 });
 
 await browser.close();
