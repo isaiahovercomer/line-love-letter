@@ -17,14 +17,14 @@ const HEADERS = {
   '信件': ['信件代碼', '活動代碼', '寄件人姓名', '寄件人 userId', '收信人姓名', '悄悄話', '照片網址', '信紙', '寫信時間', '已送出', '經文出處', '經文內容'],
   '收信紀錄': ['時間', '信件代碼', '活動代碼', '收信人姓名', 'LINE名稱', 'LINE userId'],
   '發布者': ['LINE userId', '名稱', '備註'],
-  '經文': ['出處', '經文（請貼上恢復本經文）', '分類'],
+  '經文': ['出處', '經文（恢復本）', '分類'],
 };
 
 // 欄位位置（從 0 開始）
 const AC = { ID: 0, TITLE: 1, DESC: 2, OPEN: 3, CREATOR: 4, CREATED: 5, DEADLINE: 6, PAPER: 7 };
 const LT = { ID: 0, ACT: 1, FROM: 2, FROM_UID: 3, TO: 4, TEXT: 5, IMAGE: 6, PAPER: 7, TIME: 8, SENT: 9, VREF: 10, VTEXT: 11 };
 const OP = { TIME: 0, LETTER: 1, ACT: 2, NAME: 3, LINE_NAME: 4, UID: 5 };
-const PAPERS = ['rose', 'sky', 'kraft', 'mint', 'winter', 'xmas', 'newyear', 'thanks', 'grad', 'birthday', 'gospel'];
+const PAPERS = ['rose', 'sky', 'kraft', 'mint', 'winter', 'xmas', 'newyear', 'thanks', 'grad', 'birthday', 'gospel', 'love', 'shepherd', 'build'];
 
 function setup() {
   const ss = SpreadsheetApp.getActive();
@@ -59,40 +59,69 @@ function doPost(e) {
       out = { ok: true, card: letterCard(req.letterId) };
     } else {
       const user = req.session && req.action !== 'session' ? userFromSession(req.session) : verifyIdToken(req.idToken);
-      const own = () => requireOwner(user, req.actId);
-      switch (req.action) {
-        case 'session':      out = { ok: true, ...createSession(user) }; break;
-        case 'logout':       deleteSession(req.session); out = { ok: true }; break;
-        case 'home':         out = { ok: true, me: meOf(user), acts: listActs(user) }; break;
-        case 'writeBoot': {   // 寫信頁一次拿齊：活動、我是誰、備選經文、我寫過的信
-          const a = getAct(req.actId);
-          out = { ok: true, act: a ? publicAct(a) : null, me: meOf(user), verses: listVerses(), letters: a ? myLetters(user, a.id) : [] };
-          break;
-        }
-        case 'me':           out = { ok: true, ...meOf(user) }; break;
-        case 'bind':         out = { ok: true, ...bind(user, req.name, req.phone) }; break;
-        case 'uploadImage':  out = { ok: true, url: uploadImage(user, req.data, req.mime) }; break;
-        case 'writeLetter':  out = { ok: true, letter: writeLetter(user, req.actId, req.letter || {}) }; break;
-        case 'markSent':     out = { ok: true, ...markSent(user, req.letterId) }; break;
-        case 'updateLetter': out = { ok: true, letter: updateLetter(user, req.letterId, req.letter || {}) }; break;
-        case 'deleteLetter': out = { ok: true, ...deleteLetter(user, req.letterId) }; break;
-        case 'myLetters':    out = { ok: true, letters: myLetters(user, req.actId) }; break;
-        case 'openLetter':   out = { ok: true, ...openLetter(user, req.letterId) }; break;
-        case 'createAct':    out = { ok: true, act: createAct(user, req.act || {}) }; break;
-        case 'listActs':     out = { ok: true, acts: listActs(user) }; break;
-        case 'updateAct':    own(); out = { ok: true, act: updateAct(req.actId, req.act || {}) }; break;
-        case 'actDetail':    own(); out = { ok: true, ...actDetail(req.actId) }; break;
-        case 'setOpen':      own(); out = { ok: true, act: setOpen(req.actId, !!req.open) }; break;
-        case 'deleteAct':    own(); out = { ok: true, ...deleteAct(req.actId) }; break;
-        case 'myData':       out = { ok: true, ...myData(user) }; break;
-        case 'deleteMyData': out = { ok: true, ...deleteMyData(user) }; break;
-        default: throw new Error('未知的動作');
-      }
+      out = ONCE_ACTIONS.includes(req.action) ? once(user, req, () => run(user, req)) : run(user, req);
     }
   } catch (err) {
     out = { ok: false, error: String((err && err.message) || err) };
   }
   return json(out);
+}
+
+/** 需要登入的動作 */
+function run(user, req) {
+  let out;
+  const own = () => requireOwner(user, req.actId);
+  switch (req.action) {
+    case 'session':      out = { ok: true, ...createSession(user) }; break;
+    case 'logout':       deleteSession(req.session); out = { ok: true }; break;
+    case 'home':         out = { ok: true, me: meOf(user), acts: listActs(user) }; break;
+    case 'writeBoot': {   // 寫信頁一次拿齊：活動、我是誰、備選經文、我寫過的信
+      const a = getAct(req.actId);
+      out = { ok: true, act: a ? publicAct(a) : null, me: meOf(user), verses: listVerses(), letters: a ? myLetters(user, a.id) : [] };
+      break;
+    }
+    case 'me':           out = { ok: true, ...meOf(user) }; break;
+    case 'bind':         out = { ok: true, ...bind(user, req.name, req.phone) }; break;
+    case 'uploadImage':  out = { ok: true, url: uploadImage(user, req.data, req.mime) }; break;
+    case 'writeLetter':  out = { ok: true, letter: writeLetter(user, req.actId, req.letter || {}) }; break;
+    case 'markSent':     out = { ok: true, ...markSent(user, req.letterId) }; break;
+    case 'updateLetter': out = { ok: true, letter: updateLetter(user, req.letterId, req.letter || {}) }; break;
+    case 'deleteLetter': out = { ok: true, ...deleteLetter(user, req.letterId) }; break;
+    case 'myLetters':    out = { ok: true, letters: myLetters(user, req.actId) }; break;
+    case 'openLetter':   out = { ok: true, ...openLetter(user, req.letterId) }; break;
+    case 'createAct':    out = { ok: true, act: createAct(user, req.act || {}) }; break;
+    case 'listActs':     out = { ok: true, acts: listActs(user) }; break;
+    case 'updateAct':    own(); out = { ok: true, act: updateAct(req.actId, req.act || {}) }; break;
+    case 'actDetail':    own(); out = { ok: true, ...actDetail(req.actId, isSuperAdmin(user.userId)) }; break;
+    case 'setOpen':      own(); out = { ok: true, act: setOpen(req.actId, !!req.open) }; break;
+    case 'deleteAct':    own(); out = { ok: true, ...deleteAct(req.actId) }; break;
+    case 'myData':       out = { ok: true, ...myData(user) }; break;
+    case 'deleteMyData': out = { ok: true, ...deleteMyData(user) }; break;
+    default: throw new Error('未知的動作');
+  }
+  return out;
+}
+
+/* ---------- 防重複送出：同一個人、同一個動作、同一個請求編號（rid），10 分鐘內只做一次 ---------- */
+// 前端每次按下按鈕產生一個 rid，連點或失敗重試都帶同一個；故意再寫一封新的信會是新的 rid，不受影響
+const ONCE_ACTIONS = ['bind', 'uploadImage', 'writeLetter', 'markSent', 'updateLetter', 'deleteLetter', 'createAct', 'updateAct', 'setOpen', 'deleteAct', 'deleteMyData'];
+const ONCE_PENDING = '__pending__';
+function once(user, req, fn) {
+  const rid = String(req.rid || '');
+  if (!/^[\w-]{8,64}$/.test(rid)) return fn();          // 舊版前端沒有 rid：照舊執行
+  const cache = CacheService.getScriptCache(), key = 'rid:' + user.userId + ':' + req.action + ':' + rid;
+  let hit = withLock(() => { const v = cache.get(key); if (!v) cache.put(key, ONCE_PENDING, 120); return v; });
+  for (let i = 0; hit === ONCE_PENDING && i < 40; i++) { Utilities.sleep(500); hit = cache.get(key); }   // 同一個請求正在處理：等它的結果
+  if (hit === ONCE_PENDING) throw new Error('上一次的送出還在處理中，請稍候再試');
+  if (hit) return JSON.parse(hit);
+  try {
+    const out = fn();
+    try { cache.put(key, JSON.stringify(out), 600); } catch (e) { cache.remove(key); }
+    return out;
+  } catch (err) {
+    cache.remove(key);                                    // 失敗不記：重試時會真的再做一次
+    throw err;
+  }
 }
 
 function json(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
@@ -119,7 +148,7 @@ function createSession(user) {
   withLock(() => {
     const sh = sessionSheet(), data = sh.getDataRange().getValues();
     for (let i = data.length - 1; i >= 1; i--) if (data[i][3] instanceof Date && data[i][3] < now) sh.deleteRow(i + 1);
-    sh.appendRow([token, user.userId, user.displayName, exp, now]);
+    sh.appendRow(safeRow([token, user.userId, user.displayName, exp, now]));
   });
   return { token, expires: exp.getTime() };
 }
@@ -169,6 +198,9 @@ function withLock(fn) {
 }
 function newId(prefix) { return prefix + Utilities.getUuid().replace(/-/g, '').slice(0, 10); }
 function clip(v, n) { return String(v || '').trim().slice(0, n); }
+/** 寫進試算表的文字：開頭是 = + - @（或 Tab、換行）會被當成公式，前面加 ' 讓它保持純文字（讀回來時試算表會自動去掉這個 '） */
+function safe(v) { return typeof v === 'string' && /^[=+\-@\t\r]/.test(v) ? "'" + v : v; }
+function safeRow(r) { return r.map(safe); }
 function parseTime(s) { return s ? Utilities.parseDate(String(s), tz(), 'yyyy-MM-dd HH:mm') : null; }
 function cleanTime(v) { const m = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/.exec(String(v || '')); return m ? m[1] + ' ' + m[2] : ''; }
 function deleteRows(name, test) {
@@ -180,7 +212,7 @@ function deleteRows(name, test) {
 
 /* ---------- 名單：姓名＋手機第一次登記後綁定 LINE ---------- */
 function rosterRow(user) { return rows(SH.ROSTER).find(r => String(r[2]).trim() === user.userId); }
-function meOf(user) { return { userId: user.userId, displayName: user.displayName, name: rosterName(user), isAdmin: isPublisher(user.userId) }; }
+function meOf(user) { const sup = isSuperAdmin(user.userId); return { userId: user.userId, displayName: user.displayName, name: rosterName(user), isAdmin: sup || isPublisher(user.userId), isSuper: sup }; }
 function rosterName(user) { const r = rosterRow(user); return r ? String(r[0]) : ''; }
 
 function bind(user, name, phone) {
@@ -195,21 +227,26 @@ function bind(user, name, phone) {
     if (idx > 0) {
       const bound = String(data[idx][2]).trim();
       if (bound && bound !== user.userId) throw new Error('這組姓名和手機已經綁定另一個 LINE 帳號，請聯絡主辦人');
-      rs.getRange(idx + 1, 3, 1, 2).setValues([[user.userId, user.displayName]]);
+      rs.getRange(idx + 1, 3, 1, 2).setValues([safeRow([user.userId, user.displayName])]);
       return { name: String(data[idx][0]) };
     }
     const at = rs.getLastRow() + 1;
     rs.getRange(at, 2).setNumberFormat('@');
-    rs.getRange(at, 1, 1, 4).setValues([[name, String(phone).replace(/\D/g, ''), user.userId, user.displayName]]);
+    rs.getRange(at, 1, 1, 4).setValues([safeRow([name, String(phone).replace(/\D/g, ''), user.userId, user.displayName])]);
     return { name };
   });
 }
 
 /* ---------- 權限 ---------- */
+// 發布者（「發布者」工作表）＝管理員：看得到所有活動的後台（配對、名單），但和活動建立者一樣看不到信件內容。
+// 網站總管理者：Apps Script「專案設定 → 指令碼屬性」的 SUPER_ADMIN（LINE userId，多位用逗號分隔），
+// 只有他們在後台看得到各活動信件的內容。userId 不寫在程式裡。
 function isPublisher(uid) { return rows(SH.PUBLISHERS).some(r => String(r[0]).trim() === uid); }
+function superAdmins() { return String(PropertiesService.getScriptProperties().getProperty('SUPER_ADMIN') || '').split(/[\s,，;；]+/).filter(Boolean); }
+function isSuperAdmin(uid) { return !!uid && superAdmins().includes(String(uid)); }
 function creatorOf(row) { const m = /\((U[0-9a-f]+)\)\s*$/.exec(String(row[AC.CREATOR] || '')); return m ? m[1] : ''; }
 function requireOwner(user, actId) {
-  if (isPublisher(user.userId)) return;
+  if (isSuperAdmin(user.userId) || isPublisher(user.userId)) return;
   if (creatorOf(findActRow(actId).row) !== user.userId) throw new Error('只有活動建立者可以看這個活動的後台');
 }
 
@@ -242,7 +279,26 @@ function stateOf(a) {
   return d && d < new Date() ? 'ended' : 'open';
 }
 function openedCount(actId) { return new Set(rows(SH.OPENS).filter(o => String(o[OP.ACT]) === String(actId)).map(o => String(o[OP.LETTER]))).size; }
-function publicAct(a) { return { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, paper: a.paper, state: stateOf(a), opened: openedCount(a.id) }; }
+/** 已有 XX 個人收到愛：該活動中「已送出」信件的不重複收信人（normName）。extraTo 會把正要送出的這一封也算進去。公開總數，短暫快取。 */
+function lovedCount(actId, extraTo) {
+  const cache = CacheService.getScriptCache(), key = 'loved:' + String(actId);
+  if (extraTo == null || extraTo === '') {
+    const hit = cache.get(key);
+    if (hit != null) return +hit;
+  }
+  const names = {};
+  rows(SH.LETTERS).forEach(function (l) {
+    if (String(l[LT.ACT]) !== String(actId) || !isTrue(l[LT.SENT])) return;
+    const n = normName(l[LT.TO]);
+    if (n) names[n] = true;
+  });
+  if (extraTo) { const n = normName(extraTo); if (n) names[n] = true; }
+  const n = Object.keys(names).length;
+  if (extraTo == null || extraTo === '') { try { cache.put(key, String(n), 60); } catch (e) {} }
+  return n;
+}
+function clearLoved(actId) { try { CacheService.getScriptCache().remove('loved:' + String(actId)); } catch (e) {} }
+function publicAct(a) { return { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, paper: a.paper, state: stateOf(a), opened: openedCount(a.id), loved: lovedCount(a.id) }; }
 function findActRow(id) {
   const data = sheet(SH.ACTS).getDataRange().getValues();
   for (let i = 1; i < data.length; i++) if (String(data[i][AC.ID]) === String(id)) return { index: i + 1, row: data[i] };
@@ -262,7 +318,7 @@ function createAct(user, input) {
   withLock(() => {
     const sh = sheet(SH.ACTS), at = sh.getLastRow() + 1;
     sh.getRange(at, AC.DEADLINE + 1).setNumberFormat('@');
-    sh.getRange(at, 1, 1, 8).setValues([[id, a.title, a.desc, true, user.displayName + ' (' + user.userId + ')', new Date(), a.deadline, a.paper]]);
+    sh.getRange(at, 1, 1, 8).setValues([safeRow([id, a.title, a.desc, true, user.displayName + ' (' + user.userId + ')', new Date(), a.deadline, a.paper])]);
   });
   return withStats(getAct(id));
 }
@@ -271,7 +327,7 @@ function updateAct(id, input) {
   const a = cleanActInput(input);
   return withLock(() => {
     const f = findActRow(id), sh = sheet(SH.ACTS);
-    sh.getRange(f.index, AC.TITLE + 1, 1, 2).setValues([[a.title, a.desc]]);
+    sh.getRange(f.index, AC.TITLE + 1, 1, 2).setValues([safeRow([a.title, a.desc])]);
     sh.getRange(f.index, AC.DEADLINE + 1).setNumberFormat('@').setValue(a.deadline);
     sh.getRange(f.index, AC.PAPER + 1).setValue(a.paper);
     return withStats(getAct(id));
@@ -294,26 +350,32 @@ function withStats(a, letters, opens) {
 }
 
 function listActs(user) {
-  const admin = isPublisher(user.userId);
+  const admin = isSuperAdmin(user.userId) || isPublisher(user.userId);
   const letters = rows(SH.LETTERS), opens = rows(SH.OPENS);
   return rows(SH.ACTS).filter(r => admin || creatorOf(r) === user.userId)
     .map(r => ({ ...withStats(rowToAct(r), letters, opens), mine: creatorOf(r) === user.userId }))
     .reverse();
 }
 
-/** 後台：每封信的寄件人、收信人、內容與收信狀態 */
-function actDetail(id) {
+/**
+ * 後台的一列信：寄件人、收信人、時間、是否送出／收信。
+ * 信件內容（悄悄話、照片、經文）只有 full = true（網站總管理者）才放進去；活動建立者與發布者拿不到。
+ */
+function hostLetterView(l, o, full) {
+  const v = { id: String(l[LT.ID]), from: String(l[LT.FROM]), to: String(l[LT.TO]), paper: String(l[LT.PAPER] || 'rose'),
+    time: fmt(l[LT.TIME]), sent: isTrue(l[LT.SENT]), openedAt: o ? fmt(o[OP.TIME]) : '', openedBy: o ? String(o[OP.NAME]) : '' };
+  if (full) Object.assign(v, { text: String(l[LT.TEXT]), image: String(l[LT.IMAGE] || ''), vref: String(l[LT.VREF] || ''), vtext: String(l[LT.VTEXT] || '') });
+  return v;
+}
+
+/** 後台：每封信的寄件人、收信人與收信狀態；full（網站總管理者）才附信件內容 */
+function actDetail(id, full) {
   const a = getAct(id);
   if (!a) throw new Error('找不到這個流通神聖的愛活動');
   const opens = rows(SH.OPENS).filter(o => String(o[OP.ACT]) === a.id);
-  const letters = rows(SH.LETTERS).filter(l => String(l[LT.ACT]) === a.id).map(l => {
-    const o = opens.find(o => String(o[OP.LETTER]) === String(l[LT.ID]));
-    return { id: String(l[LT.ID]), from: String(l[LT.FROM]), to: String(l[LT.TO]), text: String(l[LT.TEXT]), image: String(l[LT.IMAGE] || ''),
-      paper: String(l[LT.PAPER] || 'rose'), time: fmt(l[LT.TIME]), sent: isTrue(l[LT.SENT]),
-      vref: String(l[LT.VREF] || ''), vtext: String(l[LT.VTEXT] || ''),
-      openedAt: o ? fmt(o[OP.TIME]) : '', openedBy: o ? String(o[OP.NAME]) : '' };
-  }).reverse();
-  return { act: withStats(a), list: letters };
+  const letters = rows(SH.LETTERS).filter(l => String(l[LT.ACT]) === a.id)
+    .map(l => hostLetterView(l, opens.find(o => String(o[OP.LETTER]) === String(l[LT.ID])), !!full)).reverse();
+  return { act: withStats(a), list: letters, full: !!full };
 }
 
 function deleteAct(id) {
@@ -322,18 +384,34 @@ function deleteAct(id) {
     sheet(SH.ACTS).deleteRow(f.index);
     const letters = deleteRows(SH.LETTERS, r => String(r[LT.ACT]) === String(id));
     const opens = deleteRows(SH.OPENS, r => String(r[OP.ACT]) === String(id));
+    clearLoved(id);
     return { letters, opens };
   });
 }
 
-/* ---------- 備選經文：出處先填好，經文內容由主辦人貼上恢復本 ---------- */
+/* ---------- 備選經文：中文恢復本，列格式 [出處, 經文, 分類]；主辦人可在「經文」工作表增修 ---------- */
 const VERSE_SEED = [
-  ['約翰福音 3:16', '福音'], ['使徒行傳 16:31', '福音'], ['羅馬書 10:13', '福音'], ['創世記 1:26', '福音'],
-  ['約翰福音 1:29', '福音'], ['馬可福音 2:17', '福音'], ['羅馬書 5:8', '福音'], ['約翰福音 10:10', '福音'],
-  ['馬太福音 11:28', '福音'], ['腓立比書 4:6-7', '祝福'], ['詩篇 65:11', '祝福'], ['詩篇 90:12', '祝福'],
-  ['馬太福音 6:26', '祝福'], ['腓立比書 4:13', '祝福'], ['馬太福音 7:7', '祝福'], ['民數記 6:24-26', '祝福'],
-  ['哥林多後書 13:14', '祝福'], ['約翰一書 4:19', '愛'], ['哥林多前書 13:4-7', '愛'], ['耶利米書 31:3', '愛'],
-  ['約翰福音 15:5', '愛'],
+  ['約翰福音 3:16', '神愛世人，甚至將祂的獨生子賜給他們，叫一切信入祂的，不至滅亡，反得永遠的生命。', '福音'],
+  ['使徒行傳 16:31', '他們說，當信靠主耶穌，你和你一家都必得救。', '福音'],
+  ['羅馬書 10:13', '因為“凡呼求主名的，就必得救。”', '福音'],
+  ['創世記 1:26', '神說，我們要按著我們的形像，照著我們的樣式造人，使他們管理海裏的魚、空中的鳥、地上的牲畜、和全地、並地上所爬的一切爬物。', '福音'],
+  ['約翰福音 1:29', '次日，約翰看見耶穌向他走來，就說，看哪，神的羔羊，除去世人之罪的！', '福音'],
+  ['馬可福音 2:17', '耶穌聽見，就對他們說，強健的人用不著醫生，有病的人纔用得著；我來本不是召義人，乃是召罪人。', '福音'],
+  ['羅馬書 5:8', '惟有基督在我們還作罪人的時候，為我們死，神就在此將祂自己的愛向我們顯明了。', '福音'],
+  ['約翰福音 10:10', '賊來了，無非是要偷竊、殺害、毀壞；我來了，是要叫羊得生命，並且得的更豐盛。', '福音'],
+  ['馬太福音 11:28', '凡勞苦擔重擔的，可以到我這裏來，我必使你們得安息。', '福音'],
+  ['腓立比書 4:6-7', '應當一無罣慮，只要凡事藉著禱告、祈求，帶著感謝，將你們所要的告訴神；神那超越人所能理解的平安，必在基督耶穌裏，保衛你們的心懷意念。', '祝福'],
+  ['詩篇 65:11', '你以你的恩惠為年歲的冠冕，你的路徑都滴下脂油；', '祝福'],
+  ['詩篇 90:12', '求你指教我們怎樣數算自己的日子，好叫我們得著智慧的心。', '祝福'],
+  ['馬太福音 6:26', '你們看天空的飛鳥，牠們既不種，也不收，又不收積在倉裏，你們的天父尚且養活牠們。你們不比牠們貴重麼？', '祝福'],
+  ['腓立比書 4:13', '我在那加我能力者的裏面，凡事都能作。', '祝福'],
+  ['馬太福音 7:7', '求，就給你們；尋找，就尋見；叩門，就給你們開門。', '祝福'],
+  ['民數記 6:24-26', '願耶和華賜福給你，保護你；願耶和華使祂的面光照你，賜恩給你；願耶和華向你仰臉，賜你平安。', '祝福'],
+  ['哥林多後書 13:14', '願主耶穌基督的恩，神的愛，聖靈的交通，與你們眾人同在。', '祝福'],
+  ['約翰一書 4:19', '我們愛，因為神先愛我們。', '愛'],
+  ['哥林多前書 13:4-7', '愛是恆久忍耐，又有恩慈；愛是不嫉妒；愛是不自誇，不張狂，不作不合宜的事，不求自己的益處，不輕易發怒，不計算人的惡，不因不義而歡樂，卻與真理同歡樂；凡事包容，凡事相信，凡事盼望，凡事忍耐。', '愛'],
+  ['耶利米書 31:3', '耶和華從遠方向我顯現，說，我以永遠的愛愛了你，因此我以慈愛吸引了你。', '愛'],
+  ['約翰福音 15:5', '我是葡萄樹，你們是枝子；住在我裏面的，我也住在他裏面，這人就多結果子；因為離了我，你們就不能作甚麼。', '愛'],
 ];
 function verseSheet() {
   const ss = SpreadsheetApp.getActive();
@@ -342,21 +420,33 @@ function verseSheet() {
     sh = ss.insertSheet(SH.VERSES);
     sh.getRange(1, 1, 1, 3).setValues([HEADERS[SH.VERSES]]).setFontWeight('bold');
     sh.setFrozenRows(1);
-    sh.getRange(2, 1, VERSE_SEED.length, 3).setValues(VERSE_SEED.map(v => [v[0], '', v[1]]));
+    sh.getRange(2, 1, VERSE_SEED.length, 3).setValues(VERSE_SEED.map(safeRow));
     sh.setColumnWidth(2, 480);
   }
   return sh;
 }
-/** 在 Apps Script 編輯器手動執行一次：把還沒貼經文的備選出處換成最新清單（已貼經文的列保留） */
+/**
+ * 在 Apps Script 編輯器手動執行一次：把恢復本經文補進「經文」工作表。
+ * 只填經文欄是空白的列（主辦人已經貼過或改過的內容一律不動），清單裡沒有的出處補在最後，然後清掉快取。
+ */
 function resetVerseRefs() {
-  const sh = verseSheet();
-  const keep = rows(SH.VERSES).filter(r => String(r[0]).trim() && String(r[1]).trim()).map(r => [r[0], r[1], r[2]]);
-  const have = new Set(keep.map(r => String(r[0]).trim()));
-  const all = keep.concat(VERSE_SEED.filter(v => !have.has(v[0])).map(v => [v[0], '', v[1]]));
-  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 3).clearContent();
-  sh.getRange(2, 1, all.length, 3).setValues(all);
-  CacheService.getScriptCache().remove('verses');
-  return all.length;
+  return withLock(() => {
+    const sh = verseSheet(), data = rows(SH.VERSES);
+    const seed = new Map(VERSE_SEED.map(v => [v[0], v]));
+    let filled = 0;
+    data.forEach((r, i) => {
+      const v = seed.get(String(r[0]).trim());
+      if (!v || String(r[1]).trim()) return;
+      sh.getRange(i + 2, 2).setValue(safe(v[1]));
+      if (!String(r[2]).trim()) sh.getRange(i + 2, 3).setValue(safe(v[2]));
+      filled++;
+    });
+    const have = new Set(data.map(r => String(r[0]).trim()));
+    const add = VERSE_SEED.filter(v => !have.has(v[0])).map(safeRow);
+    if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, 3).setValues(add);
+    CacheService.getScriptCache().remove('verses');
+    return { filled, added: add.length };
+  });
 }
 
 /** 備選經文很少變動：快取 5 分鐘，省下每次讀試算表的時間（主辦人改了經文，最多 5 分鐘後生效） */
@@ -387,8 +477,8 @@ function writeLetter(user, actId, input) {
   if (!from) throw new Error('NEED_BIND');
   const { to, text, image, paper, vref, vtext } = cleanLetterInput(input);
   const id = newId('L');
-  withLock(() => sheet(SH.LETTERS).appendRow([id, a.id, from, user.userId, to, text, image, paper, new Date(), false, vref, vtext]));
-  return { id, actId: a.id, actTitle: a.title, from, to, paper, opened: openedCount(a.id) };
+  withLock(() => sheet(SH.LETTERS).appendRow(safeRow([id, a.id, from, user.userId, to, text, image, paper, new Date(), false, vref, vtext])));
+  return { id, actId: a.id, actTitle: a.title, from, to, paper, opened: openedCount(a.id), loved: lovedCount(a.id, to) };
 }
 
 function cleanLetterInput(input) {
@@ -410,11 +500,12 @@ function updateLetter(user, letterId, input) {
     const a = getAct(f.row[LT.ACT]);
     if (!a || stateOf(a) !== 'open') throw new Error('這個活動已經停止寫信，不能再修改');
     const sh = sheet(SH.LETTERS);
-    sh.getRange(f.index, LT.TO + 1, 1, 4).setValues([[l.to, l.text, l.image, l.paper]]);
-    sh.getRange(f.index, LT.VREF + 1, 1, 2).setValues([[l.vref, l.vtext]]);
+    sh.getRange(f.index, LT.TO + 1, 1, 4).setValues([safeRow([l.to, l.text, l.image, l.paper])]);
+    sh.getRange(f.index, LT.VREF + 1, 1, 2).setValues([safeRow([l.vref, l.vtext])]);
     const changedTo = normName(f.row[LT.TO]) !== normName(l.to);
     if (changedTo) sh.getRange(f.index, LT.SENT + 1).setValue(false); // 換了收信人，要重新送出
-    return { id: String(letterId), actId: a.id, actTitle: a.title, from: String(f.row[LT.FROM]), to: l.to, paper: l.paper, changedTo, opened: openedCount(a.id) };
+    clearLoved(a.id);
+    return { id: String(letterId), actId: a.id, actTitle: a.title, from: String(f.row[LT.FROM]), to: l.to, paper: l.paper, changedTo, opened: openedCount(a.id), loved: lovedCount(a.id, l.to) };
   });
 }
 
@@ -424,8 +515,10 @@ function deleteLetter(user, letterId) {
     const f = findLetter(letterId);
     if (!f) throw new Error('找不到這封信，可能已經被刪除');
     if (String(f.row[LT.FROM_UID]) !== user.userId) requireOwner(user, f.row[LT.ACT]);
+    const actId = String(f.row[LT.ACT]);
     sheet(SH.LETTERS).deleteRow(f.index);
     const opens = deleteRows(SH.OPENS, r => String(r[OP.LETTER]) === String(letterId));
+    clearLoved(actId);
     return { id: String(letterId), opens };
   });
 }
@@ -436,7 +529,9 @@ function markSent(user, letterId) {
     const f = findLetter(letterId);
     if (!f || String(f.row[LT.FROM_UID]) !== user.userId) throw new Error('找不到這封信');
     sheet(SH.LETTERS).getRange(f.index, LT.SENT + 1).setValue(true);
-    return { id: letterId };
+    const actId = String(f.row[LT.ACT]);
+    clearLoved(actId);
+    return { id: letterId, loved: lovedCount(actId) };
   });
 }
 
@@ -455,7 +550,7 @@ function letterCard(id) {
   const f = findLetter(id);
   if (!f) return null;
   const a = getAct(f.row[LT.ACT]);
-  return { id: String(id), to: String(f.row[LT.TO]), paper: String(f.row[LT.PAPER] || 'rose'), actId: String(f.row[LT.ACT]), actTitle: a ? a.title : '', opened: openedCount(f.row[LT.ACT]) };
+  return { id: String(id), to: String(f.row[LT.TO]), paper: String(f.row[LT.PAPER] || 'rose'), actId: String(f.row[LT.ACT]), actTitle: a ? a.title : '', opened: openedCount(f.row[LT.ACT]), loved: lovedCount(f.row[LT.ACT], f.row[LT.TO]) };
 }
 
 function letterContent(r, a) {
@@ -476,7 +571,7 @@ function openLetter(user, letterId) {
   return withLock(() => {
     let info = openInfo(letterId), first = false;
     if (!info.openedAt) {
-      sheet(SH.OPENS).appendRow([new Date(), String(r[LT.ID]), String(r[LT.ACT]), name, user.displayName, user.userId]);
+      sheet(SH.OPENS).appendRow(safeRow([new Date(), String(r[LT.ID]), String(r[LT.ACT]), name, user.displayName, user.userId]));
       info = openInfo(letterId); first = true;
     }
     return { status: 'opened', first, letter: letterContent(r, a), ...info };
