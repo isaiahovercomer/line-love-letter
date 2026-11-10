@@ -72,7 +72,7 @@ await check('home-noguide：活動卡與截止時間不被拆行', '?demo&noguid
   await expectText(page, 'h2', '我的流通神聖的愛活動');
   if (await page.locator('.guide').count()) throw new Error('noguide 仍出現使用說明');
   const n = await page.locator('.card.act').count();
-  if (n !== 7) throw new Error(`活動卡數量 ${n}`);
+  if (n !== 11) throw new Error(`活動卡數量 ${n}`);
   const lines = await page.locator('.card.act .s .nowrap', { hasText: '截止' }).first().evaluate(el => el.getClientRects().length);
   if (lines !== 1) throw new Error('截止時間被拆成兩行');
   const layout = await page.evaluate(() => {
@@ -185,9 +185,10 @@ await check('theme-groups：節日／場合換行並與日常對齊；愛情牧�
   await page.locator('#w-to').waitFor();
   if (await page.locator('.music-hint', { hasText: '點選主題，會配上相應的背景音樂' }).count() === 0)
     throw new Error('沒有主題音樂說明');
-  for (const name of ['愛情', '牧養', '建造', '福音']) {
+  for (const name of ['愛情', '牧養', '建造', '福音', '中秋', '端午', '除夕', '寒假', '暑假']) {
     if (await page.locator(`[data-paper]`, { hasText: name }).count() === 0) throw new Error('缺少信紙：' + name);
   }
+  if (await page.locator(`[data-paper]`, { hasText: '聖誕' }).count()) throw new Error('聖誕場合應已從選單拿掉');
   const gospelSym = await page.locator('[data-paper=gospel] i').textContent();
   if (new RegExp('[' + ['\\u271D','\\u271E','\\u271F','\\u2020','\\u2626','\\u2671','\\u26EA','\\u2629','\\u2719','\\u{1F547}'].join('') + ']', 'u').test(gospelSym || '')) throw new Error('福音仍用十字架符號：' + gospelSym);
   const rows = await page.locator('.papers .pg-row').count();
@@ -496,8 +497,8 @@ await check('activity-themes：首頁卡片有主題色與浮水印，我寫過�
     const mineBg = mine && getComputedStyle(mine).backgroundColor;
     return { cards, mineBg, pageTheme: document.body.getAttribute('data-act-theme') };
   });
-  const want = { A0: 'winter', 冬天的第一個問候: 'winter', 畢業祝福信: 'grad', 聖誕的問候: 'xmas', 感恩節的見證: 'thanks', 牧養關懷信: 'shepherd', 建造與配搭: 'build', 彼此相愛: 'love' };
-  if (info.cards.length !== 7) throw new Error('應有 7 張活動卡：' + info.cards.length);
+  const want = { 冬天的第一個問候: 'winter', 畢業祝福信: 'grad', 中秋的問候: 'midautumn', 感恩節的見證: 'thanks', 牧養關懷信: 'shepherd', 建造與配搭: 'build', 彼此相愛: 'love', 端午的問候: 'duanwu', 除夕團圓信: 'chuxi', 寒假的問候: 'winterbreak', 暑假的祝福: 'summer' };
+  if (info.cards.length !== 11) throw new Error('應有 11 張活動卡：' + info.cards.length);
   if (info.pageTheme) throw new Error('首頁不該套整頁單一主題：' + info.pageTheme);
   for (const c of info.cards) {
     if (!c.hasClass || !c.theme) throw new Error('卡片缺主題：' + JSON.stringify(c));
@@ -514,16 +515,16 @@ await check('activity-themes：首頁卡片有主題色與浮水印，我寫過�
 });
 
 await check('activity-themes：寫信頁套上活動主題浮水印', '?demo=write&act=A3&noguide', async page => {
-  await page.locator('h2', { hasText: '聖誕的問候' }).waitFor();
+  await page.locator('h2', { hasText: '中秋的問候' }).waitFor();
   const theme = await page.evaluate(() => document.body.getAttribute('data-act-theme'));
-  if (theme !== 'xmas') throw new Error('寫信頁主題應為 xmas：' + theme);
+  if (theme !== 'midautumn') throw new Error('寫信頁主題應為 midautumn：' + theme);
   const opacity = await page.evaluate(() => {
     const cs = getComputedStyle(document.body, '::before');
     return { op: cs.opacity, img: cs.backgroundImage };
   });
   const op = parseFloat(opacity.op);
   if (!(op >= 0.05 && op <= 0.12)) throw new Error('浮水印透明度應約 6–10%：' + opacity.op);
-  if (!/xmas\.svg/.test(opacity.img)) throw new Error('寫信頁浮水印不是聖誕：' + opacity.img);
+  if (!/midautumn\.svg/.test(opacity.img)) throw new Error('寫信頁浮水印不是中秋：' + opacity.img);
 });
 
 await check('mydata：有入口到我寫過的信', '?demo=mydata&noguide', async page => {

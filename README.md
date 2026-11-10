@@ -9,11 +9,11 @@
 - 網站總管理者：在 Apps Script「專案設定 → 指令碼屬性」設定 `SUPER_ADMIN`（LINE userId，多位用逗號分隔）。只有總管理者在後台看得到信件內容；活動建立人、共同管理者與發布者只能看誰寫給誰、是否已送出與收信。活動建立者（與總管理者）可以把已經寫信或已經收信的人加為共同管理者；共同管理者有同樣的後台檢視與管理權限，但不能新增／移除共同管理者，也不能刪除活動。
 - LIFF：Full、scopes openid＋profile、開啟 shareTargetPicker
 
-寫信時可選日常或節日／場合信紙（含愛情、牧養、建造、福音等）。活動首頁卡片、打開活動的寫信頁／收信頁，以及活動後台標題區，會依活動主題帶上淡淡的色調、花邊與背景浮水印（優先用活動的預設信紙；若沒有，再依標題裡的「聖誕／感恩／生日／畢業／新春／愛情／牧養／建造／福音」判斷，否則為素雅）。點選主題會配上輕柔背景音樂（循環播放、預設音量 0.35，點選後才載入），可停止；收信的人要自己按「打開聲音聆聽」。背景音樂授權與逐首曲目見下方「背景音樂」。LINE 圖卡與活動標題旁邊會顯示「已有 XX 人寫信」「已有 XX 個人收到愛」（送出當下的人數，圖卡發出後不會再變）。每個使用者可在首頁或「我的個人資料」查看「我寫過的信」（跨活動、寫給誰、是否已送出或對方已收信）。活動後台有收信人名單（已送出、不重複收信人，可複製或截圖，不含信件內容），以及共同管理者名單（點選已寫信或已收信的人即可新增；還沒打開信的收信人還不能新增）。頁面上不使用十字架圖示或表情符號。
+寫信時可選日常或節日／場合信紙（含愛情、牧養、建造、福音等）。活動首頁卡片、打開活動的寫信頁／收信頁，以及活動後台標題區，會依活動主題帶上淡淡的色調、花邊與背景浮水印（優先用活動的預設信紙；若沒有，再依標題裡的「中秋／端午／除夕／寒假／暑假／感恩／生日／畢業／新春／愛情／牧養／建造／福音」判斷，否則為素雅）。點選主題會配上輕柔背景音樂（循環播放、預設音量 0.35，點選後才載入），可停止；收信的人要自己按「打開聲音聆聽」。背景音樂授權與逐首曲目見下方「背景音樂」。LINE 圖卡與活動標題旁邊會顯示「已有 XX 人寫信」「已有 XX 個人收到愛」（送出當下的人數，圖卡發出後不會再變）。每個使用者可在首頁或「我的個人資料」查看「我寫過的信」（跨活動、寫給誰、是否已送出或對方已收信）。活動後台有收信人名單（已送出、不重複收信人，可複製或截圖，不含信件內容），以及共同管理者名單（點選已寫信或已收信的人即可新增；還沒打開信的收信人還不能新增）。頁面上不使用十字架圖示或表情符號。
 
 ## 背景音樂
 
-14 首主題曲都是約 51 秒、單聲道、約 64 kbps 的循環 MP3（頭尾淡入淡出），放在 `audio/<主題>.mp3`。寫信頁點選主題後才載入，不預先快取；預設音量 0.35、循環播放。使用說明最下方有一行小字署名，其他畫面不另外標示。
+各主題曲都是約 51 秒、單聲道、約 64 kbps 的循環 MP3（頭尾淡入淡出），放在 `audio/<主題>.mp3`。新增場合沿用既有曲目，不另外下載。舊版「聖誕」音檔仍保留，供既有活動播放。寫信頁點選主題後才載入，不預先快取；預設音量 0.35、循環播放。使用說明最下方有一行小字署名，其他畫面不另外標示。
 
 除「生日」外，錄音皆為 [Kevin MacLeod / incompetech.com](https://incompetech.com/music/royalty-free/faq.html)，官方授權為 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)，必須署名，可商用、可剪輯。建議署名格式（官方 FAQ）：
 
@@ -34,7 +34,12 @@ https://creativecommons.org/licenses/by/4.0/
 | 牛皮 | `kraft.mp3` | Windswept | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100757 |
 | 薄荷 | `mint.mp3` | Enchanted Journey | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100799 |
 | 冬季 | `winter.mp3` | Winter Chimes | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100009 |
-| 聖誕 | `xmas.mp3` | Silent Night | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100075 |
+| 中秋 | `midautumn.mp3` | Enchanted Journey（與薄荷相同錄音） | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100799 |
+| 端午 | `duanwu.mp3` | Water Lily（與感恩相同錄音） | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1400035 |
+| 除夕 | `chuxi.mp3` | Morning（與新春相同錄音） | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN2300003 |
+| 寒假 | `winterbreak.mp3` | Winter Chimes（與冬季相同錄音） | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100009 |
+| 暑假 | `summer.mp3` | Fresh Air（與晴空相同錄音） | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1500084 |
+| 聖誕（舊版，選單已撤） | `xmas.mp3` | Silent Night | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100075 |
 | 新春 | `newyear.mp3` | Morning | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN2300003 |
 | 感恩 | `thanks.mp3` | Water Lily | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1400035 |
 | 畢業 | `grad.mp3` | Dreams Become Real | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1500027 |

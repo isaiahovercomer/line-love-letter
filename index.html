@@ -277,9 +277,13 @@ const PAPERS = {
   kraft:    { group: '日常', name: '牛皮', sym: '✦', paper: '#FBF6EC', ink: '#4A3826', accent: '#A86F32', line: '#E9DBC3', env: '#E2C9A0', flap: '#D4B584' },
   mint:     { group: '日常', name: '薄荷', sym: '✦', paper: '#F4FAF6', ink: '#1F3F2E', accent: '#3D8A62', line: '#D2E7DA', env: '#C9E3D3', flap: '#B1D6BF' },
   // 節日與場合
-  winter:   { group: '節日場合', name: '冬季', sym: '❄', paper: '#F4F8FB', ink: '#1F3A52', accent: '#4A7FA7', line: '#D9E5EE', env: '#DCE7F0', flap: '#C3D5E4' },
-  xmas:     { group: '節日場合', name: '聖誕', sym: '★', paper: '#FBF7EF', ink: '#1F3B2C', accent: '#A3302B', line: '#E7DECC', env: '#D6E2D3', flap: '#B5CAB0' },
-  newyear:  { group: '節日場合', name: '新春', sym: '✺', paper: '#FFF8EE', ink: '#5A1E16', accent: '#B8322A', line: '#F0DCC6', env: '#F2D3B8', flap: '#E6B994' },
+  winter:      { group: '節日場合', name: '冬季', sym: '❄', paper: '#F4F8FB', ink: '#1F3A52', accent: '#4A7FA7', line: '#D9E5EE', env: '#DCE7F0', flap: '#C3D5E4' },
+  midautumn:   { group: '節日場合', name: '中秋', sym: '☽', paper: '#FFF8EE', ink: '#4A3820', accent: '#C49A48', line: '#EEDCC0', env: '#F0D8B0', flap: '#E4C48A' },
+  duanwu:      { group: '節日場合', name: '端午', sym: '◆', paper: '#F3F8F5', ink: '#1F3B32', accent: '#3D8A6A', line: '#D0E4DA', env: '#C8E0D4', flap: '#B0D0C2' },
+  chuxi:       { group: '節日場合', name: '除夕', sym: '❋', paper: '#FFF6F2', ink: '#5A2424', accent: '#C45A48', line: '#F0D8D0', env: '#F0D0C4', flap: '#E4B4A8' },
+  winterbreak: { group: '節日場合', name: '寒假', sym: '❅', paper: '#F5F8FB', ink: '#2A3A4A', accent: '#7A8AAA', line: '#DCE4EC', env: '#D8E0EA', flap: '#C4D0DC' },
+  summer:      { group: '節日場合', name: '暑假', sym: '☀', paper: '#FFFBF2', ink: '#3A4A38', accent: '#E0A04A', line: '#F0E4C8', env: '#F0E0B8', flap: '#E4D090' },
+  newyear:     { group: '節日場合', name: '新春', sym: '✺', paper: '#FFF8EE', ink: '#5A1E16', accent: '#B8322A', line: '#F0DCC6', env: '#F2D3B8', flap: '#E6B994' },
   thanks:   { group: '節日場合', name: '感恩', sym: '❧', paper: '#FCF6EC', ink: '#4A3220', accent: '#B4652A', line: '#ECDCC5', env: '#E9CFAF', flap: '#DDB98F' },
   grad:     { group: '節日場合', name: '畢業', sym: '✪', paper: '#F6F7FA', ink: '#1E2A44', accent: '#9A7631', line: '#DCE0E8', env: '#D3D9E5', flap: '#BCC5D6' },
   birthday: { group: '節日場合', name: '生日', sym: '✷', paper: '#FFFBEF', ink: '#4A3A12', accent: '#C27B12', line: '#F1E5C4', env: '#F3E2B0', flap: '#E8D08E' },
@@ -287,8 +291,11 @@ const PAPERS = {
   love:     { group: '節日場合', name: '愛情', sym: '❀', paper: '#FDF6F6', ink: '#5A2A32', accent: '#8E3E4C', line: '#F0D8DC', env: '#F3D7DC', flap: '#E8BFC6' },
   shepherd: { group: '節日場合', name: '牧養', sym: '🌿', paper: '#F5F8F2', ink: '#2A3B28', accent: '#4A6A3C', line: '#D8E3D0', env: '#D5E0CC', flap: '#BCCBB0' },
   build:    { group: '節日場合', name: '建造', sym: '⬡', paper: '#F8F5EE', ink: '#3A3226', accent: '#6F542E', line: '#E6DCC8', env: '#E4D7BE', flap: '#D4C4A4' },
+  // 舊版聖誕：選單不顯示，既有活動仍可渲染
+  xmas:     { group: '節日場合', name: '聖誕', sym: '★', paper: '#FBF7EF', ink: '#1F3B2C', accent: '#A3302B', line: '#E7DECC', env: '#D6E2D3', flap: '#B5CAB0', hidden: true },
 };
 const paperOf = k => PAPERS[k] || PAPERS.rose;
+const papersIn = (g, keep) => Object.entries(PAPERS).filter(([k, p]) => p.group === g && (!p.hidden || k === keep));
 const paperVars = k => { const p = paperOf(k); return `--p-paper:${p.paper};--p-ink:${p.ink};--p-accent:${p.accent};--p-line:${p.line};--p-env:${p.env};--p-flap:${p.flap}`; };
 /** 活動主題裝飾：優先用活動的信紙欄位，沒有再依標題關鍵字，最後才用素雅 */
 const THEME_DECO = {
@@ -296,9 +303,14 @@ const THEME_DECO = {
   sky:      { tint: '#F3F7FB', line: '#D5E1EE', accent: '#7A9BB8' },
   kraft:    { tint: '#F8F3E8', line: '#E6D7BE', accent: '#B08A5A' },
   mint:     { tint: '#F3F8F4', line: '#D2E5D6', accent: '#6A9A7A' },
-  winter:   { tint: '#F3F6F9', line: '#D5E0E8', accent: '#6A8AA4' },
-  xmas:     { tint: '#F6F5EF', line: '#DED6C4', accent: '#7A8F70' },
-  newyear:  { tint: '#FBF6EE', line: '#EDDCC6', accent: '#C4A06A' },
+  winter:      { tint: '#F3F6F9', line: '#D5E0E8', accent: '#6A8AA4' },
+  midautumn:   { tint: '#FBF6EC', line: '#E8D6B4', accent: '#C4A05A' },
+  duanwu:      { tint: '#F3F8F5', line: '#D0E2D8', accent: '#5A9A80' },
+  chuxi:       { tint: '#FBF4F0', line: '#EED4CC', accent: '#C47A6A' },
+  winterbreak: { tint: '#F4F7FA', line: '#D8E2EA', accent: '#7A8AA0' },
+  summer:      { tint: '#FBF7EE', line: '#EDE0C4', accent: '#D4A05A' },
+  newyear:     { tint: '#FBF6EE', line: '#EDDCC6', accent: '#C4A06A' },
+  xmas:        { tint: '#F6F5EF', line: '#DED6C4', accent: '#7A8F70' },
   thanks:   { tint: '#F8F3EA', line: '#E8D7BE', accent: '#C49962' },
   grad:     { tint: '#F4F5F8', line: '#DCE0E8', accent: '#8A7A4A' },
   birthday: { tint: '#FBF8F0', line: '#EDE3C8', accent: '#D4B46A' },
@@ -307,7 +319,7 @@ const THEME_DECO = {
   shepherd: { tint: '#F4F7F1', line: '#D6E0CE', accent: '#7A9468' },
   build:    { tint: '#F7F4EC', line: '#E4DAC6', accent: '#8A7350' },
 };
-const THEME_TITLE_KEYS = [['聖誕','xmas'],['感恩','thanks'],['生日','birthday'],['畢業','grad'],['新春','newyear'],['愛情','love'],['牧養','shepherd'],['建造','build'],['福音','gospel']];
+const THEME_TITLE_KEYS = [['中秋','midautumn'],['端午','duanwu'],['除夕','chuxi'],['寒假','winterbreak'],['暑假','summer'],['感恩','thanks'],['生日','birthday'],['畢業','grad'],['新春','newyear'],['愛情','love'],['牧養','shepherd'],['建造','build'],['福音','gospel']];
 function themeOf(act) {
   if (act && THEME_DECO[act.paper]) return act.paper;
   const title = typeof act === 'string' ? act : String((act && (act.title || act.actTitle)) || '');
@@ -439,17 +451,21 @@ const demo = {
   acts: [
     { id: 'A1', title: '冬天的第一個問候', desc: '寫一封悄悄話給你想感謝的弟兄姊妹，可以附一張照片。12/24 前都可以寫。', deadline: '2026-12-24 23:59', paper: 'winter', open: true, created: '2026/11/10 16:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
     { id: 'A2', title: '畢業祝福信', desc: '', deadline: '', open: false, created: '2026/6/1 10:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
-    { id: 'A3', title: '聖誕的問候', desc: '寫一封溫暖的話，送給你想祝福的人。', deadline: '2026-12-25 23:59', paper: 'xmas', open: true, created: '2026/11/10 16:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
+    { id: 'A3', title: '中秋的問候', desc: '寫一封溫暖的話，送給你想祝福的人。', deadline: '2026-09-25 23:59', paper: 'midautumn', open: true, created: '2026/9/10 16:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
     { id: 'A4', title: '感恩節的見證', desc: '謝謝這一季陪伴你的人。', deadline: '', paper: 'thanks', open: true, created: '2026/11/1 10:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
     { id: 'A5', title: '牧養關懷信', desc: '把關懷寫下來，送給你牧養的人。', deadline: '', paper: 'shepherd', open: true, created: '2026/10/1 10:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
     { id: 'A6', title: '建造與配搭', desc: '為一同建造的同伴寫一封信。', deadline: '', paper: 'build', open: true, created: '2026/9/1 10:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
     { id: 'A7', title: '彼此相愛', desc: '把愛寫成一封信。', deadline: '', paper: 'love', open: true, created: '2026/8/1 10:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
+    { id: 'A8', title: '端午的問候', desc: '寫一封信，送給你想祝福的人。', deadline: '', paper: 'duanwu', open: true, created: '2026/5/20 10:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
+    { id: 'A9', title: '除夕團圓信', desc: '歲末寫下一句感謝與祝福。', deadline: '', paper: 'chuxi', open: true, created: '2026/1/20 10:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
+    { id: 'A10', title: '寒假的問候', desc: '放假了，寫一封信給想聯繫的人。', deadline: '', paper: 'winterbreak', open: true, created: '2026/1/10 10:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
+    { id: 'A11', title: '暑假的祝福', desc: '夏天寫一封輕快的祝福。', deadline: '', paper: 'summer', open: true, created: '2026/7/1 10:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
   ],
   coAdmins: [
     { actId: 'A1', uid: 'U1', name: '王小明' },
   ],
   letters: [
-    { id: 'L1', actId: 'A1', from: '王小明', fromUid: 'U1', to: '陳怡君', vref: '腓立比書 1:6', vtext: '（預覽：這裡會顯示寫信人選的經文）', text: '怡君姊妹：\n謝謝你這一年每週都來接我去小排，\n你的陪伴讓我很得激勵。\n聖誕快樂！', image: '', paper: 'rose', time: '2026/11/10 18:02', sent: true, openedAt: '2026/11/10 19:30', openedBy: '陳怡君', openedUid: 'Udemo' },
+    { id: 'L1', actId: 'A1', from: '王小明', fromUid: 'U1', to: '陳怡君', vref: '腓立比書 1:6', vtext: '（預覽：這裡會顯示寫信人選的經文）', text: '怡君姊妹：\n謝謝你這一年每週都來接我去小排，\n你的陪伴讓我很得激勵。\n冬天平安！', image: '', paper: 'rose', time: '2026/11/10 18:02', sent: true, openedAt: '2026/11/10 19:30', openedBy: '陳怡君', openedUid: 'Udemo' },
     { id: 'L2', actId: 'A1', from: '陳怡君', fromUid: 'Udemo', to: '林志豪', text: '志豪弟兄，謝謝你在青年聚會的服事，辛苦了！', image: '', paper: 'sky', time: '2026/11/10 20:14', sent: true, openedAt: '', openedBy: '' },
     { id: 'L3', actId: 'A1', from: '簡晨光', fromUid: 'U3', to: '王小明', text: '小明，願主祝福你的新工作！', image: '', paper: 'mint', time: '2026/11/11 07:40', sent: false, openedAt: '', openedBy: '' },
     { id: 'L4', actId: 'A2', from: '林志豪', fromUid: 'U4', to: '簡晨光', text: '畢業快樂！', image: '', paper: 'kraft', time: '2026/6/2 12:00', sent: true, openedAt: '2026/6/2 13:10', openedBy: '簡晨光', openedUid: 'U3' },
@@ -838,7 +854,7 @@ function writeForm(edit, presetTo) {
     ${edit ? '' : ACT.desc ? `<p class="muted small" style="white-space:pre-wrap">${esc(ACT.desc)}</p>` : ''}
     ${ACT.deadline ? `<p class="small muted">寫信截止：${esc(shortTime(ACT.deadline))}</p>` : ''}
     <div class="papers" role="group" aria-label="選信紙">
-      ${['日常', '節日場合'].map(g => `<div class="pg-row"><span class="pg">${g === '日常' ? '日常' : '節日／場合'}</span>` + Object.entries(PAPERS).filter(([, p]) => p.group === g).map(([k, p]) =>
+      ${['日常', '節日場合'].map(g => `<div class="pg-row"><span class="pg">${g === '日常' ? '日常' : '節日／場合'}</span>` + papersIn(g, paper).map(([k, p]) =>
         `<button type="button" data-paper="${k}" aria-pressed="${k === paper}" style="--c:${p.accent};--bg:${p.paper}"><i aria-hidden="true">${p.sym}</i>${p.name}</button>`).join('') + '</div>').join('')}
     </div>
     <p class="music-hint" id="w-music-hint"><span>🎵 點選主題，會配上相應的背景音樂</span><button type="button" class="link" id="w-music-toggle" hidden>停止音樂</button></p>
@@ -1214,7 +1230,7 @@ function renderActForm(a) {
       <label class="f" for="a-dl">寫信截止時間（可不填）</label>
       <input class="in" id="a-dl" type="datetime-local" value="${esc(dl)}">
       <label class="f" for="a-paper">預設信紙主題</label>
-      <select class="in" id="a-paper">${['日常', '節日場合'].map(g => `<optgroup label="${g === '日常' ? '日常' : '節日／場合'}">${Object.entries(PAPERS).filter(([, p]) => p.group === g)
+      <select class="in" id="a-paper">${['日常', '節日場合'].map(g => `<optgroup label="${g === '日常' ? '日常' : '節日／場合'}">${papersIn(g, (a && a.paper) || '')
         .map(([k, p]) => `<option value="${k}" ${k === ((a && a.paper) || 'rose') ? 'selected' : ''}>${p.sym} ${p.name}</option>`).join('')}</optgroup>`).join('')}</select>
       <p class="f-hint">寫信的人打開時會先用這款信紙，也可以自己換。</p>
       <div class="btn-row"><button class="btn block" id="a-save" type="button">${a ? '儲存' : '建立並發到群組'}</button></div>
