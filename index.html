@@ -4,8 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#2F3343">
-<link rel="icon" href="img/in-christ.svg" type="image/svg+xml">
-<title>LINE傳情圖卡建立平台</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" sizes="180x180">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="神聖的愛">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>LINE流通神聖的愛圖卡建立平台</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@500;700;900&display=swap" rel="stylesheet">
@@ -139,8 +146,15 @@
   @keyframes blink { from { opacity: .25; } to { opacity: 1; } }
   .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px); background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 14px; opacity: 0; pointer-events: none; transition: .25s; max-width: calc(100% - 32px); text-align: center; z-index: 9; }
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .install { text-align: center; padding-top: 40px; }
+  .install .app-icon { border-radius: 22px; box-shadow: var(--shadow); }
+  .install h1 { font-family: var(--serif); font-weight: 900; font-size: 24px; margin: 14px 0 4px; }
+  .install-steps { text-align: left; background: var(--card); border: 1px solid var(--rule); border-radius: 14px; padding: 14px 18px 14px 38px; margin: 18px 0 0; line-height: 1.9; }
   .sent-list .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--rule); font-size: 15px; }
   .sent-list .row:last-child { border-bottom: 0; }
+  .mine-item { border-bottom: 1px solid var(--rule); padding-bottom: 10px; }
+  .mine-acts { display: flex; gap: 8px; }
+  .mine-acts .btn { min-height: 36px; padding: 4px 14px; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -227,6 +241,12 @@ async function demoApi(action, d) {
       const l = { id: 'L' + Date.now(), actId: d.actId, from: demo.me.name, fromUid: 'Udemo', ...d.letter, time: '剛剛', sent: false, openedAt: '', openedBy: '' };
       demo.letters.push(l); return { ok: true, letter: { id: l.id, actId: l.actId, actTitle: act(l.actId).title, from: l.from, to: l.to, paper: l.paper } };
     }
+    case 'updateLetter': {
+      const l = letter(d.letterId); if (l.openedAt) throw new Error('對方已經收信了，不能再修改');
+      const changedTo = l.to !== d.letter.to; Object.assign(l, d.letter); if (changedTo) l.sent = false;
+      return { ok: true, letter: { id: l.id, actId: l.actId, actTitle: act(l.actId).title, from: l.from, to: l.to, paper: l.paper, changedTo } };
+    }
+    case 'deleteLetter': demo.letters = demo.letters.filter(l => l.id !== d.letterId); return { ok: true, id: d.letterId, opens: 0 };
     case 'markSent': letter(d.letterId).sent = true; return { ok: true, id: d.letterId };
     case 'myLetters': return { ok: true, letters: demo.letters.filter(l => l.fromUid === 'Udemo' && l.actId === d.actId).reverse() };
     case 'openLetter': {
@@ -279,6 +299,7 @@ async function api(action, data = {}) {
 let ME = null;
 async function main() {
   try {
+    if (PARAMS.has('install')) return installFlow(); // 安裝說明頁不需要登入
     const route = PARAMS.has('letter') || ['letter', 'wrong', 'newbie'].includes(DEMO_MODE) ? 'letter'
       : PARAMS.has('act') || ['write', 'bind'].includes(DEMO_MODE) ? 'write'
       : PARAMS.has('fwd') ? 'fwd' : PARAMS.has('share') ? 'share' : PARAMS.has('mydata') || DEMO_MODE === 'mydata' ? 'mydata' : 'home';
@@ -302,7 +323,7 @@ async function main() {
   }
 }
 
-const topHtml = (who = '') => `<header class="top"><div class="brand"><img src="img/in-christ.svg" alt=""><h1>傳情圖卡</h1></div><span class="who">${esc(who)}</span></header>${DEMO ? '<div class="demo-note">預覽模式：使用範例資料，不會真的送出。</div>' : ''}`;
+const topHtml = (who = '') => `<header class="top"><div class="brand"><img src="img/in-christ.svg" alt=""><h1>流通神聖的愛圖卡</h1></div><span class="who">${esc(who)}</span></header>${DEMO ? '<div class="demo-note">預覽模式：使用範例資料，不會真的送出。</div>' : ''}`;
 const footHtml = () => `<div class="foot"><button class="link" type="button" onclick="location.href='?mydata${DEMO ? '&demo=mydata' : ''}'">我的個人資料</button></div>`;
 
 /** 兩段式確認：第一次按變成「再按一次確認」 */
@@ -351,18 +372,18 @@ async function writeFlow(pre) {
   writeForm();
 }
 
-function writeForm() {
+function writeForm(edit) {
   if (ACT.state !== 'open') {
     return view(`${topHtml(ME.name)}<div class="card center"><div class="big-emoji">⏳</div><h2>${esc(ACT.title)}</h2><p>${ACT.state === 'ended' ? '這個傳情活動已經截止寫信了。' : '主辦人已經停止這個活動的寫信。'}</p></div>${footHtml()}`);
   }
-  const d = readDraft(ACT.id);
+  const d = edit || readDraft(ACT.id);
   const paper = d.paper || 'rose';
-  PHOTO = d.photo || '';
-  const to = PARAMS.get('to') || d.to || '';
+  PHOTO = d.photo || d.image || '';
+  const to = edit ? edit.to : PARAMS.get('to') || d.to || '';
   const today = new Date().toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
   view(`${topHtml(ME.name)}
-    <h2>${esc(ACT.title)}</h2>
-    ${ACT.desc ? `<p class="muted small" style="white-space:pre-wrap">${esc(ACT.desc)}</p>` : ''}
+    ${edit ? `<button class="back" type="button" id="w-cancel">‹ 取消修改</button><h2>修改寫給「${esc(edit.to)}」的信</h2>` : `<h2>${esc(ACT.title)}</h2>`}
+    ${edit ? '' : ACT.desc ? `<p class="muted small" style="white-space:pre-wrap">${esc(ACT.desc)}</p>` : ''}
     ${ACT.deadline ? `<p class="small muted">寫信截止：${esc(shortTime(ACT.deadline))}</p>` : ''}
     <div class="papers" role="group" aria-label="選信紙">
       <span class="small muted">信紙</span>
@@ -378,11 +399,12 @@ function writeForm() {
       <div class="date">${esc(today)}</div>
     </div>
     <p class="lock-note">🔒 收信人要登入，而且登記的姓名和你寫的收信人一樣，才拆得開這封信。主辦人在後台看得到誰寫給誰和信的內容。</p>
-    <button class="btn block gold" id="w-send" type="button">儲存並送出 💌</button>
-    <div id="w-mine"></div>${footHtml()}`);
+    <button class="btn block gold" id="w-send" type="button">${edit ? '儲存修改' : '儲存並送出 💌'}</button>
+    ${edit ? '' : '<div id="w-mine"></div>'}${footHtml()}`);
 
   let cur = paper;
-  const keep = () => saveDraft(ACT.id, { to: $('w-to').value, text: $('w-text').value, paper: cur, photo: PHOTO });
+  const keep = () => { if (!edit) saveDraft(ACT.id, { to: $('w-to').value, text: $('w-text').value, paper: cur, photo: PHOTO }); };
+  if (edit) $('w-cancel').onclick = () => { PHOTO = ''; writeForm(); };
   document.querySelectorAll('[data-paper]').forEach(b => b.onclick = () => {
     cur = b.dataset.paper;
     document.querySelectorAll('[data-paper]').forEach(x => x.setAttribute('aria-pressed', x === b));
@@ -398,6 +420,12 @@ function writeForm() {
     const letter = { to: $('w-to').value.trim(), text: $('w-text').value.trim(), paper: cur, image: PHOTO };
     if (!letter.to) { $('w-to').focus(); throw new Error('請填寫收信人的名字'); }
     if (!letter.text) { ta.focus(); throw new Error('請寫下要給對方的悄悄話'); }
+    if (edit) {
+      const r = await api('updateLetter', { letterId: edit.id, letter });
+      PHOTO = '';
+      if (r.letter.changedTo) { LETTER = r.letter; toast('收信人改了，要重新送出'); return sentView(false); }
+      toast('已儲存修改'); return writeForm();
+    }
     const r = await api('writeLetter', { actId: ACT.id, letter });
     clearDraft(ACT.id); PHOTO = '';
     LETTER = r.letter;
@@ -451,12 +479,24 @@ async function drawMine() {
     const { letters } = await api('myLetters', { actId: ACT.id });
     if (!letters.length || !box.isConnected) return;
     box.innerHTML = `<div class="card sent-list"><b>我在這個活動寫的信</b>${letters.map(l => `
-      <div class="row"><span>給 <b>${esc(l.to)}</b></span>${l.openedAt ? `<span class="chip paired">💞 已收信</span>`
-        : l.sent ? `<span class="chip pending">已送出・未收</span>` : `<button class="btn ghost" style="min-height:36px;padding:4px 14px" type="button" data-resend="${esc(l.id)}">送出</button>`}</div>`).join('')}</div>`;
+      <div class="mine-item">
+        <div class="row" style="border:0"><span>給 <b>${esc(l.to)}</b></span>${l.openedAt ? `<span class="chip paired">💞 已收信</span>`
+          : l.sent ? `<span class="chip pending">已送出・未收</span>` : `<span class="chip">還沒送出</span>`}</div>
+        <div class="mine-acts">
+          ${l.sent ? '' : `<button class="btn gold" type="button" data-resend="${esc(l.id)}">送出</button>`}
+          ${l.openedAt ? '' : `<button class="btn ghost" type="button" data-edit="${esc(l.id)}">編輯</button>`}
+          <button class="btn danger" type="button" data-del="${esc(l.id)}">刪除</button>
+        </div>
+      </div>`).join('')}
+      <p class="small muted" style="margin:8px 0 0">對方收信後就不能再修改；刪除後，對方的信封會打不開。</p></div>`;
     box.querySelectorAll('[data-resend]').forEach(b => b.onclick = () => {
       const l = letters.find(x => x.id === b.dataset.resend);
       sendLetter({ ...l, actTitle: ACT.title }).then(ok => ok && drawMine());
     });
+    box.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => writeForm(letters.find(x => x.id === b.dataset.edit)));
+    box.querySelectorAll('[data-del]').forEach(b => b.onclick = () => armThen(b, '確定刪除？', () => busy(b, async () => {
+      await api('deleteLetter', { letterId: b.dataset.del }); toast('已刪除這封信'); box.innerHTML = ''; drawMine();
+    })));
   } catch (e) {}
 }
 
@@ -554,6 +594,49 @@ async function forwardActFlow(id) {
   $('f-go').onclick = async () => { if (await sendAct(act) && liff.isInClient()) liff.closeWindow(); };
 }
 
+/* ================= 安裝到手機桌面（PWA） ================= */
+let installPrompt = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; });
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const installUrl = () => `${location.origin}${location.pathname}?install=1`;
+
+/** LINE 裡面無法安裝：先改用手機瀏覽器打開安裝頁 */
+function startInstall() {
+  if (!DEMO && liff.isInClient && liff.isInClient()) { liff.openWindow({ url: installUrl(), external: true }); return; }
+  installFlow();
+}
+
+function installFlow() {
+  document.title = '安裝「流通神聖的愛」';
+  const steps = isIOS()
+    ? `<ol class="install-steps"><li>用 <b>Safari</b> 開啟這個頁面</li><li>點下方的「分享」按鈕 <span aria-hidden="true">⬆︎</span></li><li>往下滑，點「<b>加入主畫面</b>」</li><li>按右上角「新增」</li></ol>`
+    : `<ol class="install-steps"><li>點上面的「安裝到手機桌面」</li><li>如果沒有反應：點瀏覽器右上角「⋮」選單</li><li>選「<b>安裝應用程式</b>」或「<b>加到主畫面</b>」</li></ol>`;
+  view(`<section class="install">
+    <img class="app-icon" src="icons/icon-192.png" alt="" width="96" height="96">
+    <h1>流通神聖的愛圖卡</h1>
+    <p class="muted">把平台放到手機桌面，像 App 一樣一點就開。</p>
+    ${isStandalone() ? '<p>已經安裝好了，從桌面的圖示打開即可。</p>' : `
+      <button class="btn block gold" id="do-install" type="button" ${isIOS() ? 'hidden' : ''}>安裝到手機桌面</button>
+      ${steps}`}
+    <p class="muted small">第一次從桌面打開時，會請你用 LINE 帳號登入一次。</p>
+    <button class="btn ghost block" id="go-platform" type="button" style="margin-top:14px">前往平台</button>
+  </section>`);
+  const btn = $('do-install');
+  if (btn) btn.onclick = async () => {
+    if (!installPrompt) { toast('請依照下面的步驟，從瀏覽器選單安裝'); return; }
+    installPrompt.prompt();
+    const r = await installPrompt.userChoice.catch(() => null);
+    installPrompt = null;
+    toast(r && r.outcome === 'accepted' ? '安裝完成，可以從桌面打開了' : '已取消安裝');
+  };
+  $('go-platform').onclick = () => { location.href = `${location.origin}${location.pathname}?pwa=1${DEMO ? '&demo' : ''}`; };
+}
+
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+
 /* ================= 主辦人平台 ================= */
 let ACTS = [];
 async function homeFlow() {
@@ -565,9 +648,10 @@ async function homeFlow() {
 
 function renderHome() {
   view(`${topHtml(ME.name || ME.displayName)}
-    <h2>我的傳情活動</h2>
+    <h2>我的流通神聖的愛活動</h2>
     <p class="muted small">建立活動 → 把寫信入口發到群組 → 大家寫信、傳給收信人 → 在這裡看配對。</p>
     <button class="btn block gold" id="h-new" type="button">＋ 建立傳情活動</button>
+    ${isStandalone() ? '' : '<button class="btn ghost block" id="h-install" type="button" style="margin-top:10px">📲 安裝到手機桌面</button>'}
     ${ACTS.length ? ACTS.map(a => `
       <button class="card act" type="button" data-act="${esc(a.id)}">
         <div class="t"><h3>${esc(a.title)}</h3>${stateChip(a.state)}</div>
@@ -575,6 +659,7 @@ function renderHome() {
       </button>`).join('') : `<div class="card empty"><div class="big-emoji">💌</div>還沒有傳情活動，按上面的按鈕建立第一個。</div>`}
     ${footHtml()}`);
   $('h-new').onclick = () => renderActForm();
+  if ($('h-install')) $('h-install').onclick = () => startInstall();
   document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => renderDetail(b.dataset.act));
 }
 
@@ -582,7 +667,7 @@ function renderActForm(a) {
   const dl = a && a.deadline ? a.deadline.replace(' ', 'T') : '';
   view(`${topHtml(ME.name || ME.displayName)}
     <button class="back" type="button" id="f-back">‹ 返回</button>
-    <h2>${a ? '編輯傳情活動' : '建立傳情活動'}</h2>
+    <h2>${a ? '編輯流通神聖的愛活動' : '建立流通神聖的愛活動'}</h2>
     <div class="card">
       <label class="f" for="a-title">活動名稱</label>
       <input class="in" id="a-title" maxlength="40" value="${esc(a ? a.title : '')}" placeholder="例如：聖誕節傳情">
@@ -618,7 +703,7 @@ function drawDetail() {
   const paired = list.filter(l => l.openedAt);
   const shown = FILTER === 'paired' ? paired : FILTER === 'pending' ? list.filter(l => !l.openedAt) : list;
   view(`${topHtml(ME.name || ME.displayName)}
-    <button class="back" type="button" id="d-back">‹ 我的傳情活動</button>
+    <button class="back" type="button" id="d-back">‹ 我的流通神聖的愛活動</button>
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><h2>${esc(a.title)}</h2>${stateChip(a.state)}</div>
     ${a.deadline ? `<p class="small muted" style="margin:0">寫信截止：${esc(shortTime(a.deadline))}</p>` : ''}
     <div class="stats">
@@ -644,7 +729,8 @@ function drawDetail() {
             ${l.openedAt ? '<span class="chip paired">💞 配對成功</span>' : l.sent ? '<span class="chip pending">未收信</span>' : '<span class="chip">未送出</span>'}
           </button>
           ${OPENED_ROW === l.id ? `<div class="body"><div class="paper mini" style="${paperVars(l.paper)}"><div class="text">${esc(l.text)}</div>
-            ${l.image ? `<div class="photo"><img src="${esc(l.image)}" alt="附上的照片" style="max-height:220px"></div>` : ''}</div></div>` : ''}
+            ${l.image ? `<div class="photo"><img src="${esc(l.image)}" alt="附上的照片" style="max-height:220px"></div>` : ''}</div>
+            <div class="btn-row" style="margin:8px 0 0"><button class="btn danger" type="button" data-ldel="${esc(l.id)}" style="min-height:38px">刪除這封信</button></div></div>` : ''}
         </div>`).join('') : `<div class="empty small">${list.length ? '這裡沒有信' : '還沒有人寫信。把寫信入口發到群組吧！'}</div>`}
     </div>
     <p class="muted small">點一下可看信件內容。收信人登記的姓名和信上寫的相符，按下收信才算配對成功。</p>
@@ -660,6 +746,14 @@ function drawDetail() {
   $('d-del').onclick = e => armThen(e.currentTarget, `確定刪除？${list.length} 封信會一起刪掉`, () => busy(e.currentTarget, async () => {
     await api('deleteAct', { actId: a.id }); ACTS = ACTS.filter(x => x.id !== a.id); toast('已刪除'); renderHome();
   }));
+  document.querySelectorAll('[data-ldel]').forEach(b => b.onclick = () => armThen(b, '確定刪除？刪了無法復原', () => busy(b, async () => {
+    await api('deleteLetter', { letterId: b.dataset.ldel });
+    const gone = DETAIL.list.find(x => x.id === b.dataset.ldel);
+    DETAIL.list = DETAIL.list.filter(x => x.id !== b.dataset.ldel);
+    DETAIL.act = { ...DETAIL.act, letters: DETAIL.act.letters - 1, opened: DETAIL.act.opened - (gone && gone.openedAt ? 1 : 0) };
+    const i = ACTS.findIndex(x => x.id === DETAIL.act.id); if (i >= 0) ACTS[i] = { ...ACTS[i], ...DETAIL.act };
+    OPENED_ROW = ''; toast('已刪除這封信'); drawDetail();
+  })));
   document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { FILTER = b.dataset.f; drawDetail(); });
   document.querySelectorAll('[data-row]').forEach(b => b.onclick = () => { OPENED_ROW = OPENED_ROW === b.dataset.row ? '' : b.dataset.row; const y = scrollY; drawDetail(); scrollTo(0, y); });
 }
@@ -709,7 +803,7 @@ function letterFlex(l) {
     type: 'bubble', size: 'kilo',
     styles: { body: { backgroundColor: p.paper }, footer: { backgroundColor: p.paper } },
     body: { type: 'box', layout: 'vertical', paddingAll: '18px', contents: [
-      { type: 'text', text: '💌 ' + (l.actTitle || '傳情信'), size: 'xs', color: p.accent, weight: 'bold', wrap: true },
+      { type: 'text', text: '💌 ' + (l.actTitle || '流通神聖的愛信'), size: 'xs', color: p.accent, weight: 'bold', wrap: true },
       { type: 'box', layout: 'vertical', margin: 'md', backgroundColor: p.env, cornerRadius: '10px', paddingAll: '16px', paddingTop: '22px', contents: [
         { type: 'box', layout: 'vertical', width: '44px', height: '44px', cornerRadius: '22px', backgroundColor: p.accent, justifyContent: 'center', alignItems: 'center',
           contents: [{ type: 'text', text: '♥', color: '#FFFFFF', size: 'lg', align: 'center' }] },
@@ -726,7 +820,7 @@ function letterFlex(l) {
 function actFlex(a) {
   const p = PAPERS.rose;
   const body = [
-    { type: 'text', text: '💌 傳情圖卡', size: 'xs', color: p.accent, weight: 'bold' },
+    { type: 'text', text: '💌 流通神聖的愛圖卡', size: 'xs', color: p.accent, weight: 'bold' },
     { type: 'text', text: a.title, size: 'xl', weight: 'bold', color: p.ink, wrap: true, margin: 'sm' } ];
   if (a.desc) body.push({ type: 'text', text: a.desc.length > 160 ? a.desc.slice(0, 158) + '…' : a.desc, size: 'sm', color: '#7A5A5E', wrap: true, margin: 'md' });
   if (shortTime(a.deadline)) body.push({ type: 'text', text: '寫信截止 ' + shortTime(a.deadline), size: 'xs', color: '#7A5A5E', margin: 'md' });

@@ -62,6 +62,8 @@ function doPost(e) {
         case 'uploadImage':  out = { ok: true, url: uploadImage(user, req.data, req.mime) }; break;
         case 'writeLetter':  out = { ok: true, letter: writeLetter(user, req.actId, req.letter || {}) }; break;
         case 'markSent':     out = { ok: true, ...markSent(user, req.letterId) }; break;
+        case 'updateLetter': out = { ok: true, letter: updateLetter(user, req.letterId, req.letter || {}) }; break;
+        case 'deleteLetter': out = { ok: true, ...deleteLetter(user, req.letterId) }; break;
         case 'myLetters':    out = { ok: true, letters: myLetters(user, req.actId) }; break;
         case 'openLetter':   out = { ok: true, ...openLetter(user, req.letterId) }; break;
         case 'createAct':    out = { ok: true, act: createAct(user, req.act || {}) }; break;
@@ -322,14 +324,48 @@ function writeLetter(user, actId, input) {
   if (st !== 'open') throw new Error(st === 'ended' ? '這個傳情活動已經截止寫信' : '主辦人已經停止這個活動的寫信');
   const from = rosterName(user);
   if (!from) throw new Error('NEED_BIND');
+  const { to, text, image, paper } = cleanLetterInput(input);
+  const id = newId('L');
+  withLock(() => sheet(SH.LETTERS).appendRow([id, a.id, from, user.userId, to, text, image, paper, new Date(), false]));
+  return { id, actId: a.id, actTitle: a.title, from, to, paper };
+}
+
+function cleanLetterInput(input) {
   const to = clip(input.to, 30), text = clip(input.text, 1000);
   if (!to) throw new Error('請填寫收信人的名字');
   if (!text) throw new Error('請寫下要給對方的悄悄話');
   const image = /^https:\/\/lh3\.googleusercontent\.com\/d\/[\w-]+$/.test(input.image || '') ? input.image : '';
   const paper = PAPERS.includes(input.paper) ? input.paper : 'rose';
-  const id = newId('L');
-  withLock(() => sheet(SH.LETTERS).appendRow([id, a.id, from, user.userId, to, text, image, paper, new Date(), false]));
-  return { id, actId: a.id, actTitle: a.title, from, to, paper };
+  return { to, text, image, paper };
+}
+
+/** 寫信的人修改自己的信：對方還沒收信、活動還開放寫信時才能改 */
+function updateLetter(user, letterId, input) {
+  const l = cleanLetterInput(input);
+  return withLock(() => {
+    const f = findLetter(letterId);
+    if (!f || String(f.row[LT.FROM_UID]) !== user.userId) throw new Error('只能修改自己寫的信');
+    if (openInfo(letterId).openedAt) throw new Error('對方已經收信了，不能再修改');
+    const a = getAct(f.row[LT.ACT]);
+    if (!a || stateOf(a) !== 'open') throw new Error('這個活動已經停止寫信，不能再修改');
+    const sh = sheet(SH.LETTERS);
+    sh.getRange(f.index, LT.TO + 1, 1, 4).setValues([[l.to, l.text, l.image, l.paper]]);
+    const changedTo = normName(f.row[LT.TO]) !== normName(l.to);
+    if (changedTo) sh.getRange(f.index, LT.SENT + 1).setValue(false); // 換了收信人，要重新送出
+    return { id: String(letterId), actId: a.id, actTitle: a.title, from: String(f.row[LT.FROM]), to: l.to, paper: l.paper, changedTo };
+  });
+}
+
+/** 刪除一封信：寫信的人自己，或活動建立者／管理員 */
+function deleteLetter(user, letterId) {
+  return withLock(() => {
+    const f = findLetter(letterId);
+    if (!f) throw new Error('找不到這封信，可能已經被刪除');
+    if (String(f.row[LT.FROM_UID]) !== user.userId) requireOwner(user, f.row[LT.ACT]);
+    sheet(SH.LETTERS).deleteRow(f.index);
+    const opens = deleteRows(SH.OPENS, r => String(r[OP.LETTER]) === String(letterId));
+    return { id: String(letterId), opens };
+  });
 }
 
 /** 寫信的人選好朋友或群組送出後，記下「已送出」 */
@@ -346,8 +382,8 @@ function myLetters(user, actId) {
   const opens = rows(SH.OPENS);
   return rows(SH.LETTERS).filter(l => String(l[LT.FROM_UID]) === user.userId && (!actId || String(l[LT.ACT]) === String(actId))).map(l => {
     const o = opens.find(o => String(o[OP.LETTER]) === String(l[LT.ID]));
-    return { id: String(l[LT.ID]), actId: String(l[LT.ACT]), to: String(l[LT.TO]), paper: String(l[LT.PAPER] || 'rose'),
-      time: fmt(l[LT.TIME]), sent: isTrue(l[LT.SENT]), openedAt: o ? fmt(o[OP.TIME]) : '' };
+    return { id: String(l[LT.ID]), actId: String(l[LT.ACT]), to: String(l[LT.TO]), text: String(l[LT.TEXT]), image: String(l[LT.IMAGE] || ''),
+      paper: String(l[LT.PAPER] || 'rose'), time: fmt(l[LT.TIME]), sent: isTrue(l[LT.SENT]), openedAt: o ? fmt(o[OP.TIME]) : '' };
   }).reverse();
 }
 

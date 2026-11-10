@@ -1,0 +1,18 @@
+{
+  "id": "./",
+  "name": "LINE流通神聖的愛圖卡建立平台",
+  "short_name": "神聖的愛",
+  "description": "建立流通神聖的愛活動、寫信傳給朋友、看配對。",
+  "lang": "zh-Hant",
+  "start_url": "./?pwa=1",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FAF6EE",
+  "theme_color": "#2F3343",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
