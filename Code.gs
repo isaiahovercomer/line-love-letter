@@ -341,11 +341,13 @@ function verseSheet() {
 }
 /** 在 Apps Script 編輯器手動執行一次：把還沒貼經文的備選出處換成最新清單（已貼經文的列保留） */
 function resetVerseRefs() {
-  const sh = verseSheet(), data = sh.getDataRange().getValues();
-  for (let i = data.length - 1; i >= 1; i--) if (!String(data[i][1]).trim()) sh.deleteRow(i + 1);
-  const have = new Set(rows(SH.VERSES).map(r => String(r[0]).trim()));
-  const add = VERSE_SEED.filter(v => !have.has(v[0])).map(v => [v[0], '', v[1]]);
-  if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, 3).setValues(add);
+  const sh = verseSheet();
+  const keep = rows(SH.VERSES).filter(r => String(r[0]).trim() && String(r[1]).trim()).map(r => [r[0], r[1], r[2]]);
+  const have = new Set(keep.map(r => String(r[0]).trim()));
+  const all = keep.concat(VERSE_SEED.filter(v => !have.has(v[0])).map(v => [v[0], '', v[1]]));
+  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 3).clearContent();
+  sh.getRange(2, 1, all.length, 3).setValues(all);
+  return all.length;
 }
 
 function listVerses() {
