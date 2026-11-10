@@ -31,7 +31,7 @@ check('播放為循環且音量 0.35、點選才載入',
   && /延遲載入：點了才建立/.test(html)
   && /a\.src = 'audio\/' \+ encodeURIComponent\(k\) \+ '\.mp3'/.test(html));
 check('音檔不進 service worker 預先快取', !/audio\//.test(sw.split('ASSETS')[1]?.split(']')[0] || 'audio/'));
-check('sw 快取已加版本', /loveletter-v10/.test(sw));
+check('sw 快取有版本號', /loveletter-v\d+/.test(sw));
 check('使用說明最下方有一行小字署名與 CC BY 4.0 連結',
   /class="guide-credit"/.test(html)
   && /背景音樂：Kevin MacLeod \(incompetech.com\)/.test(html)

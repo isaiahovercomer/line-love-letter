@@ -38,7 +38,7 @@
   button, input, textarea { font: inherit; color: inherit; }
   :focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
   [hidden] { display: none !important; }
-  #app { max-width: 480px; margin: 0 auto; padding: 0 16px calc(96px + env(safe-area-inset-bottom)); }
+  #app { max-width: 480px; margin: 0 auto; padding: 0 16px calc(96px + env(safe-area-inset-bottom)); position: relative; z-index: 1; }
 
   header.top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 -16px 18px; padding: calc(18px + env(safe-area-inset-top)) 16px 16px; background: var(--ink); color: #F7F1E4; border-bottom: 3px solid var(--gold); }
   header.top .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -83,6 +83,15 @@
   .act .t { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
   .act h3 { margin: 0; font-family: var(--serif); font-size: 18px; }
   .act .s { margin-top: 6px; font-size: 14px; color: var(--ink-2); }
+  body.has-act-theme { background: var(--theme-tint, var(--sky)); }
+  body.has-act-theme::before { content: ''; position: fixed; inset: 0; background-image: var(--theme-mark); background-repeat: no-repeat; background-position: center 28%; background-size: min(92vw, 460px); opacity: .08; pointer-events: none; z-index: 0; }
+  .theme-card { background-color: var(--theme-tint, var(--card)); border-color: var(--theme-line, var(--rule)); position: relative; isolation: isolate; overflow: hidden; }
+  .theme-card::before { content: ''; position: absolute; inset: 0; background: var(--theme-mark) center / 92% no-repeat; opacity: .10; pointer-events: none; z-index: 0; }
+  .theme-card::after { content: ''; position: absolute; inset: 7px; border: 1px solid color-mix(in srgb, var(--theme-accent) 30%, transparent); border-radius: 10px; pointer-events: none; z-index: 1; }
+  .theme-card > * { position: relative; z-index: 2; }
+  .theme-hero { position: relative; margin: 0 -6px 10px; padding: 12px 12px 14px; border-radius: 16px; background: color-mix(in srgb, var(--theme-tint, var(--sky-2)) 70%, #fff); border: 1px solid var(--theme-line, var(--rule)); overflow: hidden; }
+  .theme-hero::before { content: ''; position: absolute; inset: 0; background: var(--theme-mark) right 8% center / 200px no-repeat; opacity: .10; pointer-events: none; }
+  .theme-hero > * { position: relative; z-index: 1; }
   .empty { text-align: center; padding: 28px 16px; color: var(--ink-2); }
 
   /* 後台統計 */
@@ -241,7 +250,7 @@ const DEMO_MODE = PARAMS.get('demo') || '';
 const $app = document.getElementById('app');
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
-const view = (html, name = '') => { const keep = (name === 'write' && VIEW === 'write') || (name === 'letter' && VIEW === 'letter'); if (!keep) stopThemeMusic(); VIEW = name; $app.innerHTML = html; window.scrollTo(0, 0); };
+const view = (html, name = '', theme = '') => { const keep = (name === 'write' && VIEW === 'write') || (name === 'letter' && VIEW === 'letter'); if (!keep) stopThemeMusic(); VIEW = name; $app.innerHTML = html; applyActTheme(theme); window.scrollTo(0, 0); };
 const loading = () => `<div class="loading" role="status"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>`;
 const isHttps = u => /^https:\/\//.test(u || '');
 const imgOk = u => isHttps(u) || /^data:image\//.test(u || '');   // 只顯示 https 或預覽用的 data: 照片
@@ -281,6 +290,50 @@ const PAPERS = {
 };
 const paperOf = k => PAPERS[k] || PAPERS.rose;
 const paperVars = k => { const p = paperOf(k); return `--p-paper:${p.paper};--p-ink:${p.ink};--p-accent:${p.accent};--p-line:${p.line};--p-env:${p.env};--p-flap:${p.flap}`; };
+/** 活動主題裝飾：優先用活動的信紙欄位，沒有再依標題關鍵字，最後才用素雅 */
+const THEME_DECO = {
+  rose:     { tint: '#FBF6F0', line: '#E8D9C4', accent: '#C4A574' },
+  sky:      { tint: '#F3F7FB', line: '#D5E1EE', accent: '#7A9BB8' },
+  kraft:    { tint: '#F8F3E8', line: '#E6D7BE', accent: '#B08A5A' },
+  mint:     { tint: '#F3F8F4', line: '#D2E5D6', accent: '#6A9A7A' },
+  winter:   { tint: '#F3F6F9', line: '#D5E0E8', accent: '#6A8AA4' },
+  xmas:     { tint: '#F6F5EF', line: '#DED6C4', accent: '#7A8F70' },
+  newyear:  { tint: '#FBF6EE', line: '#EDDCC6', accent: '#C4A06A' },
+  thanks:   { tint: '#F8F3EA', line: '#E8D7BE', accent: '#C49962' },
+  grad:     { tint: '#F4F5F8', line: '#DCE0E8', accent: '#8A7A4A' },
+  birthday: { tint: '#FBF8F0', line: '#EDE3C8', accent: '#D4B46A' },
+  gospel:   { tint: '#F6F5F9', line: '#E0DCEC', accent: '#8A82B0' },
+  love:     { tint: '#FBF4F4', line: '#EEDDDE', accent: '#C48990' },
+  shepherd: { tint: '#F4F7F1', line: '#D6E0CE', accent: '#7A9468' },
+  build:    { tint: '#F7F4EC', line: '#E4DAC6', accent: '#8A7350' },
+};
+const THEME_TITLE_KEYS = [['聖誕','xmas'],['感恩','thanks'],['生日','birthday'],['畢業','grad'],['新春','newyear'],['愛情','love'],['牧養','shepherd'],['建造','build'],['福音','gospel']];
+function themeOf(act) {
+  if (act && THEME_DECO[act.paper]) return act.paper;
+  const title = typeof act === 'string' ? act : String((act && (act.title || act.actTitle)) || '');
+  for (const [k, id] of THEME_TITLE_KEYS) if (title.includes(k)) return id;
+  return 'rose';
+}
+function themeVars(k) {
+  const id = THEME_DECO[k] ? k : 'rose';
+  const d = THEME_DECO[id];
+  return `--theme-tint:${d.tint};--theme-line:${d.line};--theme-accent:${d.accent};--theme-mark:url('img/themes/${id}.svg')`;
+}
+function applyActTheme(theme) {
+  const k = theme && THEME_DECO[theme] ? theme : '';
+  document.body.classList.toggle('has-act-theme', !!k);
+  if (k) {
+    document.body.setAttribute('data-act-theme', k);
+    const d = THEME_DECO[k];
+    document.body.style.setProperty('--theme-tint', d.tint);
+    document.body.style.setProperty('--theme-line', d.line);
+    document.body.style.setProperty('--theme-accent', d.accent);
+    document.body.style.setProperty('--theme-mark', "url('img/themes/" + k + ".svg')");
+  } else {
+    document.body.removeAttribute('data-act-theme');
+    ['--theme-tint', '--theme-line', '--theme-accent', '--theme-mark'].forEach(p => document.body.style.removeProperty(p));
+  }
+}
 
 /* 主題背景音樂：輕柔循環、預設音量 0.35；點選主題後才載入，離開寫信／收信頁會停 */
 let themeAudio = null, themeAudioKey = '', themeWantSound = true;
@@ -386,6 +439,11 @@ const demo = {
   acts: [
     { id: 'A1', title: '冬天的第一個問候', desc: '寫一封悄悄話給你想感謝的弟兄姊妹，可以附一張照片。12/24 前都可以寫。', deadline: '2026-12-24 23:59', paper: 'winter', open: true, created: '2026/11/10 16:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
     { id: 'A2', title: '畢業祝福信', desc: '', deadline: '', open: false, created: '2026/6/1 10:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
+    { id: 'A3', title: '聖誕的問候', desc: '寫一封溫暖的話，送給你想祝福的人。', deadline: '2026-12-25 23:59', paper: 'xmas', open: true, created: '2026/11/10 16:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
+    { id: 'A4', title: '感恩節的見證', desc: '謝謝這一季陪伴你的人。', deadline: '', paper: 'thanks', open: true, created: '2026/11/1 10:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
+    { id: 'A5', title: '牧養關懷信', desc: '把關懷寫下來，送給你牧養的人。', deadline: '', paper: 'shepherd', open: true, created: '2026/10/1 10:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
+    { id: 'A6', title: '建造與配搭', desc: '為一同建造的同伴寫一封信。', deadline: '', paper: 'build', open: true, created: '2026/9/1 10:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
+    { id: 'A7', title: '彼此相愛', desc: '把愛寫成一封信。', deadline: '', paper: 'love', open: true, created: '2026/8/1 10:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
   ],
   coAdmins: [
     { actId: 'A1', uid: 'U1', name: '王小明' },
@@ -664,7 +722,7 @@ const GUIDES = {
     ['📜', '我寫過的信', '在首頁或「我的個人資料」可以打開「我寫過的信」，查看你在各個活動寫給過誰、是否已送出或對方已收信。點一封就能再看自己寫的內容。'],
   ],
   host: [
-    ['📮', '建立流通神聖的愛活動', '按「建立」填活動名稱、說明和寫信截止時間，也可以選預設信紙。建立後馬上跳出選單，把寫信入口發到群組。'],
+    ['📮', '建立流通神聖的愛活動', '按「建立」填活動名稱、說明和寫信截止時間，也可以選預設信紙。活動卡片和頁面會帶上相應的花邊、色調與淡淡的背景，讓畫面不那麼冷。建立後馬上跳出選單，把寫信入口發到群組。'],
     ['✉️', '大家寫信、送出', '成員第一次寫信要填姓名和手機，之後寫信、選朋友或群組送出信封。圖卡上活動標題旁邊會顯示「已有 XX 人寫信」「已有 XX 個人收到愛」。'],
     ['🔒', '看神聖的愛流通', '點進活動就能看到「誰 → 誰」、是否已送出與收信。活動建立人與共同管理者看不到信件內容，只有網站總管理者看得到。必要時可刪除某封信。'],
     ['👥', '共同管理者', '活動建立者可以把已經寫信或已經收信的人加為共同管理者（點選名字即可）。共同管理者和建立者一樣可以看後台、編輯活動、停止寫信、刪除信件，但看不到信件內容，也不能新增或移除共同管理者，也不能刪除活動。還沒打開信的收信人還不能新增（尚未連結 LINE 帳號）。'],
@@ -734,7 +792,7 @@ function bindView(title, hint, done, preset = '') {
       <input class="in" id="b-phone" inputmode="tel" autocomplete="tel" maxlength="15" placeholder="0912345678">
       <p class="f-hint">只用來確認是你本人，之後用這個 LINE 開啟就不用再填。</p>
       <div class="btn-row"><button class="btn block" id="b-go" type="button">確認</button></div>
-    </div>${footHtml()}`);
+    </div>${footHtml()}`, '', ACT ? themeOf(ACT) : '');
   $('b-go').onclick = e => busy(e.currentTarget, async rid => {
     const r = await api('bind', { name: $('b-name').value.trim(), phone: $('b-phone').value.trim(), rid });
     ME = { ...(ME || {}), name: r.name };
@@ -743,7 +801,7 @@ function bindView(title, hint, done, preset = '') {
 }
 
 /* ================= 寫信 ================= */
-let ACT = null, LETTER = null, PHOTO = '';
+let ACT = null, LETTER = null, PHOTO = '', LETTER_ACT_THEME = '';
 const draftKey = id => 'loveletter.draft.' + id;
 const readDraft = id => { try { return JSON.parse(localStorage.getItem(draftKey(id)) || 'null') || {}; } catch (e) { return {}; } };
 const saveDraft = (id, d) => { try { localStorage.setItem(draftKey(id), JSON.stringify(d)); } catch (e) {} };
@@ -767,7 +825,7 @@ async function writeFlow(pre, actId) {
 
 function writeForm(edit, presetTo) {
   if (ACT.state !== 'open') {
-    return view(`${topHtml(ME.name)}<div class="card center"><div class="big-emoji">⏳</div><h2>${esc(ACT.title)}</h2>${actCountBadges(ACT, 'center')}<p>${ACT.state === 'ended' ? '這個流通神聖的愛活動已經截止寫信了。' : '主辦人已經停止這個活動的寫信。'}</p></div>${footHtml()}`);
+    return view(`${topHtml(ME.name)}<div class="card center"><div class="big-emoji">⏳</div><h2>${esc(ACT.title)}</h2>${actCountBadges(ACT, 'center')}<p>${ACT.state === 'ended' ? '這個流通神聖的愛活動已經截止寫信了。' : '主辦人已經停止這個活動的寫信。'}</p></div>${footHtml()}`, 'write', themeOf(ACT));
   }
   const d = edit || readDraft(ACT.id);
   const paper = d.paper || ACT.paper || 'rose';
@@ -801,7 +859,7 @@ function writeForm(edit, presetTo) {
     </div>
     <p class="lock-note">🔒 收信人要登入，而且登記的姓名和你寫的收信人一樣，才拆得開這封信。</p>
     <button class="btn block gold" id="w-send" type="button">${edit ? '儲存修改' : '儲存並送出 ✉️'}</button>
-    ${edit ? '' : '<div id="w-mine"></div>'}${footHtml()}`, 'write');
+    ${edit ? '' : '<div id="w-mine"></div>'}${footHtml()}`, 'write', themeOf(ACT));
 
   let cur = paper;
   const keep = () => { if (!edit) saveDraft(ACT.id, { to: $('w-to').value, text: $('w-text').value, paper: cur, photo: PHOTO, vref: $('v-ref').value, vtext: $('v-text').value }); };
@@ -935,7 +993,7 @@ function sentView(ok) {
     <div class="btn-row">
       <button class="btn ${ok ? 'ghost' : 'gold'} block" id="s-again" type="button">${ok ? '再傳給其他人' : '選擇朋友或群組送出'}</button>
       <button class="btn block" id="s-new" type="button">再寫一封</button>
-    </div>${footHtml()}`);
+    </div>${footHtml()}`, 'write', themeOf(ACT));
   $('s-again').onclick = e => busy(e.currentTarget, async () => { if (await sendLetter(LETTER)) sentView(true); });
   $('s-new').onclick = () => writeForm();
 }
@@ -945,6 +1003,7 @@ async function letterFlow(pre) {
   GUIDE_KIND = 'writer';
   const card = pre && pre.card;
   if (!card) return view(`${topHtml()}<div class="card center"><div class="big-emoji">📭</div><p>找不到這封信，可能已經被刪除。</p></div>`);
+  LETTER_ACT_THEME = themeOf({ title: card.actTitle, paper: card.actPaper });
   view(`${topHtml()}
     <p class="center muted small" style="margin-top:20px">${esc(card.actTitle)}</p>
     ${actCountBadges(card, 'center')}
@@ -953,7 +1012,10 @@ async function letterFlow(pre) {
     <p class="center muted small">只有「${esc(card.to)}」本人拆得開</p>
     <p class="music-hint center"><button type="button" class="link" id="l-music">🔈 打開聲音聆聽</button></p>
     <button class="btn block gold" id="l-open" type="button" style="margin-top:12px">收信</button>
-    ${footHtml()}`, 'letter');
+    ${footHtml()}`, 'letter', LETTER_ACT_THEME);
+  if (card.actId) api('act', { actId: card.actId }).then(r => {
+    if (r && r.act) { LETTER_ACT_THEME = themeOf(r.act); if (VIEW === 'letter') applyActTheme(LETTER_ACT_THEME); }
+  }).catch(() => {});
   bindListenHint(card.paper);
   $('l-open').onclick = e => busy(e.currentTarget, () => tryOpen(card));
 }
@@ -976,7 +1038,7 @@ function showOpened(card, r) {
         <h2>這封信不是給你的</h2>
         <p>這封信寫給「<b>${esc(r.to)}</b>」，你登記的姓名是「<b>${esc(r.name)}</b>」，所以拆不開。</p>
         <p class="muted small">如果你就是「${esc(r.to)}」，可能是寫信的人用了不同的寫法，請他用你登記的姓名再寄一次。</p>
-      </div>${footHtml()}`);
+      </div>${footHtml()}`, 'letter', LETTER_ACT_THEME || themeOf({ title: card.actTitle }));
   }
   // 拆信動畫：信封打開後，信紙滑上來
   const env = $('env');
@@ -1017,7 +1079,7 @@ function drawLetter(r) {
       ${r.status === 'mine' ? '' : `<button class="btn gold" type="button" id="l-reply">✉️ 回信給 ${esc(l.from)}</button>`}
       <button class="btn ${r.status === 'mine' ? 'gold' : 'ghost'}" type="button" id="l-pass">🕊️ 繼續把愛傳下去</button>
     </div>
-    <p class="small muted center">「繼續把愛傳下去」：寫一封新的信給另一個人。</p>${footHtml()}`, 'letter');
+    <p class="small muted center">「繼續把愛傳下去」：寫一封新的信給另一個人。</p>${footHtml()}`, 'letter', LETTER_ACT_THEME || themeOf({ title: l.actTitle }));
   bindListenHint(l.paper);
   if ($('l-reply')) $('l-reply').onclick = e => busy(e.currentTarget, () => writeFrom(l.actId, l.from));
   $('l-pass').onclick = e => busy(e.currentTarget, () => writeFrom(l.actId, ''));
@@ -1036,7 +1098,7 @@ async function forwardActFlow(id) {
   const { act } = await api('act', { actId: id });
   if (!act) return view(`${topHtml()}<div class="card center"><p>找不到這個流通神聖的愛活動。</p></div>`);
   view(`${topHtml()}<div class="card center"><div class="big-emoji">✉️</div><p>轉傳「${esc(act.title)}」的寫信入口</p>
-    <button class="btn block gold" id="f-go" type="button">選擇朋友或群組</button></div>`);
+    <button class="btn block gold" id="f-go" type="button">選擇朋友或群組</button></div>`, '', themeOf(act));
   $('f-go').onclick = e => busy(e.currentTarget, async () => { if (await sendAct(act) && liff.isInClient()) liff.closeWindow(); });
 }
 
@@ -1123,7 +1185,7 @@ function renderHome() {
     <button class="btn block gold" id="h-new" type="button">＋ 建立流通神聖的愛活動</button>
     ${isStandalone() ? '' : '<button class="btn ghost block" id="h-install" type="button" style="margin-top:10px">📲 安裝到手機桌面</button>'}
     ${ACTS.length ? ACTS.map(a => `
-      <button class="card act" type="button" data-act="${esc(a.id)}">
+      <button class="card act theme-card" type="button" data-act="${esc(a.id)}" data-theme="${esc(themeOf(a))}" style="${themeVars(themeOf(a))}">
         <div class="t"><h3>${esc(a.title)}</h3>${stateChip(a.state)}</div>
         ${actCountBadges(a)}
         <div class="s"><span class="nowrap">✉️ ${a.letters} 封信</span>・<span class="nowrap">🕊️ 神聖的愛流通成功 ${a.opened}</span>${a.deadline ? `・<span class="nowrap">截止 ${esc(shortTime(a.deadline))}</span>` : ''}${a.coadmin ? '・共同管理' : ''}${a.mine === false ? `・${esc(a.creator)} 建立` : ''}</div>
@@ -1156,7 +1218,7 @@ function renderActForm(a) {
         .map(([k, p]) => `<option value="${k}" ${k === ((a && a.paper) || 'rose') ? 'selected' : ''}>${p.sym} ${p.name}</option>`).join('')}</optgroup>`).join('')}</select>
       <p class="f-hint">寫信的人打開時會先用這款信紙，也可以自己換。</p>
       <div class="btn-row"><button class="btn block" id="a-save" type="button">${a ? '儲存' : '建立並發到群組'}</button></div>
-    </div>`);
+    </div>`, '', a ? themeOf(a) : '');
   $('f-back').onclick = () => a ? renderDetail(a.id) : renderHome();
   $('a-save').onclick = e => busy(e.currentTarget, async rid => {
     const input = { title: $('a-title').value.trim(), desc: $('a-desc').value.trim(), deadline: $('a-dl').value.replace('T', ' '), paper: $('a-paper').value };
@@ -1174,7 +1236,7 @@ async function renderDetail(id) {
   FILTER = 'all'; OPENED_ROW = '';
   const cached = DEMO ? null : cacheGet('detail:' + id);
   if (cached) { DETAIL = cached; drawDetail(); }
-  else view(`${topHtml(ME.name || ME.displayName)}${loading()}`, 'detail:' + id);
+  else view(`${topHtml(ME.name || ME.displayName)}${loading()}`, 'detail:' + id, themeOf((ACTS.find(x => x.id === id) || {})));
   let fresh;
   try { fresh = await api('actDetail', { actId: id }); }
   catch (e) { if (cached) { toast('無法更新：' + e.message); return; } throw e; }
@@ -1192,11 +1254,14 @@ function drawDetail() {
   const full = DETAIL.full === true;   // 後端只在網站總管理者時回傳 full 和信件內容；舊快取沒有 full，一律不顯示內容
   const paired = list.filter(l => l.openedAt);
   const shown = FILTER === 'paired' ? paired : FILTER === 'pending' ? list.filter(l => !l.openedAt) : list;
+  const theme = themeOf(a);
   view(`${topHtml(ME.name || ME.displayName)}
     <button class="back" type="button" id="d-back">‹ 我的流通神聖的愛活動</button>
+    <div class="theme-hero" style="${themeVars(theme)}">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><h2>${esc(a.title)}</h2>${stateChip(a.state)}</div>
     ${actCountBadges(a)}
     ${a.deadline ? `<p class="small muted" style="margin:0">寫信截止：${esc(shortTime(a.deadline))}</p>` : ''}
+    </div>
     <div class="stats">
       <div class="stat"><b>${list.length}</b><span>信件</span></div>
       <div class="stat"><b style="color:var(--ok)">${paired.length}</b><span>神聖的愛<br>流通成功</span></div>
@@ -1204,7 +1269,7 @@ function drawDetail() {
     </div>
     <div class="btn-row">
       <button class="btn gold" id="d-share" type="button">發寫信入口到群組</button>
-      <a class="btn ghost" href="${esc(DEMO ? '?demo=write' : actUrl(a.id))}">我也寫一封</a>
+      <a class="btn ghost" href="${esc(DEMO ? ('?demo=write&act=' + a.id) : actUrl(a.id))}">我也寫一封</a>
     </div>
     <div class="tabs" role="group" aria-label="篩選">
       <button type="button" data-f="all" aria-pressed="${FILTER === 'all'}">全部 ${list.length}</button>
@@ -1232,7 +1297,7 @@ function drawDetail() {
       <button class="btn ghost" id="d-edit" type="button">編輯</button>
       <button class="btn ghost" id="d-open" type="button">${a.open ? '停止寫信' : '重新開放寫信'}</button>
       ${DETAIL.canDeleteAct === true ? '<button class="btn danger" id="d-del" type="button">刪除活動</button>' : ''}
-    </div>${footHtml()}`, 'detail:' + a.id);
+    </div>${footHtml()}`, 'detail:' + a.id, theme);
   $('d-back').onclick = () => renderHome();
   $('d-share').onclick = e => busy(e.currentTarget, () => sendAct(a));
   $('d-edit').onclick = () => renderActForm(a);
