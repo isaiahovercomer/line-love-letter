@@ -119,7 +119,7 @@ function createSession(user) {
   withLock(() => {
     const sh = sessionSheet(), data = sh.getDataRange().getValues();
     for (let i = data.length - 1; i >= 1; i--) if (data[i][3] instanceof Date && data[i][3] < now) sh.deleteRow(i + 1);
-    sh.appendRow([token, user.userId, user.displayName, exp, now]);
+    sh.appendRow(safeRow([token, user.userId, user.displayName, exp, now]));
   });
   return { token, expires: exp.getTime() };
 }
@@ -169,6 +169,9 @@ function withLock(fn) {
 }
 function newId(prefix) { return prefix + Utilities.getUuid().replace(/-/g, '').slice(0, 10); }
 function clip(v, n) { return String(v || '').trim().slice(0, n); }
+/** 寫進試算表的文字：開頭是 = + - @（或 Tab、換行）會被當成公式，前面加 ' 讓它保持純文字（讀回來時試算表會自動去掉這個 '） */
+function safe(v) { return typeof v === 'string' && /^[=+\-@\t\r]/.test(v) ? "'" + v : v; }
+function safeRow(r) { return r.map(safe); }
 function parseTime(s) { return s ? Utilities.parseDate(String(s), tz(), 'yyyy-MM-dd HH:mm') : null; }
 function cleanTime(v) { const m = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/.exec(String(v || '')); return m ? m[1] + ' ' + m[2] : ''; }
 function deleteRows(name, test) {
@@ -195,12 +198,12 @@ function bind(user, name, phone) {
     if (idx > 0) {
       const bound = String(data[idx][2]).trim();
       if (bound && bound !== user.userId) throw new Error('這組姓名和手機已經綁定另一個 LINE 帳號，請聯絡主辦人');
-      rs.getRange(idx + 1, 3, 1, 2).setValues([[user.userId, user.displayName]]);
+      rs.getRange(idx + 1, 3, 1, 2).setValues([safeRow([user.userId, user.displayName])]);
       return { name: String(data[idx][0]) };
     }
     const at = rs.getLastRow() + 1;
     rs.getRange(at, 2).setNumberFormat('@');
-    rs.getRange(at, 1, 1, 4).setValues([[name, String(phone).replace(/\D/g, ''), user.userId, user.displayName]]);
+    rs.getRange(at, 1, 1, 4).setValues([safeRow([name, String(phone).replace(/\D/g, ''), user.userId, user.displayName])]);
     return { name };
   });
 }
@@ -262,7 +265,7 @@ function createAct(user, input) {
   withLock(() => {
     const sh = sheet(SH.ACTS), at = sh.getLastRow() + 1;
     sh.getRange(at, AC.DEADLINE + 1).setNumberFormat('@');
-    sh.getRange(at, 1, 1, 8).setValues([[id, a.title, a.desc, true, user.displayName + ' (' + user.userId + ')', new Date(), a.deadline, a.paper]]);
+    sh.getRange(at, 1, 1, 8).setValues([safeRow([id, a.title, a.desc, true, user.displayName + ' (' + user.userId + ')', new Date(), a.deadline, a.paper])]);
   });
   return withStats(getAct(id));
 }
@@ -271,7 +274,7 @@ function updateAct(id, input) {
   const a = cleanActInput(input);
   return withLock(() => {
     const f = findActRow(id), sh = sheet(SH.ACTS);
-    sh.getRange(f.index, AC.TITLE + 1, 1, 2).setValues([[a.title, a.desc]]);
+    sh.getRange(f.index, AC.TITLE + 1, 1, 2).setValues([safeRow([a.title, a.desc])]);
     sh.getRange(f.index, AC.DEADLINE + 1).setNumberFormat('@').setValue(a.deadline);
     sh.getRange(f.index, AC.PAPER + 1).setValue(a.paper);
     return withStats(getAct(id));
@@ -387,7 +390,7 @@ function writeLetter(user, actId, input) {
   if (!from) throw new Error('NEED_BIND');
   const { to, text, image, paper, vref, vtext } = cleanLetterInput(input);
   const id = newId('L');
-  withLock(() => sheet(SH.LETTERS).appendRow([id, a.id, from, user.userId, to, text, image, paper, new Date(), false, vref, vtext]));
+  withLock(() => sheet(SH.LETTERS).appendRow(safeRow([id, a.id, from, user.userId, to, text, image, paper, new Date(), false, vref, vtext])));
   return { id, actId: a.id, actTitle: a.title, from, to, paper, opened: openedCount(a.id) };
 }
 
@@ -410,8 +413,8 @@ function updateLetter(user, letterId, input) {
     const a = getAct(f.row[LT.ACT]);
     if (!a || stateOf(a) !== 'open') throw new Error('這個活動已經停止寫信，不能再修改');
     const sh = sheet(SH.LETTERS);
-    sh.getRange(f.index, LT.TO + 1, 1, 4).setValues([[l.to, l.text, l.image, l.paper]]);
-    sh.getRange(f.index, LT.VREF + 1, 1, 2).setValues([[l.vref, l.vtext]]);
+    sh.getRange(f.index, LT.TO + 1, 1, 4).setValues([safeRow([l.to, l.text, l.image, l.paper])]);
+    sh.getRange(f.index, LT.VREF + 1, 1, 2).setValues([safeRow([l.vref, l.vtext])]);
     const changedTo = normName(f.row[LT.TO]) !== normName(l.to);
     if (changedTo) sh.getRange(f.index, LT.SENT + 1).setValue(false); // 換了收信人，要重新送出
     return { id: String(letterId), actId: a.id, actTitle: a.title, from: String(f.row[LT.FROM]), to: l.to, paper: l.paper, changedTo, opened: openedCount(a.id) };
@@ -476,7 +479,7 @@ function openLetter(user, letterId) {
   return withLock(() => {
     let info = openInfo(letterId), first = false;
     if (!info.openedAt) {
-      sheet(SH.OPENS).appendRow([new Date(), String(r[LT.ID]), String(r[LT.ACT]), name, user.displayName, user.userId]);
+      sheet(SH.OPENS).appendRow(safeRow([new Date(), String(r[LT.ID]), String(r[LT.ACT]), name, user.displayName, user.userId]));
       info = openInfo(letterId); first = true;
     }
     return { status: 'opened', first, letter: letterContent(r, a), ...info };

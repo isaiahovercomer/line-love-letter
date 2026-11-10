@@ -1,0 +1,11 @@
+# 本機截圖與暫存（不要推上 GitHub）
+_shots/
+shots/
+'$SP'/
+$SP/
+test-results/
+playwright-report/
+node_modules/
+.DS_Store
+Thumbs.db
+*.log

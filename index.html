@@ -143,14 +143,16 @@
   .env-stage { perspective: 900px; margin: 20px auto 8px; max-width: 340px; }
   .env { position: relative; aspect-ratio: 7 / 5; background: var(--p-env); border-radius: 10px; box-shadow: 0 2px 4px rgba(60,30,30,.08), 0 18px 40px rgba(90,40,40,.18); }
   .env::before { content: ""; position: absolute; inset: 0; border-radius: 10px; background: linear-gradient(to top right, transparent 49.6%, rgba(255,255,255,.28) 50%, transparent 50.4%), linear-gradient(to top left, transparent 49.6%, rgba(255,255,255,.28) 50%, transparent 50.4%); }
-  .env .flap { position: absolute; left: 0; right: 0; top: 0; height: 58%; background: var(--p-flap); clip-path: polygon(0 0, 100% 0, 50% 100%); transform-origin: top; transition: transform .7s ease; border-radius: 10px 10px 0 0; z-index: 2; }
+  .env .flap { position: absolute; left: 0; right: 0; top: 0; height: 58%; background: var(--p-flap); clip-path: polygon(0 0, 100% 0, 50% 100%); transform-origin: top; transition: transform .7s ease, opacity .3s ease .4s; border-radius: 10px 10px 0 0; z-index: 2; }
   .env .seal { position: absolute; left: 50%; top: 58%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: var(--p-accent); color: #fff; display: grid; place-items: center; font-size: 24px; z-index: 3; box-shadow: 0 2px 6px rgba(0,0,0,.25); transition: opacity .3s; }
   .env .to { position: absolute; left: 0; right: 0; bottom: 14%; text-align: center; color: var(--p-ink); font-family: var(--serif); z-index: 1; }
   .env .to small { display: block; font-size: 13px; opacity: .75; font-family: var(--sans); }
   .env .to b { font-size: 24px; }
-  .env.open .flap { transform: rotateX(180deg); z-index: 0; }
+  /* 掀開後蓋板會翻到信封上方：最後淡出，才不會蓋住上面的標題 */
+  .env.open .flap { transform: rotateX(180deg); z-index: 0; opacity: 0; }
   .env.open .seal { opacity: 0; }
   .center { text-align: center; }
+  .nowrap { white-space: nowrap; }
   .big-emoji { font-size: 44px; line-height: 1; margin: 18px 0 6px; }
   .fade-up { animation: fadeUp .6s ease both; }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
@@ -203,6 +205,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&
 const view = (html, name = '') => { VIEW = name; $app.innerHTML = html; window.scrollTo(0, 0); };
 const loading = () => `<div class="loading" role="status"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>`;
 const isHttps = u => /^https:\/\//.test(u || '');
+const imgOk = u => isHttps(u) || /^data:image\//.test(u || '');   // 只顯示 https 或預覽用的 data: 照片
 const liffBase = `https://liff.line.me/${LIFF_ID}`;
 const actUrl = (id, to) => `${liffBase}?act=${encodeURIComponent(id)}${to ? '&to=' + encodeURIComponent(to) : ''}`;
 const letterUrl = id => `${liffBase}?letter=${encodeURIComponent(id)}`;
@@ -345,8 +348,12 @@ async function api(action, data = {}) {
     const s = action === 'session' ? null : getSession();
     if (s) body.session = s.token; else body.idToken = liff.getIDToken();
   }
-  const r = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
-  const j = await r.json();
+  if (navigator.onLine === false) throw new Error('目前沒有網路連線，請連上網路後再試一次');
+  let j;
+  try {
+    const r = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
+    j = await r.json();
+  } catch (e) { throw new Error('連線不穩，請稍後再試一次'); }
   if (!j.ok) {
     if (j.error === 'SESSION_EXPIRED') {
       setSession(null);
@@ -582,6 +589,7 @@ function writeForm(edit, presetTo) {
 
 function drawPhoto(keep) {
   const box = $('w-photo');
+  if (PHOTO && !imgOk(PHOTO)) PHOTO = '';
   if (PHOTO) {
     box.innerHTML = `<div class="photo photo-wrap"><img src="${esc(PHOTO)}" alt="附上的照片"><button class="photo-x" id="p-x" type="button" aria-label="移除照片">×</button></div>`;
     $('p-x').onclick = () => { PHOTO = ''; drawPhoto(keep); keep(); };
@@ -726,7 +734,7 @@ function drawLetter(r) {
       <div class="actname">${esc(l.actTitle)}</div>
       <div class="dear"><span>親愛的 <b>${esc(l.to)}</b>：</span></div>
       <div class="text">${esc(l.text)}</div>
-      ${isHttps(l.image) || /^data:image/.test(l.image) ? `<div class="photo"><img src="${esc(l.image)}" alt="寫信人附上的照片"></div>` : ''}
+      ${imgOk(l.image) ? `<div class="photo"><img src="${esc(l.image)}" alt="寫信人附上的照片"></div>` : ''}
       ${verseShow(l)}
       <div class="sign">— ${esc(l.from)}</div>
       <div class="date">${esc(l.time)}</div>
@@ -840,7 +848,7 @@ function renderHome() {
     ${ACTS.length ? ACTS.map(a => `
       <button class="card act" type="button" data-act="${esc(a.id)}">
         <div class="t"><h3>${esc(a.title)}</h3>${stateChip(a.state)}</div>
-        <div class="s">✉️ ${a.letters} 封信・🕊️ 神聖的愛流通成功 ${a.opened}${a.deadline ? `・截止 ${esc(shortTime(a.deadline))}` : ''}${a.mine === false ? `・${esc(a.creator)} 建立` : ''}</div>
+        <div class="s"><span class="nowrap">✉️ ${a.letters} 封信</span>・<span class="nowrap">🕊️ 神聖的愛流通成功 ${a.opened}</span>${a.deadline ? `・<span class="nowrap">截止 ${esc(shortTime(a.deadline))}</span>` : ''}${a.mine === false ? `・${esc(a.creator)} 建立` : ''}</div>
       </button>`).join('') : `<div class="card empty"><div class="big-emoji">✉️</div>還沒有流通神聖的愛活動，按上面的按鈕建立第一個。</div>`}
     ${footHtml()}`, 'home');
   $('h-new').onclick = () => renderActForm();
@@ -927,7 +935,7 @@ function drawDetail() {
             ${l.openedAt ? '<span class="chip paired">🕊️ 神聖的愛流通成功</span>' : l.sent ? '<span class="chip pending">未收信</span>' : '<span class="chip">未送出</span>'}
           </button>
           ${OPENED_ROW === l.id ? `<div class="body"><div class="paper mini" style="${paperVars(l.paper)}"><div class="text">${esc(l.text)}</div>
-            ${l.image ? `<div class="photo"><img src="${esc(l.image)}" alt="附上的照片" style="max-height:220px"></div>` : ''}${verseShow(l)}</div>
+            ${imgOk(l.image) ? `<div class="photo"><img src="${esc(l.image)}" alt="附上的照片" style="max-height:220px"></div>` : ''}${verseShow(l)}</div>
             <div class="btn-row" style="margin:8px 0 0"><button class="btn danger" type="button" data-ldel="${esc(l.id)}" style="min-height:38px">刪除這封信</button></div></div>` : ''}
         </div>`).join('') : `<div class="empty small">${list.length ? '這裡沒有信' : '還沒有人寫信。把寫信入口發到群組吧！'}</div>`}
     </div>
