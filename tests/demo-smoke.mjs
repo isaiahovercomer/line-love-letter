@@ -112,6 +112,28 @@ await check('mydata：我的個人資料', '?demo=mydata&noguide', async page =>
   await shot(page, 'mydata');
 });
 
+await check('verses：點備選經文，出處與恢復本內容都填好', '?demo=write&noguide', async page => {
+  await page.locator('#w-to').waitFor();
+  const n = await page.locator('[data-v]').count();
+  if (n !== 21) throw new Error(`備選經文 ${n} 條`);
+  const picks = page.locator('#v-picks');
+  await picks.scrollIntoViewIfNeeded();
+  await page.evaluate(() => scrollBy(0, 120));
+  await shot(page, 'verses-menu');
+  // 每一條都要有內容（不檢查文字本身）
+  for (let i = 0; i < n; i++) {
+    await page.locator(`[data-v="${i}"]`).click();
+    const [ref, text] = await page.evaluate(() => [document.getElementById('v-ref').value, document.getElementById('v-text').value]);
+    if (!ref || !text) throw new Error(`第 ${i + 1} 條沒有出處或內容`);
+    if (/\[|\]/.test(text)) throw new Error(`第 ${i + 1} 條還有補字中括號`);
+    if (/請把這節經文/.test(await page.locator('#toast').textContent())) throw new Error('還會跳出「請把這節經文貼在下面」');
+  }
+  await page.locator('[data-v="0"]').click();
+  await page.locator('#v-text').scrollIntoViewIfNeeded();
+  await page.evaluate(() => scrollBy(0, 160));
+  await shot(page, 'verses-picked');
+});
+
 await browser.close();
 for (const [n, r] of results) console.log(`${r === 'ok' ? '✓' : '✗'} ${n}${r === 'ok' ? '' : '：' + r}`);
 const failed = results.filter(r => r[1] !== 'ok').length;

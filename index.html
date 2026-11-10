@@ -241,17 +241,34 @@ const PAPERS = {
 const paperOf = k => PAPERS[k] || PAPERS.rose;
 const paperVars = k => { const p = paperOf(k); return `--p-paper:${p.paper};--p-ink:${p.ink};--p-accent:${p.accent};--p-line:${p.line};--p-env:${p.env};--p-flap:${p.flap}`; };
 
-/* ---------- 備選經文（出處；經文內容由主辦人在試算表「經文」工作表貼上恢復本） ---------- */
+/* ---------- 備選經文（中文恢復本；試算表「經文」工作表還沒有內容或後端還沒更新時用這份） ---------- */
 const VERSE_REFS = [
-  ['約翰福音 3:16', '福音'], ['使徒行傳 16:31', '福音'], ['羅馬書 10:13', '福音'], ['創世記 1:26', '福音'],
-  ['約翰福音 1:29', '福音'], ['馬可福音 2:17', '福音'], ['羅馬書 5:8', '福音'], ['約翰福音 10:10', '福音'],
-  ['馬太福音 11:28', '福音'], ['腓立比書 4:6-7', '祝福'], ['詩篇 65:11', '祝福'], ['詩篇 90:12', '祝福'],
-  ['馬太福音 6:26', '祝福'], ['腓立比書 4:13', '祝福'], ['馬太福音 7:7', '祝福'], ['民數記 6:24-26', '祝福'],
-  ['哥林多後書 13:14', '祝福'], ['約翰一書 4:19', '愛'], ['哥林多前書 13:4-7', '愛'], ['耶利米書 31:3', '愛'],
-  ['約翰福音 15:5', '愛'],
-].map(([ref, cat]) => ({ ref, cat, text: '' }));
+  ['約翰福音 3:16', '神愛世人，甚至將祂的獨生子賜給他們，叫一切信入祂的，不至滅亡，反得永遠的生命。', '福音'],
+  ['使徒行傳 16:31', '他們說，當信靠主耶穌，你和你一家都必得救。', '福音'],
+  ['羅馬書 10:13', '因為“凡呼求主名的，就必得救。”', '福音'],
+  ['創世記 1:26', '神說，我們要按著我們的形像，照著我們的樣式造人，使他們管理海裏的魚、空中的鳥、地上的牲畜、和全地、並地上所爬的一切爬物。', '福音'],
+  ['約翰福音 1:29', '次日，約翰看見耶穌向他走來，就說，看哪，神的羔羊，除去世人之罪的！', '福音'],
+  ['馬可福音 2:17', '耶穌聽見，就對他們說，強健的人用不著醫生，有病的人纔用得著；我來本不是召義人，乃是召罪人。', '福音'],
+  ['羅馬書 5:8', '惟有基督在我們還作罪人的時候，為我們死，神就在此將祂自己的愛向我們顯明了。', '福音'],
+  ['約翰福音 10:10', '賊來了，無非是要偷竊、殺害、毀壞；我來了，是要叫羊得生命，並且得的更豐盛。', '福音'],
+  ['馬太福音 11:28', '凡勞苦擔重擔的，可以到我這裏來，我必使你們得安息。', '福音'],
+  ['腓立比書 4:6-7', '應當一無罣慮，只要凡事藉著禱告、祈求，帶著感謝，將你們所要的告訴神；神那超越人所能理解的平安，必在基督耶穌裏，保衛你們的心懷意念。', '祝福'],
+  ['詩篇 65:11', '你以你的恩惠為年歲的冠冕，你的路徑都滴下脂油；', '祝福'],
+  ['詩篇 90:12', '求你指教我們怎樣數算自己的日子，好叫我們得著智慧的心。', '祝福'],
+  ['馬太福音 6:26', '你們看天空的飛鳥，牠們既不種，也不收，又不收積在倉裏，你們的天父尚且養活牠們。你們不比牠們貴重麼？', '祝福'],
+  ['腓立比書 4:13', '我在那加我能力者的裏面，凡事都能作。', '祝福'],
+  ['馬太福音 7:7', '求，就給你們；尋找，就尋見；叩門，就給你們開門。', '祝福'],
+  ['民數記 6:24-26', '願耶和華賜福給你，保護你；願耶和華使祂的面光照你，賜恩給你；願耶和華向你仰臉，賜你平安。', '祝福'],
+  ['哥林多後書 13:14', '願主耶穌基督的恩，神的愛，聖靈的交通，與你們眾人同在。', '祝福'],
+  ['約翰一書 4:19', '我們愛，因為神先愛我們。', '愛'],
+  ['哥林多前書 13:4-7', '愛是恆久忍耐，又有恩慈；愛是不嫉妒；愛是不自誇，不張狂，不作不合宜的事，不求自己的益處，不輕易發怒，不計算人的惡，不因不義而歡樂，卻與真理同歡樂；凡事包容，凡事相信，凡事盼望，凡事忍耐。', '愛'],
+  ['耶利米書 31:3', '耶和華從遠方向我顯現，說，我以永遠的愛愛了你，因此我以慈愛吸引了你。', '愛'],
+  ['約翰福音 15:5', '我是葡萄樹，你們是枝子；住在我裏面的，我也住在他裏面，這人就多結果子；因為離了我，你們就不能作甚麼。', '愛'],
+].map(([ref, text, cat]) => ({ ref, text, cat }));
 let VERSES = VERSE_REFS;
-const loadVerses = () => api('verses').then(r => { if (r.verses && r.verses.length) VERSES = r.verses; }).catch(() => {});
+/** 試算表裡經文欄還空著的（例如還沒執行 resetVerseRefs），用內建的恢復本補上 */
+const withText = list => list.map(v => v.text ? v : { ...v, text: (VERSE_REFS.find(x => x.ref === v.ref) || {}).text || '' });
+const loadVerses = () => api('verses').then(r => { if (r.verses && r.verses.length) VERSES = withText(r.verses); }).catch(() => {});
 const verseShow = l => l.vref || l.vtext ? `<div class="verse-show"><div class="ref">📖 我想送給你的聖經經文${l.vref ? '：' + esc(l.vref) : ''}</div>${l.vtext ? `<div class="vt">${esc(l.vtext)}</div>` : ''}</div>` : '';
 
 /* ================= 預覽模式用的假資料 ================= */
@@ -307,7 +324,7 @@ async function demoApi(action, d) {
       return { ok: true, letter: { id: l.id, actId: l.actId, actTitle: act(l.actId).title, from: l.from, to: l.to, paper: l.paper, changedTo } };
     }
     case 'deleteLetter': demo.letters = demo.letters.filter(l => l.id !== d.letterId); return { ok: true, id: d.letterId, opens: 0 };
-    case 'verses': return { ok: true, verses: VERSE_REFS.map((v, i) => i < 3 ? { ...v, text: '（預覽：這裡會顯示主辦人貼上的恢復本經文）' } : v) };
+    case 'verses': return { ok: true, verses: VERSE_REFS };
     case 'markSent': letter(d.letterId).sent = true; return { ok: true, id: d.letterId };
     case 'myLetters': return { ok: true, letters: demo.letters.filter(l => l.fromUid === 'Udemo' && l.actId === d.actId).reverse() };
     case 'openLetter': {
@@ -506,7 +523,7 @@ async function writeFlow(pre, actId) {
   ACT = pre.act;
   if (!ACT) return view(`${topHtml()}<div class="card center"><div class="big-emoji">📭</div><p>找不到這個流通神聖的愛活動，可能已經被刪除。</p></div>`);
   ME = pre.me;
-  if (pre.verses && pre.verses.length) VERSES = pre.verses;
+  if (pre.verses && pre.verses.length) VERSES = withText(pre.verses);
   MINE = pre.letters || null;
   GUIDE_KIND = 'writer';
   if (!ME.name) return bindView('先認識一下你', `第一次寫信，請填你的姓名和手機。<br>收到信的人會看到你的姓名。`, () => { writeForm(); openGuide('writer'); });
@@ -575,7 +592,6 @@ function writeForm(edit, presetTo) {
     else {
       b.setAttribute('aria-pressed', 'true');
       $('v-ref').value = v.ref; vt.value = v.text || '';
-      if (!v.text) { vt.focus(); toast('請把這節經文貼在下面'); }
     }
     vgrow(); keep();
   });
