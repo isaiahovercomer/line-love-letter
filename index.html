@@ -428,14 +428,14 @@ async function writeFlow(pre) {
   writeForm(); openGuide('writer');
 }
 
-function writeForm(edit) {
+function writeForm(edit, presetTo) {
   if (ACT.state !== 'open') {
     return view(`${topHtml(ME.name)}<div class="card center"><div class="big-emoji">⏳</div><h2>${esc(ACT.title)}</h2><p>${ACT.state === 'ended' ? '這個流通神聖的愛活動已經截止寫信了。' : '主辦人已經停止這個活動的寫信。'}</p></div>${footHtml()}`);
   }
   const d = edit || readDraft(ACT.id);
   const paper = d.paper || 'rose';
   PHOTO = d.photo || d.image || '';
-  const to = edit ? edit.to : PARAMS.get('to') || d.to || '';
+  const to = edit ? edit.to : presetTo !== undefined ? presetTo : PARAMS.get('to') || d.to || '';
   const today = new Date().toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
   view(`${topHtml(ME.name)}
     ${edit ? `<button class="back" type="button" id="w-cancel">‹ 取消修改</button><h2>修改寫給「${esc(edit.to)}」的信</h2>` : `<h2>${esc(ACT.title)}</h2>`}
@@ -614,6 +614,17 @@ function showOpened(card, r) {
   else reveal();
 }
 
+/** 收信後直接在同一頁寫信：回信（收信人預設是原寄信人）或寫給新的人 */
+async function writeFrom(actId, to) {
+  const { act } = await api('act', { actId });
+  if (!act) throw new Error('找不到這個活動，可能已經被刪除');
+  ACT = act;
+  if (!ME || !ME.name) ME = await api('me');
+  writeForm(undefined, to);
+  if (!to) $('w-to').focus();
+  openGuide('writer');
+}
+
 function drawLetter(r) {
   const l = r.letter;
   ME = ME || {};
@@ -628,10 +639,13 @@ function drawLetter(r) {
       <div class="sign">— ${esc(l.from)}</div>
       <div class="date">${esc(l.time)}</div>
     </div>
-    <div class="btn-row" style="margin-top:20px">
-      ${r.status === 'mine' ? '' : `<a class="btn gold" href="${esc(DEMO ? '?demo=write&to=' + encodeURIComponent(l.from) : actUrl(l.actId, l.from))}">回信給 ${esc(l.from)}</a>`}
-      <a class="btn ghost" href="${esc(DEMO ? '?demo=write' : actUrl(l.actId))}">我也要寫一封</a>
-    </div>${footHtml()}`);
+    <div class="btn-row" style="margin-top:20px;flex-direction:column">
+      ${r.status === 'mine' ? '' : `<button class="btn gold" type="button" id="l-reply">💌 回信給 ${esc(l.from)}</button>`}
+      <button class="btn ${r.status === 'mine' ? 'gold' : 'ghost'}" type="button" id="l-pass">💞 繼續把愛傳下去</button>
+    </div>
+    <p class="small muted center">「繼續把愛傳下去」：寫一封新的信給另一個人。</p>${footHtml()}`);
+  if ($('l-reply')) $('l-reply').onclick = e => busy(e.currentTarget, () => writeFrom(l.actId, l.from));
+  $('l-pass').onclick = e => busy(e.currentTarget, () => writeFrom(l.actId, ''));
 }
 
 /* ================= 轉傳 ================= */
