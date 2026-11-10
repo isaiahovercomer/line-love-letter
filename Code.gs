@@ -63,7 +63,13 @@ function doPost(e) {
       switch (req.action) {
         case 'session':      out = { ok: true, ...createSession(user) }; break;
         case 'logout':       deleteSession(req.session); out = { ok: true }; break;
-        case 'me':           out = { ok: true, userId: user.userId, displayName: user.displayName, name: rosterName(user), isAdmin: isPublisher(user.userId) }; break;
+        case 'home':         out = { ok: true, me: meOf(user), acts: listActs(user) }; break;
+        case 'writeBoot': {   // 寫信頁一次拿齊：活動、我是誰、備選經文、我寫過的信
+          const a = getAct(req.actId);
+          out = { ok: true, act: a ? publicAct(a) : null, me: meOf(user), verses: listVerses(), letters: a ? myLetters(user, a.id) : [] };
+          break;
+        }
+        case 'me':           out = { ok: true, ...meOf(user) }; break;
         case 'bind':         out = { ok: true, ...bind(user, req.name, req.phone) }; break;
         case 'uploadImage':  out = { ok: true, url: uploadImage(user, req.data, req.mime) }; break;
         case 'writeLetter':  out = { ok: true, letter: writeLetter(user, req.actId, req.letter || {}) }; break;
@@ -174,6 +180,7 @@ function deleteRows(name, test) {
 
 /* ---------- 名單：姓名＋手機第一次登記後綁定 LINE ---------- */
 function rosterRow(user) { return rows(SH.ROSTER).find(r => String(r[2]).trim() === user.userId); }
+function meOf(user) { return { userId: user.userId, displayName: user.displayName, name: rosterName(user), isAdmin: isPublisher(user.userId) }; }
 function rosterName(user) { const r = rosterRow(user); return r ? String(r[0]) : ''; }
 
 function bind(user, name, phone) {
@@ -347,13 +354,20 @@ function resetVerseRefs() {
   const all = keep.concat(VERSE_SEED.filter(v => !have.has(v[0])).map(v => [v[0], '', v[1]]));
   if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 3).clearContent();
   sh.getRange(2, 1, all.length, 3).setValues(all);
+  CacheService.getScriptCache().remove('verses');
   return all.length;
 }
 
+/** 備選經文很少變動：快取 5 分鐘，省下每次讀試算表的時間（主辦人改了經文，最多 5 分鐘後生效） */
 function listVerses() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('verses');
+  if (hit) return JSON.parse(hit);
   verseSheet();
-  return rows(SH.VERSES).filter(r => String(r[0]).trim())
+  const list = rows(SH.VERSES).filter(r => String(r[0]).trim())
     .map(r => ({ ref: clip(r[0], 40), text: clip(r[1], 500), cat: clip(r[2], 10) }));
+  try { cache.put('verses', JSON.stringify(list), 300); } catch (e) {}
+  return list;
 }
 
 /* ---------- 寫信、收信 ---------- */

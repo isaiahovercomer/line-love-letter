@@ -15,7 +15,7 @@
 <title>LINE流通神聖的愛圖卡建立平台</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet">
 <link rel="preconnect" href="https://script.google.com" crossorigin>
 <link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
@@ -28,7 +28,7 @@
     --stamp: #B03A2E; --ok: #2E6B4F;
     --shadow: 0 1px 2px rgba(60,40,20,.05), 0 8px 24px rgba(60,40,20,.08);
     --serif: "Noto Serif TC", "Songti TC", serif;
-    --sans: "Noto Sans TC", -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    --sans: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
     /* 信紙（預設玫瑰） */
     --p-paper: #FFF6F5; --p-ink: #5A2A30; --p-accent: #C8505E; --p-line: #F1D2D4; --p-env: #F6C9CC; --p-flap: #EFB3B8;
   }
@@ -197,7 +197,7 @@ const DEMO_MODE = PARAMS.get('demo') || '';
 const $app = document.getElementById('app');
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
-const view = html => { $app.innerHTML = html; window.scrollTo(0, 0); };
+const view = (html, name = '') => { VIEW = name; $app.innerHTML = html; window.scrollTo(0, 0); };
 const loading = () => `<div class="loading" role="status"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>`;
 const isHttps = u => /^https:\/\//.test(u || '');
 const liffBase = `https://liff.line.me/${LIFF_ID}`;
@@ -263,6 +263,12 @@ async function demoApi(action, d) {
   const letter = id => demo.letters.find(l => l.id === id);
   switch (action) {
     case 'me': return { ok: true, ...demo.me };
+    case 'home': return { ok: true, me: { ...demo.me }, acts: demo.acts.map(demoStats) };
+    case 'writeBoot': {
+      const a = act(d.actId);
+      return { ok: true, me: { ...demo.me }, act: a ? { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, state: demoState(a), opened: demoStats(a).opened } : null,
+        verses: (await demoApi('verses', {})).verses, letters: demo.letters.filter(l => l.fromUid === 'Udemo' && l.actId === d.actId).reverse() };
+    }
     case 'session': return { ok: true, token: 'demo', expires: Date.now() + 864e5 };
     case 'act': { const a = act(d.actId); return { ok: true, act: a ? { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, state: demoState(a), opened: demoStats(a).opened } : null }; }
     case 'letterCard': { const l = letter(d.letterId); return { ok: true, card: l ? { id: l.id, to: l.to, paper: l.paper, actId: l.actId, actTitle: act(l.actId).title } : null }; }
@@ -308,8 +314,17 @@ async function demoApi(action, d) {
 /* ---------- 登入通行證：60 天內不用再登入 ---------- */
 const SESSION_KEY = 'loveletter.session';
 const getSession = () => { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); return s && s.expires > Date.now() + 60000 ? s : null; } catch (e) { return null; } };
-const setSession = s => { try { s ? localStorage.setItem(SESSION_KEY, JSON.stringify({ token: s.token, expires: s.expires })) : localStorage.removeItem(SESSION_KEY); } catch (e) {} };
+const setSession = s => { try { s ? localStorage.setItem(SESSION_KEY, JSON.stringify({ token: s.token, expires: s.expires })) : (localStorage.removeItem(SESSION_KEY), localStorage.removeItem(CACHE_KEY)); } catch (e) {} };
 const PUBLIC = ['act', 'letterCard', 'verses'];
+
+/* ---------- 資料快取：先用上次的資料立刻畫面，背景再更新 ---------- */
+const CACHE_KEY = 'loveletter.cache';
+const CACHE_OK = !DEMO;
+const cacheAll = () => { try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}') || {}; } catch (e) { return {}; } };
+const cacheGet = k => CACHE_OK ? cacheAll()[k] : null;
+const cacheSet = (k, v) => { if (!CACHE_OK) return; try { const c = cacheAll(); c[k] = v; localStorage.setItem(CACHE_KEY, JSON.stringify(c)); } catch (e) { try { localStorage.removeItem(CACHE_KEY); } catch (_) {} } };
+const cacheDel = k => { if (!CACHE_OK) return; try { const c = cacheAll(); delete c[k]; localStorage.setItem(CACHE_KEY, JSON.stringify(c)); } catch (e) {} };
+let VIEW = '';  // 目前畫面，背景資料回來時只更新還停在原畫面的情況
 
 async function api(action, data = {}) {
   if (DEMO) return demoApi(action, data);
@@ -341,20 +356,25 @@ async function main() {
       : PARAMS.has('act') || ['write', 'bind'].includes(DEMO_MODE) ? 'write'
       : PARAMS.has('fwd') ? 'fwd' : PARAMS.has('share') ? 'share' : PARAMS.has('mydata') || DEMO_MODE === 'mydata' ? 'mydata' : 'home';
     // 信封與寫信頁的公開資料先抓，跟 LINE 登入同時進行
+    const hasSession = DEMO || !!getSession();
+    const actId = PARAMS.get('act') || 'A1';
+    // 有通行證就不用等 LINE 初始化，馬上開始抓資料；沒有的話先抓公開的部分
     const pre = route === 'letter' ? api('letterCard', { letterId: PARAMS.get('letter') || 'L1' })
-      : route === 'write' ? api('act', { actId: PARAMS.get('act') || 'A1' }) : null;
+      : route === 'write' ? (hasSession ? api('writeBoot', { actId }) : api('act', { actId }))
+      : route === 'home' && hasSession ? api('home') : null;
     if (pre) pre.catch(() => {});
+    if (route === 'home') paintHomeFromCache();
     if (!DEMO) {
       await liff.init({ liffId: LIFF_ID });
       if (!liff.isLoggedIn() && !getSession()) { liff.login({ redirectUri: location.href }); return; }
       if (liff.isLoggedIn() && !getSession()) { try { setSession(await api('session')); } catch (e) {} }
     }
     if (route === 'letter') return letterFlow(await pre);
-    if (route === 'write') return writeFlow(await pre);
+    if (route === 'write') return writeFlow(await pre.catch(() => null), actId);
     if (route === 'fwd') return forwardLetterFlow(PARAMS.get('fwd'));
     if (route === 'share') return forwardActFlow(PARAMS.get('share'));
     if (route === 'mydata') return myDataFlow();
-    return homeFlow();
+    return homeFlow(pre);
   } catch (e) {
     view(`${topHtml()}<div class="card center"><p>${esc(e.message)}</p><p class="muted small">請關閉後從 LINE 重新開啟一次。</p></div>`);
   }
@@ -446,10 +466,17 @@ const readDraft = id => { try { return JSON.parse(localStorage.getItem(draftKey(
 const saveDraft = (id, d) => { try { localStorage.setItem(draftKey(id), JSON.stringify(d)); } catch (e) {} };
 const clearDraft = id => { try { localStorage.removeItem(draftKey(id)); } catch (e) {} };
 
-async function writeFlow(pre) {
-  ACT = pre && pre.act;
+let MINE = null; // 寫信頁一次拿到的「我寫過的信」
+async function writeFlow(pre, actId) {
+  if (!pre || !pre.me) pre = await api('writeBoot', { actId }).catch(async () => {   // 第一次登入，或舊版後端
+    const [a, me] = await Promise.all([api('act', { actId }), api('me'), loadVerses()]);
+    return { act: a.act, me, verses: VERSES };
+  });
+  ACT = pre.act;
   if (!ACT) return view(`${topHtml()}<div class="card center"><div class="big-emoji">📭</div><p>找不到這個流通神聖的愛活動，可能已經被刪除。</p></div>`);
-  [ME] = await Promise.all([api('me'), loadVerses()]);
+  ME = pre.me;
+  if (pre.verses && pre.verses.length) VERSES = pre.verses;
+  MINE = pre.letters || null;
   GUIDE_KIND = 'writer';
   if (!ME.name) return bindView('先認識一下你', `第一次寫信，請填你的姓名和手機。<br>收到信的人會看到你的姓名。`, () => { writeForm(); openGuide('writer'); });
   writeForm(); openGuide('writer');
@@ -582,7 +609,8 @@ function shrinkImage(file, maxW, quality) {
 async function drawMine() {
   const box = $('w-mine'); if (!box) return;
   try {
-    const { letters } = await api('myLetters', { actId: ACT.id });
+    let letters;
+    if (MINE) { letters = MINE; MINE = null; } else ({ letters } = await api('myLetters', { actId: ACT.id }));
     if (!letters.length || !box.isConnected) return;
     box.innerHTML = `<div class="card sent-list"><b>我在這個活動寫的信</b>${letters.map(l => `
       <div class="mine-item">
@@ -762,13 +790,34 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 
 /* ================= 主辦人平台 ================= */
 let ACTS = [];
-async function homeFlow() {
-  view(`${topHtml()}${loading()}`);
-  const [me, list] = await Promise.all([api('me'), api('listActs')]);
-  ME = me; ACTS = list.acts;
-  GUIDE_KIND = 'host';
-  renderHome(); openGuide('host');
+/** 首頁：有快取就先畫，不用等網路 */
+function paintHomeFromCache() {
+  const c = cacheGet('home');
+  if (!c) return false;
+  ME = c.me; ACTS = c.acts; GUIDE_KIND = 'host';
+  renderHome(); return true;
 }
+async function homeFlow(pre) {
+  const painted = VIEW === 'home';
+  if (!painted) view(`${topHtml()}${loading()}`);
+  const r = (pre && await pre.catch(() => null)) || await api('home').catch(async () => {
+    const [me, list] = await Promise.all([api('me'), api('listActs')]); return { me, acts: list.acts };   // 舊版後端
+  });
+  ME = r.me; ACTS = r.acts;
+  cacheSet('home', { me: ME, acts: ACTS });
+  GUIDE_KIND = 'host';
+  if (VIEW === 'home' || !painted) renderHome();
+  openGuide('host');
+  prefetchDetails();
+}
+/** 背景預先抓前幾個活動的後台資料，點進去就不用等 */
+async function prefetchDetails() {
+  for (const a of ACTS.slice(0, 3)) {
+    if (cacheGet('detail:' + a.id)) continue;
+    try { cacheSet('detail:' + a.id, await api('actDetail', { actId: a.id })); } catch (e) { return; }
+  }
+}
+const saveHome = () => cacheSet('home', { me: ME, acts: ACTS });
 
 function renderHome() {
   view(`${topHtml(ME.name || ME.displayName)}
@@ -781,7 +830,7 @@ function renderHome() {
         <div class="t"><h3>${esc(a.title)}</h3>${stateChip(a.state)}</div>
         <div class="s">💌 ${a.letters} 封信・💞 配對成功 ${a.opened}${a.deadline ? `・截止 ${esc(shortTime(a.deadline))}` : ''}${a.mine === false ? `・${esc(a.creator)} 建立` : ''}</div>
       </button>`).join('') : `<div class="card empty"><div class="big-emoji">💌</div>還沒有流通神聖的愛活動，按上面的按鈕建立第一個。</div>`}
-    ${footHtml()}`);
+    ${footHtml()}`, 'home');
   $('h-new').onclick = () => renderActForm();
   if ($('h-install')) $('h-install').onclick = () => startInstall();
   document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => renderDetail(b.dataset.act));
@@ -807,7 +856,7 @@ function renderActForm(a) {
     if (!input.title) { $('a-title').focus(); throw new Error('請填寫活動名稱'); }
     if (a) { await api('updateAct', { actId: a.id, act: input }); toast('已儲存'); return renderDetail(a.id); }
     const r = await api('createAct', { act: input });
-    ACTS.unshift(r.act);
+    ACTS.unshift(r.act); saveHome();
     await sendAct(r.act);
     renderDetail(r.act.id);
   });
@@ -815,14 +864,23 @@ function renderActForm(a) {
 
 let DETAIL = null, FILTER = 'all', OPENED_ROW = '';
 async function renderDetail(id) {
-  view(`${topHtml(ME.name || ME.displayName)}${loading()}`);
-  DETAIL = await api('actDetail', { actId: id });
   FILTER = 'all'; OPENED_ROW = '';
-  const i = ACTS.findIndex(x => x.id === id); if (i >= 0) ACTS[i] = { ...ACTS[i], ...DETAIL.act };
-  drawDetail();
+  const cached = DEMO ? null : cacheGet('detail:' + id);
+  if (cached) { DETAIL = cached; drawDetail(); }
+  else view(`${topHtml(ME.name || ME.displayName)}${loading()}`, 'detail:' + id);
+  let fresh;
+  try { fresh = await api('actDetail', { actId: id }); }
+  catch (e) { if (cached) { toast('無法更新：' + e.message); return; } throw e; }
+  cacheSet('detail:' + id, fresh);
+  const i = ACTS.findIndex(x => x.id === id); if (i >= 0) { ACTS[i] = { ...ACTS[i], ...fresh.act }; saveHome(); }
+  if (VIEW !== 'detail:' + id) return;                       // 已經離開這一頁
+  const same = cached && JSON.stringify(cached) === JSON.stringify(fresh);
+  DETAIL = fresh;
+  if (!same) { const y = scrollY; drawDetail(); scrollTo(0, y); }
 }
 
 function drawDetail() {
+  cacheSet('detail:' + DETAIL.act.id, DETAIL);
   const a = DETAIL.act, list = DETAIL.list;
   const paired = list.filter(l => l.openedAt);
   const shown = FILTER === 'paired' ? paired : FILTER === 'pending' ? list.filter(l => !l.openedAt) : list;
@@ -862,13 +920,13 @@ function drawDetail() {
       <button class="btn ghost" id="d-edit" type="button">編輯</button>
       <button class="btn ghost" id="d-open" type="button">${a.open ? '停止寫信' : '重新開放寫信'}</button>
       <button class="btn danger" id="d-del" type="button">刪除活動</button>
-    </div>${footHtml()}`);
+    </div>${footHtml()}`, 'detail:' + a.id);
   $('d-back').onclick = () => renderHome();
   $('d-share').onclick = () => sendAct(a);
   $('d-edit').onclick = () => renderActForm(a);
   $('d-open').onclick = e => busy(e.currentTarget, async () => { DETAIL.act = (await api('setOpen', { actId: a.id, open: !a.open })).act; drawDetail(); });
   $('d-del').onclick = e => armThen(e.currentTarget, `確定刪除？${list.length} 封信會一起刪掉`, () => busy(e.currentTarget, async () => {
-    await api('deleteAct', { actId: a.id }); ACTS = ACTS.filter(x => x.id !== a.id); toast('已刪除'); renderHome();
+    await api('deleteAct', { actId: a.id }); ACTS = ACTS.filter(x => x.id !== a.id); saveHome(); cacheDel('detail:' + a.id); toast('已刪除'); renderHome();
   }));
   document.querySelectorAll('[data-ldel]').forEach(b => b.onclick = () => armThen(b, '確定刪除？刪了無法復原', () => busy(b, async () => {
     await api('deleteLetter', { letterId: b.dataset.ldel });
