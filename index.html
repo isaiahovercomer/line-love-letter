@@ -224,6 +224,12 @@
   .roster-list .row:last-child { border-bottom: 0; }
   .roster-list .nm { font-weight: 700; min-width: 0; word-break: break-word; }
   .roster-list .st { font-size: 13px; color: var(--ink-2); text-align: right; flex: none; }
+  .overview-list .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--rule); }
+  .overview-list .row:last-child { border-bottom: 0; }
+  .overview-list .nm { font-weight: 700; }
+  .overview-list .meta { font-size: 13px; color: var(--ink-2); margin-top: 2px; word-break: break-word; }
+  .overview-list .st { font-size: 13px; color: var(--ink-2); text-align: right; flex: none; }
+  .overview-sum { font-family: var(--serif); font-size: 20px; margin: 0 0 8px; }
   .coadmin-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 22px 0 6px; }
   .coadmin-head h3 { margin: 0; font-family: var(--serif); font-size: 18px; }
   .co-list .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--rule); }
@@ -474,6 +480,14 @@ const demo = {
     { id: 'L5', actId: 'A1', from: '陳怡君', fromUid: 'Udemo', to: '王小明', text: '小明弟兄，謝謝你常關心新人。', image: '', paper: 'mint', time: '2026/11/11 08:20', sent: false, openedAt: '', openedBy: '' },
     { id: 'L6', actId: 'A2', from: '陳怡君', fromUid: 'Udemo', to: '李美玲', vref: '腓立比書 1:3', vtext: '我每逢想念你們，就感謝我的神。', text: '美玲，畢業快樂，願主帶領你下一階段的路程。', image: '', paper: 'grad', time: '2026/6/1 21:05', sent: true, openedAt: '2026/6/2 09:10', openedBy: '李美玲', openedUid: 'U5' },
   ],
+  // uid 只給預覽計算用，overview API 不會回傳
+  people: [
+    { name: '陳怡君', phone: '0912345678', lineName: '預覽使用者', time: '2026/11/10 16:00', uid: 'Udemo' },
+    { name: '王小明', phone: '0911111111', lineName: '小明', time: '2026/11/10 17:20', uid: 'U1' },
+    { name: '林志豪', phone: '0922222222', lineName: '志豪', time: '2026/6/2 11:00', uid: 'U4' },
+    { name: '簡晨光', phone: '0933333333', lineName: '晨光', time: '2026/6/2 12:00', uid: 'U3' },
+    { name: '李美玲', phone: '0944444444', lineName: '美玲', time: '2026/6/2 09:00', uid: 'U5' },
+  ],
 };
 // 預覽：選單不會真的打開，直接當作「已選好」
 if (DEMO) window.liff = { isInClient: () => false, isLoggedIn: () => true, closeWindow() {}, isApiAvailable: k => k === 'shareTargetPicker', getContext: () => null,
@@ -646,8 +660,24 @@ async function demoApi(action, d) {
     }
     case 'myData': return { ok: true, found: !!demo.me.name, name: demo.me.name, phone: '0912345678', lineName: demo.me.displayName, sent: demo.letters.filter(l => l.fromUid === demo.me.userId).length, received: 1 };
     case 'deleteMyData': demo.me.name = ''; return { ok: true, roster: 1, letters: 1, opens: 1 };
+    case 'overview': {
+      if (!demo.me.isSuper) throw new Error('只有網站總管理者可以看登記總覽');
+      const people = demoOverview();
+      return { ok: true, total: people.length, people };
+    }
   }
 }
+function demoOverview() {
+  return demo.people.map(p => {
+    const { uid, ...pub } = p;
+    return {
+      ...pub,
+      written: demo.letters.filter(l => l.fromUid === uid).length,
+      received: demo.letters.filter(l => l.openedUid === uid).length,
+    };
+  }).sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
+}
+
 
 /* ---------- 登入通行證：60 天內不用再登入 ---------- */
 const SESSION_KEY = 'loveletter.session';
@@ -698,7 +728,8 @@ async function main() {
       : PARAMS.has('act') || ['write', 'bind'].includes(DEMO_MODE) ? 'write'
       : PARAMS.has('fwd') ? 'fwd' : PARAMS.has('share') ? 'share'
       : PARAMS.has('mydata') || DEMO_MODE === 'mydata' ? 'mydata'
-      : PARAMS.has('mine') || DEMO_MODE === 'mine' ? 'mine' : 'home';
+      : PARAMS.has('mine') || DEMO_MODE === 'mine' ? 'mine'
+      : PARAMS.has('overview') || DEMO_MODE === 'overview' ? 'overview' : 'home';
     // 信封與寫信頁的公開資料先抓，跟 LINE 登入同時進行
     const hasSession = DEMO || !!getSession();
     const actId = PARAMS.get('act') || 'A1';
@@ -719,6 +750,7 @@ async function main() {
     if (route === 'share') return forwardActFlow(PARAMS.get('share'));
     if (route === 'mydata') return myDataFlow();
     if (route === 'mine') return myLettersFlow();
+    if (route === 'overview') return overviewFlow();
     return homeFlow(pre);
   } catch (e) {
     view(`${topHtml()}<div class="card center"><p>${esc(e.message)}</p><p class="muted small">請關閉後從 LINE 重新開啟一次。</p></div>`);
@@ -1212,6 +1244,7 @@ function renderHome() {
     <p class="muted small">建立活動 → 把寫信入口發到群組 → 大家寫信、傳給收信人 → 在這裡看神聖的愛流通。</p>
     <button class="btn block gold" id="h-new" type="button">＋ 建立流通神聖的愛活動</button>
     ${isStandalone() ? '' : '<button class="btn ghost block" id="h-install" type="button" style="margin-top:10px">📲 安裝到手機桌面</button>'}
+    ${ME && ME.isSuper ? '<button class="btn ghost block" id="h-overview" type="button" style="margin-top:10px">登記總覽</button>' : ''}
     ${ACTS.length ? ACTS.map(a => `
       <button class="card act theme-card" type="button" data-act="${esc(a.id)}" data-theme="${esc(themeOf(a))}" style="${themeVars(themeOf(a))}">
         <div class="t"><h3>${esc(a.title)}</h3>${stateChip(a.state)}</div>
@@ -1225,6 +1258,7 @@ function renderHome() {
     ${footHtml({ hideMine: true })}`, 'home');
   $('h-new').onclick = () => renderActForm();
   if ($('h-install')) $('h-install').onclick = () => startInstall();
+  if ($('h-overview')) $('h-overview').onclick = () => { location.href = DEMO ? '?demo=admin&overview=1&noguide' : '?overview=1'; };
   if ($('h-mine')) $('h-mine').onclick = () => { location.href = DEMO ? '?demo=mine&noguide' : '?mine=1'; };
   document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => renderDetail(b.dataset.act));
 }
@@ -1492,10 +1526,13 @@ async function copyText(text) {
 }
 function rosterPng(act, roster) {
   const title = (act && act.title) || '流通神聖的愛活動';
-  const today = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric' });
   const openedPeople = roster.filter(g => g.opened > 0).length;
   const sub = roster.length ? `收信人名單（${roster.length} 人），其中 ${openedPeople} 人已收信` : '收信人名單（0 人）';
   const rows = roster.length ? roster.map(g => ({ name: g.name, st: `${g.total} 封・${rosterStatus(g)}` })) : [{ name: '還沒有已送出的收信人', st: '' }];
+  return sheetPng(title, sub, rows);
+}
+function sheetPng(title, sub, rows) {
+  const today = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric' });
   const dpr = Math.max(2, Math.min(3, window.devicePixelRatio || 2));
   const W = 720, pad = 36, lineH = 48;
   const wrapTitle = (ctx) => {
@@ -1653,7 +1690,71 @@ function showMyLetter(id) {
   $('ml-back').onclick = () => renderMyLetters();
 }
 
+/* ================= 總管理者：登記總覽 ================= */
+async function overviewFlow() {
+  view(`${topHtml()}${loading()}`);
+  let me = ME;
+  try { if (!me) { const r = await api('me'); me = r; ME = r; } } catch (e) {}
+  if (me && me.isSuper === false) {
+    return view(`${topHtml(me.name || me.displayName)}<div class="card center"><h2>沒有權限</h2><p>只有網站總管理者可以看登記總覽。</p></div>${footHtml()}`);
+  }
+  try {
+    const r = await api('overview');
+    renderOverview(r);
+  } catch (e) {
+    const stale = /未知的動作/.test(e.message || '');
+    view(`${topHtml(me && (me.name || me.displayName) || '')}
+      <button class="back" type="button" id="ov-back">‹ 返回</button>
+      <div class="card center"><h2>${stale ? '後端尚未更新' : '讀取失敗'}</h2>
+      <p>${stale ? '後端尚未更新，暫時看不到登記總覽。' : esc(e.message)}</p></div>${footHtml()}`);
+    $('ov-back').onclick = () => { location.href = DEMO ? '?demo=admin&noguide' : './'; };
+  }
+}
+function overviewText(people) {
+  const lines = [`登記總覽（${people.length} 人）`, '姓名\t手機\tLINE名稱\t寫過\t收過\t登記時間'];
+  people.forEach(p => lines.push([p.name || '', p.phone || '', p.lineName || '', p.written || 0, p.received || 0, p.time || ''].join('\t')));
+  return lines.join('\n');
+}
+function renderOverview(r) {
+  const people = r.people || [];
+  const total = r.total != null ? r.total : people.length;
+  view(`${topHtml(ME && (ME.name || ME.displayName) || '')}
+    <button class="back" type="button" id="ov-back">‹ 返回</button>
+    <div class="roster-head">
+      <h2 class="overview-sum">登記總覽</h2>
+      <div class="roster-acts">
+        <button class="btn ghost" type="button" id="ov-copy">複製</button>
+        <button class="btn ghost" type="button" id="ov-shot">截圖</button>
+      </div>
+    </div>
+    <p class="muted" id="ov-total">共 ${total} 人已登記</p>
+    <div class="card overview-list" id="ov-list">
+      ${people.length ? people.map(p => `<div class="row">
+        <div><div class="nm">${esc(p.name || '')}</div>
+          <div class="meta">${esc(p.phone || '')}${p.lineName ? `　LINE：${esc(p.lineName)}` : ''}${p.time ? `　登記於 ${esc(p.time)}` : ''}</div></div>
+        <div class="st">寫過 ${p.written || 0} 封・收過 ${p.received || 0} 封</div>
+      </div>`).join('') : '<div class="empty small">還沒有人登記</div>'}
+    </div>
+    ${footHtml()}`);
+  $('ov-back').onclick = () => { location.href = DEMO ? '?demo=admin&noguide' : './'; };
+  const copy = $('ov-copy'), shot = $('ov-shot');
+  if (copy) copy.onclick = e => busy(e.currentTarget, async () => {
+    const ok = await copyText(overviewText(people));
+    if (!ok) throw new Error('無法複製，請手動選取文字');
+    toast('已複製登記總覽');
+  });
+  if (shot) shot.onclick = e => busy(e.currentTarget, async () => {
+    const blob = await sheetPng('登記總覽', `共 ${total} 人已登記`, people.length
+      ? people.map(p => ({ name: p.name || '', st: `寫過 ${p.written || 0} 封・收過 ${p.received || 0} 封` }))
+      : [{ name: '還沒有人登記', st: '' }]);
+    const res = await shareOrDownloadPng(blob, '登記總覽.png');
+    if (res === 'cancelled') return;
+    toast(res === 'shared' ? '已打開分享' : '已存成圖片');
+  });
+}
+
 /* ================= 我的個人資料 ================= */
+
 async function myDataFlow() {
   view(`${topHtml()}${loading()}`);
   const d = await api('myData');
