@@ -298,26 +298,39 @@ function stateOf(a) {
   return d && d < new Date() ? 'ended' : 'open';
 }
 function openedCount(actId) { return new Set(rows(SH.OPENS).filter(o => String(o[OP.ACT]) === String(actId)).map(o => String(o[OP.LETTER]))).size; }
-/** 已有 XX 個人收到愛：該活動中「已送出」信件的不重複收信人（normName）。extraTo 會把正要送出的這一封也算進去。公開總數，短暫快取。 */
-function lovedCount(actId, extraTo) {
+/** 已有 XX 個人收到愛、已有 XX 人寫信：該活動中已送出信件的不重複收信人（normName）與不重複寄件人（userId）。
+ *  extraTo／extraFrom 會把正要送出的這一封也算進去（圖卡送出當下的快照）。回傳 {loved, writers}。公開總數，短暫快取。 */
+function lovedCount(actId, extraTo, extraFrom) {
   const cache = CacheService.getScriptCache(), key = 'loved:' + String(actId);
-  if (extraTo == null || extraTo === '') {
+  const useCache = (extraTo == null || extraTo === '') && (extraFrom == null || extraFrom === '');
+  if (useCache) {
     const hit = cache.get(key);
-    if (hit != null) return +hit;
+    if (hit != null) {
+      try {
+        const o = JSON.parse(hit);
+        if (o && typeof o === 'object' && o.loved != null && o.writers != null) return { loved: +o.loved, writers: +o.writers };
+      } catch (e) {}
+    }
   }
-  const names = {};
+  const names = {}, writers = {};
   rows(SH.LETTERS).forEach(function (l) {
     if (String(l[LT.ACT]) !== String(actId) || !isTrue(l[LT.SENT])) return;
     const n = normName(l[LT.TO]);
     if (n) names[n] = true;
+    const w = String(l[LT.FROM_UID] || '').trim();
+    if (w) writers[w] = true;
   });
   if (extraTo) { const n = normName(extraTo); if (n) names[n] = true; }
-  const n = Object.keys(names).length;
-  if (extraTo == null || extraTo === '') { try { cache.put(key, String(n), 60); } catch (e) {} }
-  return n;
+  if (extraFrom) { const w = String(extraFrom).trim(); if (w) writers[w] = true; }
+  const out = { loved: Object.keys(names).length, writers: Object.keys(writers).length };
+  if (useCache) { try { cache.put(key, JSON.stringify(out), 60); } catch (e) {} }
+  return out;
 }
 function clearLoved(actId) { try { CacheService.getScriptCache().remove('loved:' + String(actId)); } catch (e) {} }
-function publicAct(a) { return { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, paper: a.paper, state: stateOf(a), opened: openedCount(a.id), loved: lovedCount(a.id) }; }
+function publicAct(a) {
+  const s = lovedCount(a.id);
+  return { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, paper: a.paper, state: stateOf(a), opened: openedCount(a.id), loved: s.loved, writers: s.writers };
+}
 function findActRow(id) {
   const data = sheet(SH.ACTS).getDataRange().getValues();
   for (let i = 1; i < data.length; i++) if (String(data[i][AC.ID]) === String(id)) return { index: i + 1, row: data[i] };
@@ -365,7 +378,13 @@ function withStats(a, letters, opens) {
   letters = (letters || rows(SH.LETTERS)).filter(l => String(l[LT.ACT]) === a.id);
   opens = opens || rows(SH.OPENS);
   const opened = new Set(opens.filter(o => String(o[OP.ACT]) === a.id).map(o => String(o[OP.LETTER])));
-  return { ...a, state: stateOf(a), letters: letters.length, opened: letters.filter(l => opened.has(String(l[LT.ID]))).length };
+  const names = {}, writers = {};
+  letters.forEach(function (l) {
+    if (!isTrue(l[LT.SENT])) return;
+    const n = normName(l[LT.TO]); if (n) names[n] = true;
+    const w = String(l[LT.FROM_UID] || '').trim(); if (w) writers[w] = true;
+  });
+  return { ...a, state: stateOf(a), letters: letters.length, opened: letters.filter(l => opened.has(String(l[LT.ID]))).length, loved: Object.keys(names).length, writers: Object.keys(writers).length };
 }
 
 function listActs(user) {
@@ -497,7 +516,8 @@ function writeLetter(user, actId, input) {
   const { to, text, image, paper, vref, vtext } = cleanLetterInput(input);
   const id = newId('L');
   withLock(() => sheet(SH.LETTERS).appendRow(safeRow([id, a.id, from, user.userId, to, text, image, paper, new Date(), false, vref, vtext])));
-  return { id, actId: a.id, actTitle: a.title, from, to, paper, opened: openedCount(a.id), loved: lovedCount(a.id, to) };
+  const s = lovedCount(a.id, to, user.userId);
+  return { id, actId: a.id, actTitle: a.title, from, to, paper, opened: openedCount(a.id), loved: s.loved, writers: s.writers };
 }
 
 function cleanLetterInput(input) {
@@ -524,7 +544,8 @@ function updateLetter(user, letterId, input) {
     const changedTo = normName(f.row[LT.TO]) !== normName(l.to);
     if (changedTo) sh.getRange(f.index, LT.SENT + 1).setValue(false); // 換了收信人，要重新送出
     clearLoved(a.id);
-    return { id: String(letterId), actId: a.id, actTitle: a.title, from: String(f.row[LT.FROM]), to: l.to, paper: l.paper, changedTo, opened: openedCount(a.id), loved: lovedCount(a.id, l.to) };
+    const s = lovedCount(a.id, l.to, user.userId);
+    return { id: String(letterId), actId: a.id, actTitle: a.title, from: String(f.row[LT.FROM]), to: l.to, paper: l.paper, changedTo, opened: openedCount(a.id), loved: s.loved, writers: s.writers };
   });
 }
 
@@ -550,7 +571,8 @@ function markSent(user, letterId) {
     sheet(SH.LETTERS).getRange(f.index, LT.SENT + 1).setValue(true);
     const actId = String(f.row[LT.ACT]);
     clearLoved(actId);
-    return { id: letterId, loved: lovedCount(actId) };
+    const s = lovedCount(actId);
+    return { id: letterId, loved: s.loved, writers: s.writers };
   });
 }
 
@@ -572,7 +594,8 @@ function letterCard(id) {
   const f = findLetter(id);
   if (!f) return null;
   const a = getAct(f.row[LT.ACT]);
-  return { id: String(id), to: String(f.row[LT.TO]), paper: String(f.row[LT.PAPER] || 'rose'), actId: String(f.row[LT.ACT]), actTitle: a ? a.title : '', opened: openedCount(f.row[LT.ACT]), loved: lovedCount(f.row[LT.ACT], f.row[LT.TO]) };
+  const s = lovedCount(f.row[LT.ACT], f.row[LT.TO], f.row[LT.FROM_UID]);
+  return { id: String(id), to: String(f.row[LT.TO]), paper: String(f.row[LT.PAPER] || 'rose'), actId: String(f.row[LT.ACT]), actTitle: a ? a.title : '', opened: openedCount(f.row[LT.ACT]), loved: s.loved, writers: s.writers };
 }
 
 function letterContent(r, a) {
