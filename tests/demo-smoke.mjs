@@ -56,6 +56,31 @@ await check('home-noguide：活動卡與截止時間不被拆行', '?demo&noguid
   if (n !== 2) throw new Error(`活動卡數量 ${n}`);
   const lines = await page.locator('.card.act .s .nowrap', { hasText: '截止' }).first().evaluate(el => el.getClientRects().length);
   if (lines !== 1) throw new Error('截止時間被拆成兩行');
+  const layout = await page.evaluate(() => {
+    const mine = document.getElementById('h-mine');
+    const acts = [...document.querySelectorAll('.card.act')];
+    const foot = document.querySelector('.foot');
+    const after = Node.DOCUMENT_POSITION_FOLLOWING;
+    const bg = getComputedStyle(mine).backgroundColor;
+    const rgb = (bg.match(/\d+/g) || []).map(Number);
+    return {
+      afterActs: acts.length && acts.every(a => (a.compareDocumentPosition(mine) & after)),
+      beforeFoot: !!(foot && (mine.compareDocumentPosition(foot) & after)),
+      footMine: [...document.querySelectorAll('.foot .link')].some(el => el.textContent.includes('我寫過的信')),
+      bg, r: rgb[0], g: rgb[1], b: rgb[2],
+    };
+  });
+  if (!layout.afterActs) throw new Error('我寫過的信應在活動卡下面');
+  if (!layout.beforeFoot) throw new Error('我寫過的信應在頁尾上面');
+  if (layout.footMine) throw new Error('首頁已有卡片，頁尾不該再有「我寫過的信」連結');
+  // 淡玫瑰底，需明顯不是白卡（255,255,255），且偏紅
+  if (!(layout.r > 230 && layout.b < layout.r - 8 && layout.g < layout.r)) throw new Error('底色不是淡玫瑰：' + layout.bg);
+  const first = page.locator('.card.act').first();
+  await expectText(page, '.card.act .act-counts', '已有 2 人寫信');
+  await expectText(page, '.card.act .act-counts', '已有 2 個人收到愛');
+  const titleY = await first.locator('h3').evaluate(el => el.getBoundingClientRect().bottom);
+  const badgeY = await first.locator('.act-counts').evaluate(el => el.getBoundingClientRect().top);
+  if (badgeY < titleY - 2) throw new Error('人數標籤應在活動標題下方／旁邊');
   await shot(page, 'home-noguide');
 });
 
@@ -84,6 +109,8 @@ await check('bind：第一次寫信先填姓名手機', '?demo=bind&noguide', as
 
 await check('letter：收信後看到內容', '?demo=letter&noguide', async page => {
   await expectText(page, 'h2', '有一封給「陳怡君」的信');
+  await expectText(page, '.act-counts', '已有 2 人寫信');
+  await expectText(page, '.act-counts', '已有 2 個人收到愛');
   await shot(page, 'letter');
   await clickOpen(page);
   await expectText(page, '.paper .text', '謝謝你這一年');
@@ -178,6 +205,9 @@ await check('verse-picks：21 條都在頁面內、可換行', '?demo=write&nogu
 await check('privacy：活動建立人看不到信件內容', '?demo&noguide', async page => {
   await expectText(page, 'h2', '我的流通神聖的愛活動');
   await page.locator('.card.act').first().click();
+  await expectText(page, 'h2', '冬天的第一個問候');
+  await expectText(page, '.act-counts', '已有 2 人寫信');
+  await expectText(page, '.act-counts', '已有 2 個人收到愛');
   await expectText(page, '#d-privacy', '信件內容使用者可見');
   await page.locator('[data-row]').first().click();
   if (await page.locator('.paper.mini .text').count()) throw new Error('建立人不該看到信件內容');
@@ -245,10 +275,14 @@ await check('listen-hint：收信頁有打開聲音提示、不自動播放', '?
 
 await check('loved-flex：圖卡文案與人數', '?demo=write&noguide', async page => {
   await page.locator('#w-to').waitFor();
+  await expectText(page, 'h2', '冬天的第一個問候');
+  await expectText(page, 'h2 + .act-counts', '已有 2 人寫信');
+  await expectText(page, 'h2 + .act-counts', '已有 2 個人收到愛');
+  if (await page.locator('.foot .link', { hasText: '我寫過的信' }).count() === 0) throw new Error('寫信頁沒有卡片，頁尾應保留「我寫過的信」');
   const texts = await page.evaluate(() => {
-    const letter = letterFlex({ to: '林志豪', paper: 'love', actTitle: '冬天的第一個問候', id: 'L9', loved: 3 });
-    const none = letterFlex({ to: '林志豪', paper: 'love', actTitle: 'x', id: 'L9', loved: 0 });
-    const act = actFlex({ title: '冬天的第一個問候', paper: 'winter', id: 'A1', loved: 2, desc: '', deadline: '' });
+    const letter = letterFlex({ to: '林志豪', paper: 'love', actTitle: '冬天的第一個問候', id: 'L9', loved: 3, writers: 2 });
+    const none = letterFlex({ to: '林志豪', paper: 'love', actTitle: 'x', id: 'L9', loved: 0, writers: 0 });
+    const act = actFlex({ title: '冬天的第一個問候', paper: 'winter', id: 'A1', loved: 5, writers: 4, desc: '說明文字', deadline: '' });
     const walk = (node, acc = []) => {
       if (!node) return acc;
       if (Array.isArray(node)) { node.forEach(n => walk(n, acc)); return acc; }
@@ -258,12 +292,30 @@ await check('loved-flex：圖卡文案與人數', '?demo=write&noguide', async p
       }
       return acc;
     };
-    return { letter: walk(letter), none: walk(none), act: walk(act) };
+    const checkFlex = (msg, label) => {
+      if (!msg || msg.type !== 'flex' || !msg.contents || msg.contents.type !== 'bubble') throw new Error(label + ' 不是 bubble');
+      if ((msg.altText || '').length > 400) throw new Error(label + ' altText 超過 400');
+      let maxDepth = 0, boxes = 0;
+      const deep = (node, d) => {
+        if (!node || typeof node !== 'object') return;
+        if (Array.isArray(node)) { node.forEach(n => deep(n, d)); return; }
+        if (node.type === 'box') { boxes++; if (d > maxDepth) maxDepth = d; if (d > 12) throw new Error(label + ' 巢狀過深'); }
+        if (node.type === 'text' && String(node.text).length > 2000) throw new Error(label + ' 文字過長');
+        if (node.contents) deep(node.contents, d + (node.type === 'box' ? 1 : 0));
+      };
+      deep(msg.contents, 0);
+      return { maxDepth, boxes };
+    };
+    return { letter: walk(letter), none: walk(none), act: walk(act), flex: { letter: checkFlex(letter, '信件圖卡'), act: checkFlex(act, '活動圖卡') } };
   });
-  if (!texts.letter.some(t => t === '已有 3 個人收到愛')) throw new Error('信件圖卡沒有正確人數：' + texts.letter.join('|'));
-  if (texts.none.some(t => /收到愛/.test(t))) throw new Error('人數為 0 時不該顯示：' + texts.none.join('|'));
-  if (!texts.act.some(t => t === '已有 2 個人收到愛')) throw new Error('活動圖卡沒有正確人數：' + texts.act.join('|'));
-  if (texts.letter.some(t => /收到信/.test(t))) throw new Error('圖卡仍用舊文案');
+  const li = texts.letter, ai = texts.act;
+  const tTitle = li.indexOf('✉️ 冬天的第一個問候'), tWrite = li.indexOf('已有 2 人寫信'), tLove = li.indexOf('已有 3 個人收到愛'), tTo = li.indexOf('To.');
+  if (tTitle < 0 || tWrite < 0 || tLove < 0) throw new Error('信件圖卡缺少標題或人數：' + li.join('|'));
+  if (!(tTitle < tWrite && tWrite < tLove && tLove < tTo)) throw new Error('信件圖卡人數應在標題後、信封前：' + li.join('|'));
+  if (texts.none.some(t => /收到愛|人寫信/.test(t))) throw new Error('人數為 0 時不該顯示：' + texts.none.join('|'));
+  const aTitle = ai.indexOf('冬天的第一個問候'), aWrite = ai.indexOf('已有 4 人寫信'), aLove = ai.indexOf('已有 5 個人收到愛'), aDesc = ai.indexOf('說明文字');
+  if (!(aTitle < aWrite && aWrite < aLove && aLove < aDesc)) throw new Error('活動圖卡人數應緊跟標題、在說明前：' + ai.join('|'));
+  if (li.some(t => /收到信/.test(t))) throw new Error('圖卡仍用舊文案');
 });
 
 await check('my-letters：跨活動列出自己寫過的信', '?demo=mine&noguide', async page => {

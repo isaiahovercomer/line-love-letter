@@ -190,10 +190,15 @@
   .mine-item { border-bottom: 1px solid var(--rule); padding-bottom: 10px; }
   .mine-acts { display: flex; gap: 8px; }
   .mine-acts .btn { min-height: 36px; padding: 4px 14px; font-size: 14px; }
-  .mine-entry { display: block; width: 100%; text-align: left; cursor: pointer; }
+  /* 淡玫瑰底，和米白暖杏頁面、白色活動卡區隔；#2F3343／#67645F 對比皆 ≥ 4.5 */
+  .mine-entry { display: block; width: 100%; text-align: left; cursor: pointer; background: #F6E8E4; border-color: #E5D0C8; }
   .mine-entry .t { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
   .mine-entry h3 { margin: 0; font-family: var(--serif); font-size: 18px; }
   .mine-entry .s { margin-top: 6px; font-size: 14px; color: var(--ink-2); }
+  .act-counts { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 2px; align-items: center; }
+  .act-counts.center { justify-content: center; }
+  .act-count { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: var(--gold-soft); color: var(--gold-text); }
+  .act .act-counts { margin-top: 6px; }
   .letter-row { display: flex; width: 100%; justify-content: space-between; align-items: flex-start; gap: 8px; background: none; border: 0; padding: 12px 2px; border-bottom: 1px solid var(--rule); cursor: pointer; text-align: left; }
   .letter-row:last-child { border-bottom: 0; }
   .letter-row .who { font-weight: 700; }
@@ -385,13 +390,18 @@ if (DEMO) window.liff = { isInClient: () => false, isLoggedIn: () => true, close
   shareTargetPicker: () => new Promise(r => setTimeout(() => r({ status: 'success' }), 250)) };
 const demoState = a => !a.open ? 'closed' : (a.deadline && new Date(a.deadline.replace(' ', 'T')) < new Date() ? 'ended' : 'open');
 const demoNorm = v => String(v || '').replace(/[\s　]+/g, '').toLowerCase();
-const demoLoved = (actId, extraTo) => {
-  const names = new Set();
-  demo.letters.filter(l => l.actId === actId && l.sent).forEach(l => { const n = demoNorm(l.to); if (n) names.add(n); });
+const demoCounts = (actId, extraTo, extraFrom) => {
+  const names = new Set(), writers = new Set();
+  demo.letters.filter(l => l.actId === actId && l.sent).forEach(l => {
+    const n = demoNorm(l.to); if (n) names.add(n);
+    if (l.fromUid) writers.add(String(l.fromUid));
+  });
   if (extraTo) { const n = demoNorm(extraTo); if (n) names.add(n); }
-  return names.size;
+  if (extraFrom) writers.add(String(extraFrom));
+  return { loved: names.size, writers: writers.size };
 };
-const demoStats = a => { const ls = demo.letters.filter(l => l.actId === a.id); return { ...a, state: demoState(a), letters: ls.length, opened: ls.filter(l => l.openedAt).length, loved: demoLoved(a.id) }; };
+const demoLoved = (actId, extraTo) => demoCounts(actId, extraTo).loved;
+const demoStats = a => { const ls = demo.letters.filter(l => l.actId === a.id); const c = demoCounts(a.id); return { ...a, state: demoState(a), letters: ls.length, opened: ls.filter(l => l.openedAt).length, loved: c.loved, writers: c.writers }; };
 const demoContent = l => ({ ...l, actTitle: (demo.acts.find(a => a.id === l.actId) || {}).title || '' });
 
 async function demoApi(action, d) {
@@ -403,12 +413,13 @@ async function demoApi(action, d) {
     case 'home': return { ok: true, me: { ...demo.me }, acts: demo.acts.map(demoStats) };
     case 'writeBoot': {
       const a = act(d.actId);
-      return { ok: true, me: { ...demo.me }, act: a ? { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, paper: a.paper, state: demoState(a), opened: demoStats(a).opened, loved: demoLoved(a.id) } : null,
+      const st = a ? demoStats(a) : null;
+      return { ok: true, me: { ...demo.me }, act: a ? { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, paper: a.paper, state: st.state, opened: st.opened, loved: st.loved, writers: st.writers } : null,
         verses: (await demoApi('verses', {})).verses, letters: demo.letters.filter(l => l.fromUid === 'Udemo' && l.actId === d.actId).reverse() };
     }
     case 'session': return { ok: true, token: 'demo', expires: Date.now() + 864e5 };
-    case 'act': { const a = act(d.actId); return { ok: true, act: a ? { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, paper: a.paper, state: demoState(a), opened: demoStats(a).opened, loved: demoLoved(a.id) } : null }; }
-    case 'letterCard': { const l = letter(d.letterId); return { ok: true, card: l ? { id: l.id, to: l.to, paper: l.paper, actId: l.actId, actTitle: act(l.actId).title, loved: demoLoved(l.actId, l.to) } : null }; }
+    case 'act': { const a = act(d.actId); const st = a ? demoStats(a) : null; return { ok: true, act: a ? { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, paper: a.paper, state: st.state, opened: st.opened, loved: st.loved, writers: st.writers } : null }; }
+    case 'letterCard': { const l = letter(d.letterId); const c = l ? demoCounts(l.actId, l.to, l.fromUid) : null; return { ok: true, card: l ? { id: l.id, to: l.to, paper: l.paper, actId: l.actId, actTitle: act(l.actId).title, loved: c.loved, writers: c.writers } : null }; }
     case 'bind': {
       if (!d.name || String(d.phone).replace(/\D/g, '').length < 9) throw new Error('請填寫姓名和完整手機號碼');
       demo.me.name = d.name; return { ok: true, name: d.name };
@@ -418,16 +429,16 @@ async function demoApi(action, d) {
       if (!d.letter.to) throw new Error('請填寫收信人的名字');
       if (!d.letter.text) throw new Error('請寫下要給對方的悄悄話');
       const l = { id: 'L' + Date.now(), actId: d.actId, from: demo.me.name, fromUid: 'Udemo', ...d.letter, time: '剛剛', sent: false, openedAt: '', openedBy: '' };
-      demo.letters.push(l); return { ok: true, letter: { id: l.id, actId: l.actId, actTitle: act(l.actId).title, from: l.from, to: l.to, paper: l.paper, loved: demoLoved(l.actId, l.to) } };
+      demo.letters.push(l); const wc = demoCounts(l.actId, l.to, 'Udemo'); return { ok: true, letter: { id: l.id, actId: l.actId, actTitle: act(l.actId).title, from: l.from, to: l.to, paper: l.paper, loved: wc.loved, writers: wc.writers } };
     }
     case 'updateLetter': {
       const l = letter(d.letterId); if (l.openedAt) throw new Error('對方已經收信了，不能再修改');
       const changedTo = l.to !== d.letter.to; Object.assign(l, d.letter); if (changedTo) l.sent = false;
-      return { ok: true, letter: { id: l.id, actId: l.actId, actTitle: act(l.actId).title, from: l.from, to: l.to, paper: l.paper, changedTo, loved: demoLoved(l.actId, l.to) } };
+      const uc = demoCounts(l.actId, l.to, l.fromUid); return { ok: true, letter: { id: l.id, actId: l.actId, actTitle: act(l.actId).title, from: l.from, to: l.to, paper: l.paper, changedTo, loved: uc.loved, writers: uc.writers } };
     }
     case 'deleteLetter': demo.letters = demo.letters.filter(l => l.id !== d.letterId); return { ok: true, id: d.letterId, opens: 0 };
     case 'verses': return { ok: true, verses: VERSE_REFS };
-    case 'markSent': { const l = letter(d.letterId); l.sent = true; return { ok: true, id: d.letterId, loved: demoLoved(l.actId) }; }
+    case 'markSent': { const l = letter(d.letterId); l.sent = true; const mc = demoCounts(l.actId); return { ok: true, id: d.letterId, loved: mc.loved, writers: mc.writers }; }
     case 'myLetters': return { ok: true, letters: demo.letters.filter(l => l.fromUid === 'Udemo' && (!d.actId || l.actId === d.actId)).slice().reverse().map(demoContent) };
     case 'openLetter': {
       const l = letter(d.letterId);
@@ -530,7 +541,7 @@ async function main() {
 }
 
 const topHtml = (who = '') => `<header class="top"><div class="brand"><img src="img/in-christ.svg" alt=""><h1>流通神聖的愛圖卡</h1></div><span class="who">${esc(who)}</span></header>${DEMO ? '<div class="demo-note">預覽模式：使用範例資料，不會真的送出。</div>' : ''}`;
-const footHtml = () => `<div class="foot"><button class="link" type="button" onclick="openGuide(GUIDE_KIND, true)">使用說明</button>　<button class="link" type="button" onclick="location.href='?mine${DEMO ? '&demo=mine' : ''}'">我寫過的信</button>　<button class="link" type="button" onclick="location.href='?mydata${DEMO ? '&demo=mydata' : ''}'">我的個人資料</button></div>`;
+const footHtml = (opts = {}) => `<div class="foot"><button class="link" type="button" onclick="openGuide(GUIDE_KIND, true)">使用說明</button>${opts.hideMine ? '' : `　<button class="link" type="button" onclick="location.href='?mine${DEMO ? '&demo=mine' : ''}'">我寫過的信</button>`}　<button class="link" type="button" onclick="location.href='?mydata${DEMO ? '&demo=mydata' : ''}'">我的個人資料</button></div>`;
 
 /* ---------- 使用說明：第一次登入後自動出現，之後可從頁尾再打開 ---------- */
 const GUIDES = {
@@ -539,13 +550,13 @@ const GUIDES = {
     ['🎵', '主題會配上音樂', '點選主題，會配上相應的背景音樂，都是輕柔的。不想聽就按「停止音樂」。收信的人要自己按「打開聲音聆聽」才會播放。'],
     ['✍️', '名字要寫對', '收信人的名字要和他在這裡登記的姓名一樣（例如寫全名「陳怡君」），他才拆得開。'],
     ['📖', '可以選一節經文', '備選經文都在這一頁，分幾行排列。點一下，出處和恢復本內容會一起填好，也可以自己寫。'],
-    ['📤', '按一次，等它送出', '按「儲存並送出」一次就好，請等它處理完。選好朋友或群組後，對方會收到只寫著「To. 他名字」的信封；圖卡上會顯示「已有 XX 個人收到愛」（送出當下這個活動已送出信件的人數，圖卡發出後不會再變）。'],
+    ['📤', '按一次，等它送出', '按「儲存並送出」一次就好，請等它處理完。選好朋友或群組後，對方會收到只寫著「To. 他名字」的信封；圖卡上活動標題旁邊會顯示「已有 XX 人寫信」「已有 XX 個人收到愛」（送出當下這個活動的人數，圖卡發出後不會再變）。'],
     ['🕊️', '收信＝神聖的愛流通成功', '對方按「收信」並登入，姓名大致相符就能拆信（加稱謂、用小名都可以）。你寫的信列在頁面下方，可以重新送出；對方收信前可以編輯，也可以刪除。'],
     ['📜', '我寫過的信', '在首頁或「我的個人資料」可以打開「我寫過的信」，查看你在各個活動寫給過誰、是否已送出或對方已收信。點一封就能再看自己寫的內容。'],
   ],
   host: [
     ['📮', '建立流通神聖的愛活動', '按「建立」填活動名稱、說明和寫信截止時間，也可以選預設信紙。建立後馬上跳出選單，把寫信入口發到群組。'],
-    ['✉️', '大家寫信、送出', '成員第一次寫信要填姓名和手機，之後寫信、選朋友或群組送出信封。圖卡上會顯示這個活動「已有 XX 個人收到愛」。'],
+    ['✉️', '大家寫信、送出', '成員第一次寫信要填姓名和手機，之後寫信、選朋友或群組送出信封。圖卡上活動標題旁邊會顯示「已有 XX 人寫信」「已有 XX 個人收到愛」。'],
     ['🔒', '看神聖的愛流通', '點進活動就能看到「誰 → 誰」、是否已送出與收信。活動建立人看不到信件內容，只有網站總管理者看得到。必要時可刪除某封信。'],
     ['⚙️', '管理活動', '活動頁最下方有收信人名單，可複製或截圖存下來。也可以編輯、停止或重新開放寫信、刪除活動。首頁可以查看自己寫過的信，或把平台安裝到手機桌面。'],
   ],
@@ -645,7 +656,7 @@ async function writeFlow(pre, actId) {
 
 function writeForm(edit, presetTo) {
   if (ACT.state !== 'open') {
-    return view(`${topHtml(ME.name)}<div class="card center"><div class="big-emoji">⏳</div><h2>${esc(ACT.title)}</h2><p>${ACT.state === 'ended' ? '這個流通神聖的愛活動已經截止寫信了。' : '主辦人已經停止這個活動的寫信。'}</p></div>${footHtml()}`);
+    return view(`${topHtml(ME.name)}<div class="card center"><div class="big-emoji">⏳</div><h2>${esc(ACT.title)}</h2>${actCountBadges(ACT, 'center')}<p>${ACT.state === 'ended' ? '這個流通神聖的愛活動已經截止寫信了。' : '主辦人已經停止這個活動的寫信。'}</p></div>${footHtml()}`);
   }
   const d = edit || readDraft(ACT.id);
   const paper = d.paper || ACT.paper || 'rose';
@@ -654,6 +665,7 @@ function writeForm(edit, presetTo) {
   const today = new Date().toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
   view(`${topHtml(ME.name)}
     ${edit ? `<button class="back" type="button" id="w-cancel">‹ 取消修改</button><h2>修改寫給「${esc(edit.to)}」的信</h2>` : `<h2>${esc(ACT.title)}</h2>`}
+    ${actCountBadges(ACT)}
     ${edit ? '' : ACT.desc ? `<p class="muted small" style="white-space:pre-wrap">${esc(ACT.desc)}</p>` : ''}
     ${ACT.deadline ? `<p class="small muted">寫信截止：${esc(shortTime(ACT.deadline))}</p>` : ''}
     <div class="papers" role="group" aria-label="選信紙">
@@ -792,7 +804,7 @@ async function drawMine() {
       <p class="small muted" style="margin:8px 0 0">對方收信後就不能再修改；刪除後，對方的信封會打不開。</p></div>`;
     box.querySelectorAll('[data-resend]').forEach(b => b.onclick = () => busy(b, async () => {
       const l = letters.find(x => x.id === b.dataset.resend);
-      if (await sendLetter({ ...l, actTitle: ACT.title, opened: ACT.opened })) drawMine();
+      if (await sendLetter({ ...l, actTitle: ACT.title, opened: ACT.opened, loved: ACT.loved, writers: ACT.writers })) drawMine();
     }));
     box.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => writeForm(letters.find(x => x.id === b.dataset.edit)));
     box.querySelectorAll('[data-del]').forEach(b => b.onclick = () => armThen(b, '確定刪除？', () => busy(b, async rid => {
@@ -824,6 +836,7 @@ async function letterFlow(pre) {
   if (!card) return view(`${topHtml()}<div class="card center"><div class="big-emoji">📭</div><p>找不到這封信，可能已經被刪除。</p></div>`);
   view(`${topHtml()}
     <p class="center muted small" style="margin-top:20px">${esc(card.actTitle)}</p>
+    ${actCountBadges(card, 'center')}
     <h2 class="center">有一封給「${esc(card.to)}」的信</h2>
     <div class="env-stage"><div class="env" id="env" style="${paperVars(card.paper)}"><div class="flap"></div><div class="seal">${paperOf(card.paper).sym}</div><div class="to"><small>To.</small><b>${esc(card.to)}</b></div></div></div>
     <p class="center muted small">只有「${esc(card.to)}」本人拆得開</p>
@@ -998,16 +1011,17 @@ function renderHome() {
     <p class="muted small">建立活動 → 把寫信入口發到群組 → 大家寫信、傳給收信人 → 在這裡看神聖的愛流通。</p>
     <button class="btn block gold" id="h-new" type="button">＋ 建立流通神聖的愛活動</button>
     ${isStandalone() ? '' : '<button class="btn ghost block" id="h-install" type="button" style="margin-top:10px">📲 安裝到手機桌面</button>'}
+    ${ACTS.length ? ACTS.map(a => `
+      <button class="card act" type="button" data-act="${esc(a.id)}">
+        <div class="t"><h3>${esc(a.title)}</h3>${stateChip(a.state)}</div>
+        ${actCountBadges(a)}
+        <div class="s"><span class="nowrap">✉️ ${a.letters} 封信</span>・<span class="nowrap">🕊️ 神聖的愛流通成功 ${a.opened}</span>${a.deadline ? `・<span class="nowrap">截止 ${esc(shortTime(a.deadline))}</span>` : ''}${a.mine === false ? `・${esc(a.creator)} 建立` : ''}</div>
+      </button>`).join('') : `<div class="card empty"><div class="big-emoji">✉️</div>還沒有流通神聖的愛活動，按上面的按鈕建立第一個。</div>`}
     <button class="card mine-entry" type="button" id="h-mine">
       <div class="t"><h3>我寫過的信</h3><span aria-hidden="true">✉️</span></div>
       <div class="s" id="h-mine-sum">${MY_LETTERS ? (MY_LETTERS.length ? `你已寫信給 ${distinctRecipients(MY_LETTERS)} 位` : '還沒寫過信') : '查看你在各個活動寫給過誰'}</div>
     </button>
-    ${ACTS.length ? ACTS.map(a => `
-      <button class="card act" type="button" data-act="${esc(a.id)}">
-        <div class="t"><h3>${esc(a.title)}</h3>${stateChip(a.state)}</div>
-        <div class="s"><span class="nowrap">✉️ ${a.letters} 封信</span>・<span class="nowrap">🕊️ 神聖的愛流通成功 ${a.opened}</span>${a.deadline ? `・<span class="nowrap">截止 ${esc(shortTime(a.deadline))}</span>` : ''}${a.mine === false ? `・${esc(a.creator)} 建立` : ''}</div>
-      </button>`).join('') : `<div class="card empty"><div class="big-emoji">✉️</div>還沒有流通神聖的愛活動，按上面的按鈕建立第一個。</div>`}
-    ${footHtml()}`, 'home');
+    ${footHtml({ hideMine: true })}`, 'home');
   $('h-new').onclick = () => renderActForm();
   if ($('h-install')) $('h-install').onclick = () => startInstall();
   if ($('h-mine')) $('h-mine').onclick = () => { location.href = DEMO ? '?demo=mine&noguide' : '?mine=1'; };
@@ -1070,6 +1084,7 @@ function drawDetail() {
   view(`${topHtml(ME.name || ME.displayName)}
     <button class="back" type="button" id="d-back">‹ 我的流通神聖的愛活動</button>
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><h2>${esc(a.title)}</h2>${stateChip(a.state)}</div>
+    ${actCountBadges(a)}
     ${a.deadline ? `<p class="small muted" style="margin:0">寫信截止：${esc(shortTime(a.deadline))}</p>` : ''}
     <div class="stats">
       <div class="stat"><b>${list.length}</b><span>信件</span></div>
@@ -1439,9 +1454,26 @@ async function sendLetter(l) {
 }
 const sendAct = a => pick([actFlex(a)], '已發到群組');
 
-/** 「已有 XX 個人收到愛」：這個活動裡，已送出信件的不重複收信人數（含正要送出的這一位）。0 人不顯示。圖卡發出後內容固定，不會自動更新。 */
-const lovedLine = (n, t) => +n > 0 ? [{ type: 'box', layout: 'horizontal', margin: 'md', paddingAll: '8px', cornerRadius: '999px', backgroundColor: t.line,
-  contents: [{ type: 'text', text: `已有 ${+n} 個人收到愛`, size: 'xs', color: t.accent, weight: 'bold', align: 'center', wrap: true }] }] : [];
+/** 活動人數標籤：先「已有 XX 人寫信」，再「已有 XX 個人收到愛」。0 不顯示。圖卡送出當下快照，發出後不會自動更新。 */
+function actCountParts(writers, loved) {
+  const parts = [];
+  if (+writers > 0) parts.push(`已有 ${+writers} 人寫信`);
+  if (+loved > 0) parts.push(`已有 ${+loved} 個人收到愛`);
+  return parts;
+}
+function actCountBadges(a, cls) {
+  const parts = actCountParts(a && a.writers, a && a.loved);
+  if (!parts.length) return '';
+  return `<div class="act-counts${cls ? ' ' + cls : ''}">${parts.map(t => `<span class="act-count">${esc(t)}</span>`).join('')}</div>`;
+}
+const lovedLine = (loved, t, writers) => {
+  const parts = actCountParts(writers, loved);
+  if (!parts.length) return [];
+  return [{ type: 'box', layout: 'vertical', margin: 'xs', spacing: 'xs', contents: parts.map(text => ({
+    type: 'box', layout: 'horizontal', paddingAll: '6px', paddingStart: '10px', paddingEnd: '10px', cornerRadius: '999px', backgroundColor: t.line,
+    contents: [{ type: 'text', text, size: 'xs', color: t.accent, weight: 'bold', wrap: true, flex: 1 }]
+  })) }];
+};
 
 /** 信封圖卡：只寫收信人，內容要按「收信」才看得到 */
 function letterFlex(l) {
@@ -1451,13 +1483,13 @@ function letterFlex(l) {
     styles: { body: { backgroundColor: p.paper }, footer: { backgroundColor: p.paper } },
     body: { type: 'box', layout: 'vertical', paddingAll: '18px', contents: [
       { type: 'text', text: '✉️ ' + (l.actTitle || '流通神聖的愛信'), size: 'xs', color: p.accent, weight: 'bold', wrap: true },
+      ...lovedLine(l.loved, p, l.writers),
       { type: 'box', layout: 'vertical', margin: 'md', backgroundColor: p.env, cornerRadius: '10px', paddingAll: '16px', paddingTop: '22px', contents: [
         { type: 'box', layout: 'vertical', width: '44px', height: '44px', cornerRadius: '22px', backgroundColor: p.accent, justifyContent: 'center', alignItems: 'center',
           contents: [{ type: 'text', text: p.sym, color: '#FFFFFF', size: 'lg', align: 'center' }] },
         { type: 'text', text: 'To.', size: 'xs', color: p.ink, margin: 'lg' },
         { type: 'text', text: String(l.to), size: 'xl', weight: 'bold', color: p.ink, wrap: true },
-        { type: 'text', text: '只有本人拆得開', size: 'xxs', color: p.ink, margin: 'sm' } ] },
-      ...lovedLine(l.loved, p) ] },
+        { type: 'text', text: '只有本人拆得開', size: 'xxs', color: p.ink, margin: 'sm' } ] } ] },
     footer: { type: 'box', layout: 'vertical', paddingAll: '14px', paddingTop: '0px', spacing: 'xs', contents: [
       { type: 'button', style: 'primary', color: p.accent, height: 'sm', action: { type: 'uri', label: '收信', uri: letterUrl(l.id) } },
       { type: 'button', style: 'link', height: 'sm', color: p.ink, action: { type: 'uri', label: '轉傳給其他朋友', uri: fwdUrl(l.id) } } ] },
@@ -1469,10 +1501,10 @@ function actFlex(a) {
   const p = paperOf(a.paper);
   const body = [
     { type: 'text', text: '✉️ 流通神聖的愛圖卡', size: 'xs', color: p.accent, weight: 'bold' },
-    { type: 'text', text: a.title, size: 'xl', weight: 'bold', color: p.ink, wrap: true, margin: 'sm' } ];
+    { type: 'text', text: a.title, size: 'xl', weight: 'bold', color: p.ink, wrap: true, margin: 'sm' },
+    ...lovedLine(a.loved, p, a.writers) ];
   if (a.desc) body.push({ type: 'text', text: a.desc.length > 160 ? a.desc.slice(0, 158) + '…' : a.desc, size: 'sm', color: '#67645F', wrap: true, margin: 'md' });
   if (shortTime(a.deadline)) body.push({ type: 'text', text: '寫信截止 ' + shortTime(a.deadline), size: 'xs', color: '#67645F', margin: 'md' });
-  body.push(...lovedLine(a.loved, p));
   return { type: 'flex', altText: `✉️ ${a.title}：寫一封愛的信`.slice(0, 400), contents: {
     type: 'bubble',
     styles: { body: { backgroundColor: p.paper }, footer: { backgroundColor: p.paper } },
