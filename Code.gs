@@ -190,6 +190,25 @@ function fmt(d, p) { return d instanceof Date ? Utilities.formatDate(d, tz(), p 
 function normPhone(v) { return String(v || '').replace(/\D/g, '').slice(-9); }
 /** 比對姓名：去掉所有空白、英文不分大小寫 */
 function normName(v) { return String(v || '').replace(/[\s　]+/g, '').toLowerCase(); }
+// 收信人姓名「大致相符」即可拆信：去掉稱謂（弟兄、姊妹、師母、阿姨…）與小、阿等暱稱字頭後，
+// 一方包含另一方、或至少有一個相同的字（中文）／相同的英文單字，就算相關；只有完全不相干才擋下。
+const NAME_TITLES = ['弟兄','姊妹','姐妹','妹妹','弟弟','哥哥','姊姊','姐姐','師母','師丈','老師','牧者','長老','執事','同工','阿姨','叔叔','伯伯','伯母','嬸嬸','奶奶','爺爺','阿嬤','阿公','外婆','外公','媽媽','爸爸','小姐','先生','太太','女士','同學','學長','學姊','學姐','學弟','學妹','寶貝','親愛的','兄','姊','姐','哥','弟','妹','嫂','媽','爸','伯','叔','姨'];
+function nameCore(v) {
+  let s = normName(v).replace(/[()（）【】\[\]「」『』.,，。、~～!！?？:：;；'"’‘“”·•\-_]+/g, '');
+  for (const t of NAME_TITLES) s = s.split(t).join('');
+  return s.replace(/^(小|阿|老)(?=.)/, '');
+}
+function namesRelated(a, b) {
+  const x = nameCore(a), y = nameCore(b);
+  if (!x || !y) return normName(a) !== '' && normName(a) === normName(b);
+  if (x.includes(y) || y.includes(x)) return true;
+  const cjk = s => s.match(/[\u3400-\u9fff\uf900-\ufaff]/g) || [];
+  const set = new Set(cjk(x));
+  if (cjk(y).some(c => set.has(c))) return true;
+  const words = s => s.match(/[a-z0-9]{2,}/g) || [];
+  const ws = new Set(words(x));
+  return words(y).some(w => ws.has(w) || [...ws].some(v => v.startsWith(w) || w.startsWith(v)));
+}
 function isTrue(v) { return v === true || String(v).toUpperCase() === 'TRUE'; }
 function withLock(fn) {
   const lock = LockService.getScriptLock();
@@ -567,7 +586,7 @@ function openLetter(user, letterId) {
   if (String(r[LT.FROM_UID]) === user.userId) return { status: 'mine', letter: letterContent(r, a), ...openInfo(letterId) };
   const name = rosterName(user);
   if (!name) return { status: 'need_bind', to: String(r[LT.TO]) };
-  if (normName(name) !== normName(r[LT.TO])) return { status: 'wrong_person', to: String(r[LT.TO]), name };
+  if (!namesRelated(name, r[LT.TO]) && !namesRelated(user.displayName, r[LT.TO])) return { status: 'wrong_person', to: String(r[LT.TO]), name };
   return withLock(() => {
     let info = openInfo(letterId), first = false;
     if (!info.openedAt) {
