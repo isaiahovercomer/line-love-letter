@@ -72,7 +72,7 @@ await check('home-noguide：活動卡與截止時間不被拆行', '?demo&noguid
   await expectText(page, 'h2', '我的流通神聖的愛活動');
   if (await page.locator('.guide').count()) throw new Error('noguide 仍出現使用說明');
   const n = await page.locator('.card.act').count();
-  if (n !== 2) throw new Error(`活動卡數量 ${n}`);
+  if (n !== 7) throw new Error(`活動卡數量 ${n}`);
   const lines = await page.locator('.card.act .s .nowrap', { hasText: '截止' }).first().evaluate(el => el.getClientRects().length);
   if (lines !== 1) throw new Error('截止時間被拆成兩行');
   const layout = await page.evaluate(() => {
@@ -482,7 +482,52 @@ await check('coadmin：共同管理者可看後台、看不到內容、不能新
   await shot(page, 'coadmin-member');
 });
 
+await check('activity-themes：首頁卡片有主題色與浮水印，我寫過的信保持原底', '?demo&noguide', async page => {
+  await expectText(page, 'h2', '我的流通神聖的愛活動');
+  const info = await page.evaluate(() => {
+    const cards = [...document.querySelectorAll('.card.act')].map(el => ({
+      theme: el.dataset.theme,
+      title: el.querySelector('h3')?.textContent,
+      tint: getComputedStyle(el).backgroundColor,
+      mark: getComputedStyle(el).getPropertyValue('--theme-mark'),
+      hasClass: el.classList.contains('theme-card'),
+    }));
+    const mine = document.getElementById('h-mine');
+    const mineBg = mine && getComputedStyle(mine).backgroundColor;
+    return { cards, mineBg, pageTheme: document.body.getAttribute('data-act-theme') };
+  });
+  const want = { A0: 'winter', 冬天的第一個問候: 'winter', 畢業祝福信: 'grad', 聖誕的問候: 'xmas', 感恩節的見證: 'thanks', 牧養關懷信: 'shepherd', 建造與配搭: 'build', 彼此相愛: 'love' };
+  if (info.cards.length !== 7) throw new Error('應有 7 張活動卡：' + info.cards.length);
+  if (info.pageTheme) throw new Error('首頁不該套整頁單一主題：' + info.pageTheme);
+  for (const c of info.cards) {
+    if (!c.hasClass || !c.theme) throw new Error('卡片缺主題：' + JSON.stringify(c));
+    if (want[c.title] && c.theme !== want[c.title]) throw new Error(`${c.title} 應為 ${want[c.title]}，實際 ${c.theme}`);
+    if (!c.mark.includes('img/themes/') || !c.mark.includes(c.theme + '.svg')) throw new Error('浮水印路徑不對：' + c.mark);
+  }
+  const tints = new Set(info.cards.map(c => c.tint));
+  if (tints.size < 5) throw new Error('主題底色應有明顯差異：' + [...tints].join(' | '));
+  const mineRgb = (info.mineBg.match(/\d+/g) || []).map(Number);
+  if (!(mineRgb[0] > 230 && mineRgb[2] < mineRgb[0] - 8 && mineRgb[1] < mineRgb[0])) throw new Error('我寫過的信底色被改掉：' + info.mineBg);
+  const firstTint = info.cards[0].tint;
+  if (info.mineBg === firstTint) throw new Error('我寫過的信不該跟第一張活動卡同色');
+  await shot(page, 'themes-home');
+});
+
+await check('activity-themes：寫信頁套上活動主題浮水印', '?demo=write&act=A3&noguide', async page => {
+  await page.locator('h2', { hasText: '聖誕的問候' }).waitFor();
+  const theme = await page.evaluate(() => document.body.getAttribute('data-act-theme'));
+  if (theme !== 'xmas') throw new Error('寫信頁主題應為 xmas：' + theme);
+  const opacity = await page.evaluate(() => {
+    const cs = getComputedStyle(document.body, '::before');
+    return { op: cs.opacity, img: cs.backgroundImage };
+  });
+  const op = parseFloat(opacity.op);
+  if (!(op >= 0.05 && op <= 0.12)) throw new Error('浮水印透明度應約 6–10%：' + opacity.op);
+  if (!/xmas\.svg/.test(opacity.img)) throw new Error('寫信頁浮水印不是聖誕：' + opacity.img);
+});
+
 await check('mydata：有入口到我寫過的信', '?demo=mydata&noguide', async page => {
+
   await expectText(page, 'h2', '我的個人資料');
   await expectText(page, '#m-mine', '查看我寫過的信');
   await expectText(page, '.card', '寫過 3 封信');
