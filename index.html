@@ -227,11 +227,12 @@ const paperVars = k => { const p = paperOf(k); return `--p-paper:${p.paper};--p-
 
 /* ---------- 備選經文（出處；經文內容由主辦人在試算表「經文」工作表貼上恢復本） ---------- */
 const VERSE_REFS = [
-  ['約翰福音 3:16', '福音'], ['羅馬書 5:8', '福音'], ['約翰一書 4:9-10', '福音'], ['以弗所書 2:8', '福音'],
-  ['約翰福音 10:10', '福音'], ['馬太福音 11:28', '福音'], ['約翰一書 4:19', '愛'], ['哥林多前書 13:4-7', '愛'],
-  ['羅馬書 8:38-39', '愛'], ['以弗所書 3:17-19', '愛'], ['耶利米書 31:3', '愛'], ['民數記 6:24-26', '祝福'],
-  ['哥林多後書 13:14', '祝福'], ['腓立比書 4:6-7', '祝福'], ['詩篇 23:1', '祝福'], ['以賽亞書 41:10', '祝福'],
-  ['腓立比書 1:6', '祝福'], ['帖撒羅尼迦前書 5:16-18', '祝福'],
+  ['約翰福音 3:16', '福音'], ['使徒行傳 16:31', '福音'], ['羅馬書 10:13', '福音'], ['創世記 1:26', '福音'],
+  ['約翰福音 1:29', '福音'], ['馬可福音 2:17', '福音'], ['羅馬書 5:8', '福音'], ['約翰福音 10:10', '福音'],
+  ['馬太福音 11:28', '福音'], ['腓立比書 4:6-7', '祝福'], ['詩篇 65:11', '祝福'], ['詩篇 90:12', '祝福'],
+  ['馬太福音 6:26', '祝福'], ['腓立比書 4:13', '祝福'], ['馬太福音 7:7', '祝福'], ['民數記 6:24-26', '祝福'],
+  ['哥林多後書 13:14', '祝福'], ['約翰一書 4:19', '愛'], ['哥林多前書 13:4-7', '愛'], ['耶利米書 31:3', '愛'],
+  ['約翰福音 15:5', '愛'],
 ].map(([ref, cat]) => ({ ref, cat, text: '' }));
 let VERSES = VERSE_REFS;
 const loadVerses = () => api('verses').then(r => { if (r.verses && r.verses.length) VERSES = r.verses; }).catch(() => {});
@@ -263,7 +264,7 @@ async function demoApi(action, d) {
   switch (action) {
     case 'me': return { ok: true, ...demo.me };
     case 'session': return { ok: true, token: 'demo', expires: Date.now() + 864e5 };
-    case 'act': { const a = act(d.actId); return { ok: true, act: a ? { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, state: demoState(a) } : null }; }
+    case 'act': { const a = act(d.actId); return { ok: true, act: a ? { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, state: demoState(a), opened: demoStats(a).opened } : null }; }
     case 'letterCard': { const l = letter(d.letterId); return { ok: true, card: l ? { id: l.id, to: l.to, paper: l.paper, actId: l.actId, actTitle: act(l.actId).title } : null }; }
     case 'bind': {
       if (!d.name || String(d.phone).replace(/\D/g, '').length < 9) throw new Error('請填寫姓名和完整手機號碼');
@@ -596,7 +597,7 @@ async function drawMine() {
       <p class="small muted" style="margin:8px 0 0">對方收信後就不能再修改；刪除後，對方的信封會打不開。</p></div>`;
     box.querySelectorAll('[data-resend]').forEach(b => b.onclick = () => {
       const l = letters.find(x => x.id === b.dataset.resend);
-      sendLetter({ ...l, actTitle: ACT.title }).then(ok => ok && drawMine());
+      sendLetter({ ...l, actTitle: ACT.title, opened: ACT.opened }).then(ok => ok && drawMine());
     });
     box.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => writeForm(letters.find(x => x.id === b.dataset.edit)));
     box.querySelectorAll('[data-del]').forEach(b => b.onclick = () => armThen(b, '確定刪除？', () => busy(b, async () => {
@@ -919,6 +920,10 @@ async function sendLetter(l) {
 }
 const sendAct = a => pick([actFlex(a)], '已發到群組');
 
+/** 「已有 N 人收到信」：發卡當下這個活動已經拆信的人數（LINE 圖卡發出後內容固定，不會自動更新） */
+const openedLine = (n, t, emptyText) => (+n > 0 || emptyText) ? [{ type: 'box', layout: 'horizontal', margin: 'md', paddingAll: '8px', cornerRadius: '999px', backgroundColor: t.line,
+  contents: [{ type: 'text', text: +n > 0 ? `💞 已有 ${+n} 人收到信` : emptyText, size: 'xs', color: t.accent, weight: 'bold', align: 'center' }] }] : [];
+
 /** 信封圖卡：只寫收信人，內容要按「收信」才看得到 */
 function letterFlex(l) {
   const p = paperOf(l.paper);
@@ -932,7 +937,8 @@ function letterFlex(l) {
           contents: [{ type: 'text', text: '♥', color: '#FFFFFF', size: 'lg', align: 'center' }] },
         { type: 'text', text: 'To.', size: 'xs', color: p.ink, margin: 'lg' },
         { type: 'text', text: String(l.to), size: 'xl', weight: 'bold', color: p.ink, wrap: true },
-        { type: 'text', text: '只有本人拆得開', size: 'xxs', color: p.ink, margin: 'sm' } ] } ] },
+        { type: 'text', text: '只有本人拆得開', size: 'xxs', color: p.ink, margin: 'sm' } ] },
+      ...openedLine(l.opened, p, '') ] },
     footer: { type: 'box', layout: 'vertical', paddingAll: '14px', paddingTop: '0px', spacing: 'xs', contents: [
       { type: 'button', style: 'primary', color: p.accent, height: 'sm', action: { type: 'uri', label: '收信', uri: letterUrl(l.id) } },
       { type: 'button', style: 'link', height: 'sm', color: p.ink, action: { type: 'uri', label: '轉傳給其他朋友', uri: fwdUrl(l.id) } } ] },
@@ -947,6 +953,7 @@ function actFlex(a) {
     { type: 'text', text: a.title, size: 'xl', weight: 'bold', color: p.ink, wrap: true, margin: 'sm' } ];
   if (a.desc) body.push({ type: 'text', text: a.desc.length > 160 ? a.desc.slice(0, 158) + '…' : a.desc, size: 'sm', color: '#7A5A5E', wrap: true, margin: 'md' });
   if (shortTime(a.deadline)) body.push({ type: 'text', text: '寫信截止 ' + shortTime(a.deadline), size: 'xs', color: '#7A5A5E', margin: 'md' });
+  body.push(...openedLine(a.opened, p, '💌 還沒有人收到信，來寫第一封吧'));
   return { type: 'flex', altText: `💌 ${a.title}：寫一封愛的信`.slice(0, 400), contents: {
     type: 'bubble',
     styles: { body: { backgroundColor: p.paper }, footer: { backgroundColor: p.paper } },

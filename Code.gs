@@ -234,7 +234,8 @@ function stateOf(a) {
   const d = parseTime(a.deadline);
   return d && d < new Date() ? 'ended' : 'open';
 }
-function publicAct(a) { return { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, state: stateOf(a) }; }
+function openedCount(actId) { return new Set(rows(SH.OPENS).filter(o => String(o[OP.ACT]) === String(actId)).map(o => String(o[OP.LETTER]))).size; }
+function publicAct(a) { return { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, state: stateOf(a), opened: openedCount(a.id) }; }
 function findActRow(id) {
   const data = sheet(SH.ACTS).getDataRange().getValues();
   for (let i = 1; i < data.length; i++) if (String(data[i][AC.ID]) === String(id)) return { index: i + 1, row: data[i] };
@@ -319,11 +320,12 @@ function deleteAct(id) {
 
 /* ---------- 備選經文：出處先填好，經文內容由主辦人貼上恢復本 ---------- */
 const VERSE_SEED = [
-  ['約翰福音 3:16', '福音'], ['羅馬書 5:8', '福音'], ['約翰一書 4:9-10', '福音'], ['以弗所書 2:8', '福音'],
-  ['約翰福音 10:10', '福音'], ['馬太福音 11:28', '福音'], ['約翰一書 4:19', '愛'], ['哥林多前書 13:4-7', '愛'],
-  ['羅馬書 8:38-39', '愛'], ['以弗所書 3:17-19', '愛'], ['耶利米書 31:3', '愛'], ['民數記 6:24-26', '祝福'],
-  ['哥林多後書 13:14', '祝福'], ['腓立比書 4:6-7', '祝福'], ['詩篇 23:1', '祝福'], ['以賽亞書 41:10', '祝福'],
-  ['腓立比書 1:6', '祝福'], ['帖撒羅尼迦前書 5:16-18', '祝福'],
+  ['約翰福音 3:16', '福音'], ['使徒行傳 16:31', '福音'], ['羅馬書 10:13', '福音'], ['創世記 1:26', '福音'],
+  ['約翰福音 1:29', '福音'], ['馬可福音 2:17', '福音'], ['羅馬書 5:8', '福音'], ['約翰福音 10:10', '福音'],
+  ['馬太福音 11:28', '福音'], ['腓立比書 4:6-7', '祝福'], ['詩篇 65:11', '祝福'], ['詩篇 90:12', '祝福'],
+  ['馬太福音 6:26', '祝福'], ['腓立比書 4:13', '祝福'], ['馬太福音 7:7', '祝福'], ['民數記 6:24-26', '祝福'],
+  ['哥林多後書 13:14', '祝福'], ['約翰一書 4:19', '愛'], ['哥林多前書 13:4-7', '愛'], ['耶利米書 31:3', '愛'],
+  ['約翰福音 15:5', '愛'],
 ];
 function verseSheet() {
   const ss = SpreadsheetApp.getActive();
@@ -337,6 +339,15 @@ function verseSheet() {
   }
   return sh;
 }
+/** 在 Apps Script 編輯器手動執行一次：把還沒貼經文的備選出處換成最新清單（已貼經文的列保留） */
+function resetVerseRefs() {
+  const sh = verseSheet(), data = sh.getDataRange().getValues();
+  for (let i = data.length - 1; i >= 1; i--) if (!String(data[i][1]).trim()) sh.deleteRow(i + 1);
+  const have = new Set(rows(SH.VERSES).map(r => String(r[0]).trim()));
+  const add = VERSE_SEED.filter(v => !have.has(v[0])).map(v => [v[0], '', v[1]]);
+  if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, 3).setValues(add);
+}
+
 function listVerses() {
   verseSheet();
   return rows(SH.VERSES).filter(r => String(r[0]).trim())
@@ -360,7 +371,7 @@ function writeLetter(user, actId, input) {
   const { to, text, image, paper, vref, vtext } = cleanLetterInput(input);
   const id = newId('L');
   withLock(() => sheet(SH.LETTERS).appendRow([id, a.id, from, user.userId, to, text, image, paper, new Date(), false, vref, vtext]));
-  return { id, actId: a.id, actTitle: a.title, from, to, paper };
+  return { id, actId: a.id, actTitle: a.title, from, to, paper, opened: openedCount(a.id) };
 }
 
 function cleanLetterInput(input) {
@@ -386,7 +397,7 @@ function updateLetter(user, letterId, input) {
     sh.getRange(f.index, LT.VREF + 1, 1, 2).setValues([[l.vref, l.vtext]]);
     const changedTo = normName(f.row[LT.TO]) !== normName(l.to);
     if (changedTo) sh.getRange(f.index, LT.SENT + 1).setValue(false); // 換了收信人，要重新送出
-    return { id: String(letterId), actId: a.id, actTitle: a.title, from: String(f.row[LT.FROM]), to: l.to, paper: l.paper, changedTo };
+    return { id: String(letterId), actId: a.id, actTitle: a.title, from: String(f.row[LT.FROM]), to: l.to, paper: l.paper, changedTo, opened: openedCount(a.id) };
   });
 }
 
@@ -427,7 +438,7 @@ function letterCard(id) {
   const f = findLetter(id);
   if (!f) return null;
   const a = getAct(f.row[LT.ACT]);
-  return { id: String(id), to: String(f.row[LT.TO]), paper: String(f.row[LT.PAPER] || 'rose'), actId: String(f.row[LT.ACT]), actTitle: a ? a.title : '' };
+  return { id: String(id), to: String(f.row[LT.TO]), paper: String(f.row[LT.PAPER] || 'rose'), actId: String(f.row[LT.ACT]), actTitle: a ? a.title : '', opened: openedCount(f.row[LT.ACT]) };
 }
 
 function letterContent(r, a) {
