@@ -59,6 +59,8 @@
   .btn:disabled { opacity: .55; cursor: default; }
   .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
   .btn-row .btn { flex: 1 1 140px; }
+  .btn-row.col { flex-direction: column; }
+  .btn-row.col .btn { flex: none; }
   .back { background: none; border: 0; color: var(--ink-2); padding: 6px 0; cursor: pointer; font-size: 15px; }
   .link { background: none; border: 0; color: var(--gold-text); text-decoration: underline; cursor: pointer; padding: 4px 0; font-size: 14px; }
   .foot { text-align: center; margin-top: 28px; }
@@ -639,7 +641,7 @@ function drawLetter(r) {
       <div class="sign">— ${esc(l.from)}</div>
       <div class="date">${esc(l.time)}</div>
     </div>
-    <div class="btn-row" style="margin-top:20px;flex-direction:column">
+    <div class="btn-row col" style="margin-top:20px">
       ${r.status === 'mine' ? '' : `<button class="btn gold" type="button" id="l-reply">💌 回信給 ${esc(l.from)}</button>`}
       <button class="btn ${r.status === 'mine' ? 'gold' : 'ghost'}" type="button" id="l-pass">💞 繼續把愛傳下去</button>
     </div>
