@@ -905,7 +905,7 @@ function openGuide(kind, force) {
       <div class="dots">${pages.map((_, k) => `<span class="${k === i ? 'on' : ''}"></span>`).join('')}</div>
       <div class="btn-row">${i ? '<button class="btn ghost" type="button" data-g="prev">上一步</button>' : '<button class="btn ghost" type="button" data-g="skip">略過</button>'}
       <button class="btn gold" type="button" data-g="next">${i === pages.length - 1 ? '開始使用' : '下一步'}</button></div>
-      <p class="guide-credit">背景音樂：Kevin MacLeod (incompetech.com)，<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>；生日曲為公有領域。</p></div>`;
+      <p class="guide-credit">背景音樂：英文詩歌（Hymns）曲調純音樂與生日歌，旋律皆為公有領域；MIDI 編曲 Rabanus Flavus，<a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0</a>。</p></div>`;
     bg.querySelector('[data-g=next]').focus();
   };
   bg.onclick = ev => {
