@@ -13,7 +13,7 @@ const SH = { ROSTER: '名單', ACTS: '流通神聖的愛活動', LETTERS: '信�
 
 const HEADERS = {
   '名單': ['姓名', '手機', 'LINE userId', 'LINE名稱'],
-  '流通神聖的愛活動': ['活動代碼', '活動名稱', '說明', '開放寫信', '建立者', '建立時間', '截止時間', '預設信紙', '封面圖片'],
+  '流通神聖的愛活動': ['活動代碼', '活動名稱', '說明', '開放寫信', '建立者', '建立時間', '截止時間', '預設信紙', '封面圖片', '按鈕文字'],
   '信件': ['信件代碼', '活動代碼', '寄件人姓名', '寄件人 userId', '收信人姓名', '悄悄話', '照片網址', '信紙', '寫信時間', '已送出', '經文出處', '經文內容'],
   '收信紀錄': ['時間', '信件代碼', '活動代碼', '收信人姓名', 'LINE名稱', 'LINE userId'],
   '發布者': ['LINE userId', '名稱', '備註'],
@@ -23,7 +23,7 @@ const HEADERS = {
 
 
 // 欄位位置（從 0 開始）
-const AC = { ID: 0, TITLE: 1, DESC: 2, OPEN: 3, CREATOR: 4, CREATED: 5, DEADLINE: 6, PAPER: 7, IMAGE: 8 };
+const AC = { ID: 0, TITLE: 1, DESC: 2, OPEN: 3, CREATOR: 4, CREATED: 5, DEADLINE: 6, PAPER: 7, IMAGE: 8, BUTTON: 9 };
 const LT = { ID: 0, ACT: 1, FROM: 2, FROM_UID: 3, TO: 4, TEXT: 5, IMAGE: 6, PAPER: 7, TIME: 8, SENT: 9, VREF: 10, VTEXT: 11 };
 const OP = { TIME: 0, LETTER: 1, ACT: 2, NAME: 3, LINE_NAME: 4, UID: 5 };
 const CA = { ACT: 0, UID: 1, NAME: 2, TIME: 3, ADDED_BY: 4 };
@@ -426,7 +426,7 @@ function uploadImage(user, data, mime) {
 /* ---------- 流通神聖的愛活動 ---------- */
 function rowToAct(r) {
   return { id: String(r[AC.ID]), title: String(r[AC.TITLE]), desc: String(r[AC.DESC] || ''), open: isTrue(r[AC.OPEN]),
-    creator: String(r[AC.CREATOR] || '').replace(/\s*\(U[0-9a-f]+\)\s*$/, ''), created: fmt(r[AC.CREATED]), deadline: cleanTime(r[AC.DEADLINE]), paper: PAPERS.includes(String(r[AC.PAPER])) ? String(r[AC.PAPER]) : 'rose', image: cleanImageUrl(r[AC.IMAGE]) };
+    creator: String(r[AC.CREATOR] || '').replace(/\s*\(U[0-9a-f]+\)\s*$/, ''), created: fmt(r[AC.CREATED]), deadline: cleanTime(r[AC.DEADLINE]), paper: PAPERS.includes(String(r[AC.PAPER])) ? String(r[AC.PAPER]) : 'rose', image: cleanImageUrl(r[AC.IMAGE]), button: clip(r[AC.BUTTON], 20) };
 }
 function stateOf(a) {
   if (!a.open) return 'closed';
@@ -465,7 +465,7 @@ function lovedCount(actId, extraTo, extraFrom) {
 function clearLoved(actId) { try { CacheService.getScriptCache().remove('loved:' + String(actId)); } catch (e) {} }
 function publicAct(a) {
   const s = lovedCount(a.id);
-  return { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, paper: a.paper, image: a.image, state: stateOf(a), opened: openedCount(a.id), loved: s.loved, writers: s.writers };
+  return { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, paper: a.paper, image: a.image, button: a.button, state: stateOf(a), opened: openedCount(a.id), loved: s.loved, writers: s.writers };
 }
 function findActRow(id) {
   const data = sheet(SH.ACTS).getDataRange().getValues();
@@ -480,7 +480,7 @@ function cleanActInput(a) {
   const raw = String(a.image || '').trim();
   const image = cleanImageUrl(raw);
   if (raw && !image) throw new Error('圖片網址要是 https:// 開頭的完整網址');
-  return { title, desc: clip(a.desc, 500), deadline: cleanTime(a.deadline), paper: PAPERS.includes(a.paper) ? a.paper : 'rose', image };
+  return { title, desc: clip(a.desc, 500), deadline: cleanTime(a.deadline), paper: PAPERS.includes(a.paper) ? a.paper : 'rose', image, button: clip(a.button, 20) };
 }
 
 /** 活動封面圖片：只收 https 網址（LINE 圖卡只能顯示 https 圖片），長度上限 1000 */
@@ -495,7 +495,7 @@ function createAct(user, input) {
   withLock(() => {
     const sh = sheet(SH.ACTS), at = sh.getLastRow() + 1;
     sh.getRange(at, AC.DEADLINE + 1).setNumberFormat('@');
-    sh.getRange(at, 1, 1, 9).setValues([safeRow([id, a.title, a.desc, true, user.displayName + ' (' + user.userId + ')', new Date(), a.deadline, a.paper, a.image])]);
+    sh.getRange(at, 1, 1, 10).setValues([safeRow([id, a.title, a.desc, true, user.displayName + ' (' + user.userId + ')', new Date(), a.deadline, a.paper, a.image, a.button])]);
   });
   return withStats(getAct(id));
 }
@@ -506,7 +506,7 @@ function updateAct(id, input) {
     const f = findActRow(id), sh = sheet(SH.ACTS);
     sh.getRange(f.index, AC.TITLE + 1, 1, 2).setValues([safeRow([a.title, a.desc])]);
     sh.getRange(f.index, AC.DEADLINE + 1).setNumberFormat('@').setValue(a.deadline);
-    sh.getRange(f.index, AC.PAPER + 1, 1, 2).setValues([safeRow([a.paper, a.image])]);
+    sh.getRange(f.index, AC.PAPER + 1, 1, 3).setValues([safeRow([a.paper, a.image, a.button])]);
     return withStats(getAct(id));
   });
 }

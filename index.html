@@ -1284,6 +1284,9 @@ function renderHome() {
   document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => renderDetail(b.dataset.act));
 }
 
+const DEFAULT_BTN = '書寫一封溫暖的問候';
+const btnLabel = a => String((a && a.button) || '').trim().slice(0, 20) || DEFAULT_BTN;
+
 /** 建立活動頁下方的「群組卡片預覽」：照著 actFlex 的版面用 HTML 畫出來 */
 function actCardPreview(a) {
   const p = paperOf(a.paper);
@@ -1298,7 +1301,7 @@ function actCardPreview(a) {
       ${a.desc ? `<div class="pv-desc">${esc(a.desc.length > 160 ? a.desc.slice(0, 158) + '…' : a.desc)}</div>` : ''}
       ${shortTime(a.deadline) ? `<div class="pv-dl">寫信截止 ${esc(shortTime(a.deadline))}</div>` : ''}
     </div>
-    <div class="pv-foot"><span class="pv-btn">寫一封愛的信</span><span class="pv-link">轉傳給其他群組或朋友</span></div>
+    <div class="pv-foot"><span class="pv-btn">${esc(btnLabel(a))}</span><span class="pv-link">轉傳給其他群組或朋友</span></div>
   </div>`;
 }
 
@@ -1326,6 +1329,9 @@ function renderActForm(a) {
       <input class="in" id="a-img" type="url" inputmode="url" maxlength="1000" style="margin-top:8px" value="${esc(a && a.image ? a.image : '')}" placeholder="或貼上網路圖片連結 https://…">
       <p class="f-hint">建議用橫式圖片（約 3:2）。網路圖片請貼「圖片本身」的網址，通常結尾是 .jpg 或 .png。</p>
       <div id="a-cover"></div>
+      <label class="f" for="a-btn">卡片按鈕文字</label>
+      <input class="in" id="a-btn" maxlength="20" value="${esc(a && a.button ? a.button : '')}" placeholder="${esc(DEFAULT_BTN)}">
+      <p class="f-hint">不填就用預設的「${esc(DEFAULT_BTN)}」，最多 20 字。</p>
       <div class="btn-row"><button class="btn block" id="a-save" type="button">${a ? '儲存' : '建立並發到群組'}</button></div>
     </div>
     <section class="preview-box" aria-label="群組卡片預覽">
@@ -1333,7 +1339,7 @@ function renderActForm(a) {
       <div id="a-preview"></div>
     </section>`, '', a ? themeOf(a) : '');
   const formInput = () => ({ title: $('a-title').value.trim(), desc: $('a-desc').value.trim(), deadline: $('a-dl').value.replace('T', ' '),
-    paper: $('a-paper').value, image: $('a-img').value.trim() });
+    paper: $('a-paper').value, image: $('a-img').value.trim(), button: $('a-btn').value.trim() });
   let COVER_BAD = false;
   const drawCover = () => {
     const url = $('a-img').value.trim();
@@ -1352,7 +1358,7 @@ function renderActForm(a) {
     if (COVER_BAD) input.image = '';
     $('a-preview').innerHTML = actCardPreview({ ...input, writers: a && a.writers, loved: a && a.loved });
   };
-  ['a-title', 'a-desc', 'a-dl', 'a-paper'].forEach(id => { $(id).addEventListener('input', drawPreview); $(id).addEventListener('change', drawPreview); });
+  ['a-title', 'a-desc', 'a-dl', 'a-paper', 'a-btn'].forEach(id => { $(id).addEventListener('input', drawPreview); $(id).addEventListener('change', drawPreview); });
   $('a-img').addEventListener('input', () => { drawCover(); drawPreview(); });
   $('a-upload').onclick = () => { if (!UPLOADING) $('a-file').click(); };
   $('a-file').onchange = async e => {
@@ -1946,13 +1952,13 @@ function actFlex(a) {
     ...lovedLine(a.loved, p, a.writers) ];
   if (a.desc) body.push({ type: 'text', text: a.desc.length > 160 ? a.desc.slice(0, 158) + '…' : a.desc, size: 'sm', color: '#67645F', wrap: true, margin: 'md' });
   if (shortTime(a.deadline)) body.push({ type: 'text', text: '寫信截止 ' + shortTime(a.deadline), size: 'xs', color: '#67645F', margin: 'md' });
-  return { type: 'flex', altText: `✉️ ${a.title}：寫一封愛的信`.slice(0, 400), contents: {
+  return { type: 'flex', altText: `✉️ ${a.title}：${btnLabel(a)}`.slice(0, 400), contents: {
     type: 'bubble',
-    ...(isHttps(a.image) ? { hero: { type: 'image', url: a.image, size: 'full', aspectRatio: '20:13', aspectMode: 'cover', action: { type: 'uri', label: '寫一封愛的信', uri: actUrl(a.id) } } } : {}),
+    ...(isHttps(a.image) ? { hero: { type: 'image', url: a.image, size: 'full', aspectRatio: '20:13', aspectMode: 'cover', action: { type: 'uri', label: btnLabel(a), uri: actUrl(a.id) } } } : {}),
     styles: { body: { backgroundColor: p.paper }, footer: { backgroundColor: p.paper } },
     body: { type: 'box', layout: 'vertical', paddingAll: '20px', contents: body },
     footer: { type: 'box', layout: 'vertical', paddingAll: '16px', paddingTop: '0px', spacing: 'xs', contents: [
-      { type: 'button', style: 'primary', color: p.accent, height: 'sm', action: { type: 'uri', label: '寫一封愛的信', uri: actUrl(a.id) } },
+      { type: 'button', style: 'primary', color: p.accent, height: 'sm', action: { type: 'uri', label: btnLabel(a), uri: actUrl(a.id) } },
       { type: 'button', style: 'link', height: 'sm', color: p.ink, action: { type: 'uri', label: '轉傳給其他群組或朋友', uri: shareUrl(a.id) } } ] },
   } };
 }
