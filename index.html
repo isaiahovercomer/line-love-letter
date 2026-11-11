@@ -316,6 +316,12 @@ const fwdUrl = id => `${liffBase}?fwd=${encodeURIComponent(id)}`;
 const shareUrl = id => `${liffBase}?share=${encodeURIComponent(id)}`;
 const STATE_TEXT = { open: '開放寫信', ended: '已截止', closed: '已停止' };
 const stateChip = s => `<span class="chip ${s}">${STATE_TEXT[s] || ''}</span>`;
+/** 信末署名下的日期：一律「2026年11月11日」（含年份、不含時間）。舊信也用存好的寫信時間換算 */
+const sigDate = t => {
+  if (t instanceof Date) t = `${t.getFullYear()}/${t.getMonth() + 1}/${t.getDate()}`;
+  const m = /^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/.exec(String(t || ''));
+  return m ? `${m[1]}年${+m[2]}月${+m[3]}日` : String(t || '');
+};
 const shortTime = s => { const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(s || ''); return m ? `${+m[2]}/${+m[3]} ${m[4]}:${m[5]}` : ''; };
 
 let toastTimer;
@@ -990,7 +996,7 @@ function writeForm(edit, presetTo) {
   const paper = d.paper || ACT.paper || 'rose';
   PHOTO = d.photo || d.image || '';
   const to = edit ? edit.to : presetTo !== undefined ? presetTo : PARAMS.get('to') || d.to || '';
-  const today = new Date().toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
+  const today = sigDate(new Date());
   view(`${topHtml(ME.name)}
     ${edit ? `<button class="back" type="button" id="w-cancel">‹ 取消修改</button><h2>修改寫給「${esc(edit.to)}」的信</h2>` : `<h2>${esc(ACT.title)}</h2>`}
     ${actCountBadges(ACT)}
@@ -1234,7 +1240,7 @@ function drawLetter(r) {
       ${imgOk(l.image) ? `<div class="photo"><img src="${esc(l.image)}" alt="寫信人附上的照片"></div>` : ''}
       ${verseShow(l)}
       <div class="sign">— ${esc(l.sign || l.from)}</div>
-      <div class="date">${esc(l.time)}</div>
+      <div class="date">${esc(sigDate(l.time))}</div>
     </div>
     <p class="music-hint center"><button type="button" class="link" id="l-music">🔈 打開聲音聆聽</button></p>
     <div class="btn-row col" style="margin-top:20px">
@@ -1930,7 +1936,7 @@ function showMyLetter(id) {
       ${imgOk(l.image) ? `<div class="photo"><img src="${esc(l.image)}" alt="寫信人附上的照片"></div>` : ''}
       ${verseShow(l)}
       <div class="sign">— ${esc(l.sign || l.from || who)}</div>
-      <div class="date">${esc(l.time)}</div>
+      <div class="date">${esc(sigDate(l.time))}</div>
     </div>
     ${footHtml()}`, 'mine-letter');
   $('ml-back').onclick = () => renderMyLetters();
