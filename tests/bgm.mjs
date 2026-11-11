@@ -8,7 +8,7 @@ const html = readFileSync(join(root, 'index.html'), 'utf8');
 const readme = readFileSync(join(root, 'README.md'), 'utf8');
 const audioReadme = readFileSync(join(root, 'audio/README.md'), 'utf8');
 const sw = readFileSync(join(root, 'sw.js'), 'utf8');
-const themes = ['rose', 'sky', 'kraft', 'mint', 'winter', 'midautumn', 'duanwu', 'chuxi', 'winterbreak', 'summer', 'xmas', 'newyear', 'thanks', 'grad', 'birthday', 'gospel', 'love', 'shepherd', 'build'];
+const themes = ['rose', 'sky', 'kraft', 'mint', 'winter', 'midautumn', 'duanwu', 'chuxi', 'winterbreak', 'summer', 'xmas', 'newyear', 'thanks', 'grad', 'birthday', 'gospel', 'love', 'shepherd', 'build', 'farewell', 'distance', 'reunion', 'missing'];
 let fail = 0;
 function check(label, ok) {
   console.log(`${ok ? '✓' : '✗'} ${label}`);
@@ -16,7 +16,7 @@ function check(label, ok) {
 }
 
 const files = readdirSync(join(root, 'audio')).filter(f => f.endsWith('.mp3'));
-check('19 首主題音檔齊全（含舊版聖誕）', themes.every(t => files.includes(t + '.mp3')) && files.length === 19);
+check('23 首主題音檔齊全（含舊版聖誕）', themes.every(t => files.includes(t + '.mp3')) && files.length === 23);
 let total = 0, sizeOk = true;
 for (const t of themes) {
   const n = statSync(join(root, 'audio', t + '.mp3')).size;

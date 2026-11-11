@@ -9,7 +9,7 @@
 - 網站總管理者：在 Apps Script「專案設定 → 指令碼屬性」設定 `SUPER_ADMIN`（LINE userId，多位用逗號分隔）。只有總管理者在後台看得到信件內容；活動建立人、共同管理者與發布者只能看誰寫給誰、是否已送出與收信。總管理者可在首頁打開「登記總覽」，查看所有已登記的人（姓名、手機、LINE 名稱、寫信與收信次數，以及若有登記時間），並計算總人數；可複製或截圖。名單不會包含 LINE userId 或登入通行證。活動建立者（與總管理者）可以把已經寫信或已經收信的人加為共同管理者；共同管理者有同樣的後台檢視與管理權限，但不能新增／移除共同管理者，也不能刪除活動。
 - LIFF：Full、scopes openid＋profile、開啟 shareTargetPicker
 
-寫信時可選日常或節日／場合信紙（含愛情、牧養、建造、福音等）。活動首頁卡片、打開活動的寫信頁／收信頁，以及活動後台標題區，會依活動主題帶上淡淡的色調、花邊與背景浮水印（優先用活動的預設信紙；若沒有，再依標題裡的「中秋／端午／除夕／寒假／暑假／感恩／生日／畢業／新春／愛情／牧養／建造／福音」判斷，否則為素雅）。點選主題會配上英文詩歌曲調的純音樂（循環播放、預設音量 0.35，點選後才載入），可停止；收信的人要自己按「打開聲音聆聽」。背景音樂授權與逐首曲目見下方「背景音樂」。LINE 圖卡與活動標題旁邊會顯示「已有 XX 人寫信」「已有 XX 人收到關心」（送出當下的人數，圖卡發出後不會再變）。每個使用者可在首頁或「我的個人資料」查看「我寫過的信」（跨活動、寫給誰、是否已送出或對方已收信）。活動後台有收信人名單（已送出、不重複收信人，可複製或截圖，不含信件內容），以及共同管理者名單（點選已寫信或已收信的人即可新增；還沒打開信的收信人還不能新增）。頁面上不使用十字架圖示或表情符號。
+寫信時的信紙分成五類：日常（素雅、晴空、牛皮、薄荷）、節日（新春、除夕、端午、中秋、感恩）、季節（冬季、寒假、暑假）、人生場景（生日、畢業、離別、遠距、重逢、思念、愛情）、召會生活（福音、牧養、建造）。活動首頁卡片、打開活動的寫信頁／收信頁，以及活動後台標題區，會依活動主題帶上淡淡的色調、花邊與背景浮水印（優先用活動的預設信紙；若沒有，再依標題裡的「中秋／端午／除夕／寒假／暑假／感恩／生日／畢業／新春／愛情／牧養／建造／福音／離別（送別）／遠距（遠方）／重逢／思念（想念）」判斷，否則為素雅）。點選主題會配上英文詩歌曲調的純音樂（循環播放、預設音量 0.35，點選後才載入），可停止；收信的人要自己按「打開聲音聆聽」。背景音樂授權與逐首曲目見下方「背景音樂」。LINE 圖卡與活動標題旁邊會顯示「已有 XX 人寫信」「已有 XX 人收到關心」（送出當下的人數，圖卡發出後不會再變）。每個使用者可在首頁或「我的個人資料」查看「我寫過的信」（跨活動、寫給誰、是否已送出或對方已收信）。活動後台有收信人名單（已送出、不重複收信人，可複製或截圖，不含信件內容），以及共同管理者名單（點選已寫信或已收信的人即可新增；還沒打開信的收信人還不能新增）。頁面上不使用十字架圖示或表情符號。
 
 ## 背景音樂
 
@@ -44,6 +44,10 @@
 | 福音 | `gospel.mp3` | Amazing Grace（奇異恩典） | 英文詩歌第 313 首 | 美國傳統曲調 | 鋼琴 | https://commons.wikimedia.org/wiki/File:Amazing_grace_(org).mid |
 | 愛情 | `love.mp3` | It Is Well with My Soul（我心靈得安寧） | 英文詩歌第 341 首 | Philip P. Bliss, 1876 | 鋼琴 | https://commons.wikimedia.org/wiki/File:It_Is_Well_with_My_Soul.mid |
 | 牧養 | `shepherd.mp3` | All the Way My Savior Leads Me（救主一路引領我） | 英文詩歌第 701 首 | Robert Lowry | 弦樂 | https://commons.wikimedia.org/wiki/File:All_the_Way_my_Saviour_Leads_Me.mid |
+| 離別 | `farewell.mp3` | Abide with Me（求主同住）—— EVENTIDE | 英文詩歌第 370 首 | William H. Monk, 1861 | 弦樂 | https://commons.wikimedia.org/wiki/File:Bleibe_bei_uns.mid |
+| 遠距 | `distance.mp3` | It Is Well with My Soul（我心靈得安寧） | 英文詩歌第 341 首 | Philip P. Bliss, 1876 | 弦樂 | https://commons.wikimedia.org/wiki/File:It_Is_Well_with_My_Soul.mid |
+| 重逢 | `reunion.mp3` | All the Way My Savior Leads Me（救主一路引領我） | 英文詩歌第 701 首 | Robert Lowry | 鋼琴 | https://commons.wikimedia.org/wiki/File:All_the_Way_my_Saviour_Leads_Me.mid |
+| 思念 | `missing.mp3` | Abide with Me（求主同住）—— EVENTIDE | 英文詩歌第 370 首 | William H. Monk, 1861 | 鋼琴 | https://commons.wikimedia.org/wiki/File:Bleibe_bei_uns.mid |
 | 建造 | `build.mp3` | Holy, Holy, Holy（聖哉，聖哉，聖哉）—— NICAEA | 英文詩歌第 6 首 | John B. Dykes, 1861 | 弦樂 | https://commons.wikimedia.org/wiki/File:Nicaea_(hymn_tune).mid |
 | 生日 | `birthday.mp3` | Happy Birthday to You（柔和音樂盒演奏，非詩歌） | — | 傳統旋律 | 音樂盒 | https://commons.wikimedia.org/wiki/File:Happy_birthday_to_you_(Zum_Geburtstag_viel_Gl%C3%BCck).mid |
 

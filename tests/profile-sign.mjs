@@ -42,7 +42,7 @@ await pg.close();
 
 // ---- 信紙署名 ----
 pg = await newPage();
-await pg.goto(BASE + '?demo=write&noguide'); await pg.waitForTimeout(900);
+await pg.goto(BASE + '?demo=write&new&noguide'); await pg.waitForTimeout(900);
 const me = await pg.evaluate(() => ME.name);
 ok(await pg.locator('#w-sign').count() === 1, '信紙署名是可以修改的欄位');
 ok((await pg.inputValue('#w-sign')) === me, '署名預設是登記的姓名');
@@ -61,7 +61,7 @@ await pg.close();
 
 // 署名跟登記姓名一樣時不另存
 pg = await newPage();
-await pg.goto(BASE + '?demo=write&noguide'); await pg.waitForTimeout(900);
+await pg.goto(BASE + '?demo=write&new&noguide'); await pg.waitForTimeout(900);
 await pg.evaluate(() => { window.__sent = null; const orig = demoApi; window.demoApi = demoApi = async (a, d) => { if (a === 'writeLetter') window.__sent = JSON.parse(JSON.stringify(d.letter)); return orig(a, d); }; });
 await pg.fill('#w-to', '林志豪'); await pg.fill('#w-text', '平安！'); await pg.click('#w-send'); await pg.waitForTimeout(900);
 ok((await pg.evaluate(() => window.__sent)).sign === '', '沒改署名時不另存（顯示時用登記姓名）');
