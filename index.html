@@ -15,10 +15,15 @@
 <title>LINE流通神聖的愛圖卡建立平台</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet">
+<!-- 字型表不擋畫面：先用系統字畫出來，字型下載好再換上（原本就是 display=swap） -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet"></noscript>
 <link rel="preconnect" href="https://script.google.com" crossorigin>
 <link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
-<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<link rel="preconnect" href="https://api.line.me" crossorigin>
+<link rel="preconnect" href="https://static.line-scdn.net">
+<!-- LINE 元件改成背景下載，不擋住第一個畫面；程式裡等它載好才初始化 -->
+<link rel="preload" href="https://static.line-scdn.net/liff/edge/2/sdk.js" as="script">
 <style>
   :root {
     /* 平台配色「米白暖杏」（三個 LINE 平台各一色：活動登記鼠尾草綠、連結卡霧藍、這裡暖杏）；
@@ -300,6 +305,15 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbyRPDBwkXP07TJgbR-Q9L1h
 
 const PARAMS = new URLSearchParams(location.search);
 const DEMO = LIFF_ID.startsWith('請填') || PARAMS.has('demo');
+
+/* LINE 元件在背景下載（head 已 preload）；LIFF_INIT 完成後才能用 liff 的登入、分享等功能 */
+const liffReady = DEMO ? Promise.resolve() : new Promise((ok, ng) => {
+  const s = document.createElement('script');
+  s.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
+  s.onload = ok; s.onerror = () => ng(new Error('無法載入 LINE 元件，請檢查網路後重新開啟'));
+  document.head.appendChild(s);
+});
+let LIFF_INIT = Promise.resolve();
 const DEMO_MODE = PARAMS.get('demo') || '';
 
 const $app = document.getElementById('app');
@@ -766,7 +780,7 @@ async function logout() {
   if (!DEMO && getSession()) { try { await api('logout', {}); } catch (e) {} }
   try { Object.keys(localStorage).filter(k => k.startsWith('loveletter.')).forEach(k => localStorage.removeItem(k)); } catch (e) {}
   try { sessionStorage.clear(); } catch (e) {}
-  if (!DEMO) { try { if (liff.isLoggedIn()) liff.logout(); } catch (e) {} }
+  if (!DEMO) { try { await LIFF_INIT; if (liff.isLoggedIn()) liff.logout(); } catch (e) {} }
   ME = null;
   location.replace(`${location.origin}${location.pathname}?loggedout${DEMO ? '&demo' : ''}`);
 }
@@ -795,7 +809,7 @@ async function api(action, data = {}) {
   const body = { action, ...data };
   if (!PUBLIC.includes(action)) {
     const s = action === 'session' ? null : getSession();
-    if (s) body.session = s.token; else body.idToken = liff.getIDToken();
+    if (s) body.session = s.token; else { await LIFF_INIT; body.idToken = liff.getIDToken(); }
   }
   if (navigator.onLine === false) throw new Error('目前沒有網路連線，請連上網路後再試一次');
   let j;
@@ -804,6 +818,7 @@ async function api(action, data = {}) {
     j = await r.json();
   } catch (e) { throw new Error('連線不穩，請稍後再試一次'); }
   if (!j.ok) {
+    if (j.error === 'SESSION_EXPIRED' || j.error === 'TOKEN_EXPIRED') await LIFF_INIT;
     if (j.error === 'SESSION_EXPIRED') {
       setSession(null);
       if (liff.isLoggedIn()) return api(action, data);
@@ -827,6 +842,7 @@ async function main() {
       : PARAMS.has('mydata') || DEMO_MODE === 'mydata' ? 'mydata'
       : PARAMS.has('mine') || DEMO_MODE === 'mine' ? 'mine'
       : PARAMS.has('overview') || DEMO_MODE === 'overview' ? 'overview' : 'home';
+    if (!DEMO) LIFF_INIT = liffReady.then(() => liff.init({ liffId: LIFF_ID }));
     // 信封與寫信頁的公開資料先抓，跟 LINE 登入同時進行
     const hasSession = DEMO || !!getSession();
     const actId = PARAMS.get('act') || 'A1';
@@ -837,9 +853,13 @@ async function main() {
     if (pre) pre.catch(() => {});
     if (route === 'home') paintHomeFromCache();
     if (!DEMO) {
-      await liff.init({ liffId: LIFF_ID });
-      if (!liff.isLoggedIn() && !getSession()) { liff.login({ redirectUri: location.href }); return; }
-      if (liff.isLoggedIn() && !getSession()) { try { setSession(await api('session')); } catch (e) {} }
+      // 有通行證時，首頁、我的信、總覽、個人資料都不用等 LINE 初始化（要開 LINE 選單的按鈕會等它好）
+      if (getSession() && ['home', 'mine', 'overview', 'mydata'].includes(route)) LIFF_INIT.catch(e => toast(e.message));
+      else {
+        await LIFF_INIT;
+        if (!liff.isLoggedIn() && !getSession()) { liff.login({ redirectUri: location.href }); return; }
+        if (liff.isLoggedIn() && !getSession()) { try { setSession(await api('session')); } catch (e) {} }
+      }
     }
     if (route === 'letter') return letterFlow(await pre);
     if (route === 'write') return writeFlow(await pre.catch(() => null), actId);
@@ -1273,7 +1293,7 @@ const installUrl = () => `${location.origin}${location.pathname}?install=1`;
 
 /** LINE 裡面無法安裝：先改用手機瀏覽器打開安裝頁 */
 function startInstall() {
-  if (!DEMO && liff.isInClient && liff.isInClient()) { liff.openWindow({ url: installUrl(), external: true }); return; }
+  if (!DEMO && window.liff && liff.isInClient && liff.isInClient()) { liff.openWindow({ url: installUrl(), external: true }); return; }
   installFlow();
 }
 
@@ -2086,6 +2106,7 @@ async function pick(messages, okText) {
   try { return await openPicker(messages, okText); } finally { PICKING = false; }
 }
 async function openPicker(messages, okText) {
+  try { await LIFF_INIT; } catch (e) { toast(e.message); return false; } // 首頁先畫好時，LINE 可能還在背景初始化
   if (!liff.isLoggedIn()) { toast('需要先登入 LINE 一次'); setTimeout(() => liff.login({ redirectUri: location.href }), 600); return false; }
   if (!liff.isApiAvailable('shareTargetPicker')) { toast('無法開啟選單，請確認 LIFF 已開啟 Share target picker'); return false; }
   try {
