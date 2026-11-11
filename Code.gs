@@ -81,7 +81,7 @@ function run(user, req) {
     case 'home':         out = { ok: true, me: meOf(user), acts: listActs(user) }; break;
     case 'writeBoot': {   // 寫信頁一次拿齊：活動、我是誰、備選經文、我寫過的信
       const a = getAct(req.actId);
-      out = { ok: true, act: a ? publicAct(a) : null, me: meOf(user), verses: listVerses(), letters: a ? myLetters(user, a.id) : [] };
+      out = { ok: true, act: a ? publicAct(a) : null, me: meOf(user), verses: listVerses(), letters: a ? myLetters(user, a.id) : [], canManage: a ? canManage(user, a.id) : false };
       break;
     }
     case 'me':           out = { ok: true, ...meOf(user) }; break;
@@ -262,6 +262,8 @@ function requireOwner(user, actId) {
   if (isCoAdmin(user.userId, actId)) return;
   throw new Error('只有活動建立者或共同管理者可以看這個活動的後台');
 }
+/** 看得到這個活動後台嗎（寫信頁要不要顯示「活動後台」連結） */
+function canManage(user, actId) { try { requireOwner(user, actId); return true; } catch (e) { return false; } }
 /** 只有活動建立者與網站總管理者可以新增／移除共同管理者，以及刪除活動 */
 function requireCreator(user, actId) {
   if (isSuperAdmin(user.userId)) return;

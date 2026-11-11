@@ -78,6 +78,9 @@
   .chip.paired { background: #E1EEE6; color: var(--ok); }
   .chip.pending { background: var(--gold-soft); color: var(--gold-text); }
   .chip.unsent { background: var(--gold-soft); color: var(--gold-text); }
+  .w-nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 10px 0 2px; font-size: 14px; }
+  .w-nav a.link { color: var(--ink-2); text-decoration: none; padding: 6px 0; }
+  .w-nav a.link:hover { color: var(--accent); }
   .resume-note { font-size: 14px; line-height: 1.6; color: var(--ink); background: var(--gold-soft); border-radius: 10px; padding: 10px 12px; margin: 10px 0 12px; }
 
   /* 活動列表 */
@@ -682,7 +685,8 @@ async function demoApi(action, d) {
       const a = act(d.actId);
       const st = a ? demoStats(a) : null;
       return { ok: true, me: { ...demo.me }, act: a ? { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, paper: a.paper, state: st.state, opened: st.opened, loved: st.loved, writers: st.writers } : null,
-        verses: (await demoApi('verses', {})).verses, letters: demo.letters.filter(l => l.fromUid === demo.me.userId && l.actId === d.actId).reverse() };
+        verses: (await demoApi('verses', {})).verses, letters: demo.letters.filter(l => l.fromUid === demo.me.userId && l.actId === d.actId).reverse(),
+        canManage: !!a && demoVisibleActs().some(x => x.id === a.id) };
     }
     case 'session': return { ok: true, token: 'demo', expires: Date.now() + 864e5 };
     case 'act': { const a = act(d.actId); const st = a ? demoStats(a) : null; return { ok: true, act: a ? { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, paper: a.paper, state: st.state, opened: st.opened, loved: st.loved, writers: st.writers } : null }; }
@@ -998,6 +1002,11 @@ function pendingLetter(letters, letterId, to) {
   return list[0] || null;
 }
 let MINE = null; // 寫信頁一次拿到的「我寫過的信」
+let CAN_MANAGE = false;   // 這個活動的建立者／共同管理者／管理員：寫信頁顯示「活動後台」
+const homeHref = () => DEMO ? '?demo&noguide' : './';
+const manageHref = id => (DEMO ? '?demo&noguide&manage=' : './?manage=') + encodeURIComponent(id);
+/** 寫信頁上方的導覽：回首頁、（管理者）到活動後台 */
+const writeNav = () => `<nav class="w-nav"><a class="link" id="w-home" href="${homeHref()}">‹ 回首頁</a>${CAN_MANAGE && ACT ? `<a class="link" id="w-manage" href="${manageHref(ACT.id)}">活動後台 ›</a>` : ''}</nav>`;
 async function writeFlow(pre, actId) {
   if (!pre || !pre.me) pre = await api('writeBoot', { actId }).catch(async () => {   // 第一次登入，或舊版後端
     const [a, me] = await Promise.all([api('act', { actId }), api('me'), loadVerses()]);
@@ -1009,6 +1018,7 @@ async function writeFlow(pre, actId) {
   ME = pre.me;
   if (pre.verses && pre.verses.length) VERSES = withText(pre.verses);
   MINE = pre.letters || null;
+  CAN_MANAGE = !!pre.canManage;
   GUIDE_KIND = 'writer';
   // 有還沒送出的信，先接著編輯那一封（?new 可以直接寫新的）
   const resume = PARAMS.has('new') ? null : pendingLetter(MINE, PARAMS.get('edit'), PARAMS.get('to'));
@@ -1020,14 +1030,14 @@ async function writeFlow(pre, actId) {
 function writeForm(edit, presetTo, resume) {
   const unsent = !!(edit && !edit.sent);   // 還沒送出的信：存好就接著選朋友送出
   if (ACT.state !== 'open') {
-    return view(`${topHtml(ME.name)}<div class="card center"><div class="big-emoji">⏳</div><h2>${esc(ACT.title)}</h2>${actCountBadges(ACT, 'center')}<p>${ACT.state === 'ended' ? '這個流通神聖的愛活動已經截止寫信了。' : '主辦人已經停止這個活動的寫信。'}</p></div>${footHtml()}`, 'write', themeOf(ACT));
+    return view(`${topHtml(ME.name)}${writeNav()}<div class="card center"><div class="big-emoji">⏳</div><h2>${esc(ACT.title)}</h2>${actCountBadges(ACT, 'center')}<p>${ACT.state === 'ended' ? '這個流通神聖的愛活動已經截止寫信了。' : '主辦人已經停止這個活動的寫信。'}</p></div>${footHtml()}`, 'write', themeOf(ACT));
   }
   const d = edit || readDraft(ACT.id);
   const paper = d.paper || ACT.paper || 'rose';
   PHOTO = d.photo || d.image || '';
   const to = edit ? edit.to : presetTo !== undefined ? presetTo : PARAMS.get('to') || d.to || '';
   const today = sigDate(new Date());
-  view(`${topHtml(ME.name)}
+  view(`${topHtml(ME.name)}${writeNav()}
     ${edit ? `<button class="back" type="button" id="w-cancel">${unsent ? '‹ 改寫一封新的信' : '‹ 取消修改'}</button><h2>${unsent ? `繼續寫給「${esc(edit.to)}」的信` : `修改寫給「${esc(edit.to)}」的信`}</h2>` : `<h2>${esc(ACT.title)}</h2>`}
     ${unsent ? `<div class="resume-note" id="w-resume">📝 ${resume ? '你在這個活動還有一封信沒送出，先幫你打開接著寫。' : '這封信還沒送出。'}改好後按「儲存並送出」，選擇要傳給哪位朋友或群組。</div>` : ''}
     ${actCountBadges(ACT)}
@@ -1357,6 +1367,8 @@ async function homeFlow(pre) {
   cacheSet('home', { me: ME, acts: ACTS });
   GUIDE_KIND = 'host';
   if (VIEW === 'home' || !painted) renderHome();
+  const manageId = PARAMS.get('manage');   // 從寫信頁的「活動後台」過來
+  if (manageId) { history.replaceState(null, '', homeHref()); PARAMS.delete('manage'); return renderDetail(manageId).catch(e => { toast(e.message); renderHome(); }); }
   openGuide('host');
   prefetchDetails();
   prefetchMyLetters();
