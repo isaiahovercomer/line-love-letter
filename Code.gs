@@ -9,7 +9,7 @@ const CONFIG = {
   IMAGE_FOLDER: 'LINE 流通神聖的愛圖卡照片', // 信裡附的照片存在雲端硬碟這個資料夾
 };
 
-const SH = { ROSTER: '名單', ACTS: '流通神聖的愛活動', LETTERS: '信件', OPENS: '收信紀錄', PUBLISHERS: '發布者', VERSES: '經文', COADMINS: '共同管理者' };
+const SH = { ROSTER: '名單', ACTS: '流通神聖的愛活動', LETTERS: '信件', OPENS: '收信紀錄', PUBLISHERS: '發布者', VERSES: '經文', COADMINS: '共同管理者', TEMPLATES: '活動範本' };
 
 const HEADERS = {
   '名單': ['姓名', '手機', 'LINE userId', 'LINE名稱'],
@@ -19,6 +19,7 @@ const HEADERS = {
   '發布者': ['LINE userId', '名稱', '備註'],
   '經文': ['出處', '經文（恢復本）', '分類'],
   '共同管理者': ['活動代碼', 'LINE userId', '名稱', '加入時間', '加入者 userId'],
+  '活動範本': ['範本代碼', '範本名稱', '活動名稱', '說明', '預設信紙', '封面圖片', '按鈕文字', '建立者', '建立者 userId', '分享給所有人', '建立時間'],
 };
 
 
@@ -104,6 +105,9 @@ function run(user, req) {
     case 'updateMyData': out = { ok: true, ...updateMyData(user, req.name, req.phone) }; break;
     case 'deleteMyData': out = { ok: true, ...deleteMyData(user) }; break;
     case 'overview':     out = { ok: true, ...listOverview(user) }; break;
+    case 'listTemplates':  out = { ok: true, templates: listTemplates(user) }; break;
+    case 'saveTemplate':   own(); out = { ok: true, template: saveTemplate(user, req.actId, req.name, !!req.shared) }; break;
+    case 'deleteTemplate': out = { ok: true, ...deleteTemplate(user, req.templateId) }; break;
     default: throw new Error('未知的動作');
   }
   return out;
@@ -111,7 +115,7 @@ function run(user, req) {
 
 /* ---------- 防重複送出：同一個人、同一個動作、同一個請求編號（rid），10 分鐘內只做一次 ---------- */
 // 前端每次按下按鈕產生一個 rid，連點或失敗重試都帶同一個；故意再寫一封新的信會是新的 rid，不受影響
-const ONCE_ACTIONS = ['bind', 'uploadImage', 'writeLetter', 'markSent', 'updateLetter', 'deleteLetter', 'createAct', 'updateAct', 'setOpen', 'deleteAct', 'deleteMyData', 'updateMyData', 'addCoAdmin', 'removeCoAdmin'];
+const ONCE_ACTIONS = ['bind', 'uploadImage', 'writeLetter', 'markSent', 'updateLetter', 'deleteLetter', 'createAct', 'updateAct', 'setOpen', 'deleteAct', 'deleteMyData', 'updateMyData', 'saveTemplate', 'deleteTemplate', 'addCoAdmin', 'removeCoAdmin'];
 const ONCE_PENDING = '__pending__';
 function once(user, req, fn) {
   const rid = String(req.rid || '');
@@ -833,8 +837,65 @@ function deleteMyData(user) {
     const opens = deleteRows(SH.OPENS, r => String(r[OP.UID]) === user.userId || mine.has(String(r[OP.LETTER])));
     let coadmins = 0;
     if (SpreadsheetApp.getActive().getSheetByName(SH.COADMINS)) coadmins = deleteRows(SH.COADMINS, r => String(r[CA.UID]).trim() === user.userId);
+    let templates = 0;
+    if (SpreadsheetApp.getActive().getSheetByName(SH.TEMPLATES)) templates = deleteRows(SH.TEMPLATES, r => String(r[TP.UID]).trim() === user.userId);
     sessionSheet(); deleteRows(SESSION_SHEET, r => String(r[1]) === user.userId);
-    return { roster, letters, opens, coadmins };
+    return { roster, letters, opens, coadmins, templates };
+  });
+}
+
+/* ---------- 活動範本：把活動的設定（不含截止時間、信件、名單）存起來，建立新活動時套用 ---------- */
+const TP = { ID: 0, NAME: 1, TITLE: 2, DESC: 3, PAPER: 4, IMAGE: 5, BUTTON: 6, CREATOR: 7, UID: 8, SHARED: 9, CREATED: 10 };
+const TEMPLATE_MAX = 30;   // 每個人最多幾個範本
+function templateSheet() {
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName(SH.TEMPLATES);
+  if (!sh) {
+    sh = ss.insertSheet(SH.TEMPLATES);
+    const h = HEADERS[SH.TEMPLATES];
+    sh.getRange(1, 1, 1, h.length).setValues([h]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+function templateOf(r, user) {
+  const uid = String(r[TP.UID]).trim();
+  return { id: String(r[TP.ID]), name: String(r[TP.NAME]), title: String(r[TP.TITLE]), desc: String(r[TP.DESC] || ''),
+    paper: PAPERS.includes(String(r[TP.PAPER])) ? String(r[TP.PAPER]) : 'rose', image: cleanImageUrl(r[TP.IMAGE]), button: clip(r[TP.BUTTON], 20),
+    creator: String(r[TP.CREATOR] || ''), shared: isTrue(r[TP.SHARED]), mine: uid === user.userId, created: fmt(r[TP.CREATED]) };
+}
+/** 我的範本＋別人分享的範本（我的排前面，新的在前） */
+function listTemplates(user) {
+  templateSheet();
+  const all = rows(SH.TEMPLATES).filter(r => String(r[TP.ID]).trim()).map(r => templateOf(r, user)).reverse();
+  return all.filter(t => t.mine).concat(all.filter(t => !t.mine && t.shared));
+}
+function saveTemplate(user, actId, name, shared) {
+  const a = getAct(actId);
+  if (!a) throw new Error('找不到這個活動');
+  name = clip(name, 30) || a.title;
+  return withLock(() => {
+    const sh = templateSheet();
+    const mineCount = rows(SH.TEMPLATES).filter(r => String(r[TP.UID]).trim() === user.userId).length;
+    if (mineCount >= TEMPLATE_MAX) throw new Error(`每個人最多存 ${TEMPLATE_MAX} 個範本，請先刪掉不用的`);
+    const id = newId('T');
+    const who = rosterName(user) || user.displayName;
+    sh.appendRow(safeRow([id, name, a.title, a.desc, a.paper, a.image, a.button || '', who, user.userId, shared, new Date()]));
+    return templateOf([id, name, a.title, a.desc, a.paper, a.image, a.button || '', who, user.userId, shared, new Date()], user);
+  });
+}
+/** 刪除範本：建立範本的人，或發布者／網站總管理者 */
+function deleteTemplate(user, templateId) {
+  return withLock(() => {
+    const sh = templateSheet(), data = sh.getDataRange().getValues();
+    for (let i = data.length - 1; i >= 1; i--) {
+      if (String(data[i][TP.ID]) !== String(templateId)) continue;
+      const owner = String(data[i][TP.UID]).trim() === user.userId;
+      if (!owner && !isPublisher(user.userId) && !isSuperAdmin(user.userId)) throw new Error('只能刪除自己建立的範本');
+      sh.deleteRow(i + 1);
+      return { id: String(templateId) };
+    }
+    throw new Error('找不到這個範本，可能已經被刪除');
   });
 }
 
