@@ -40,11 +40,23 @@ ok(flex.contents.hero && flex.contents.hero.url === 'https://example.com/cover.j
 const flex2 = await pg.evaluate(() => actFlex({ id: 'A1', title: 't', desc: '', deadline: '', paper: 'rose', image: 'data:image/png;base64,xx' }));
 ok(!flex2.contents.hero, '非 https 圖片不放進入口卡');
 
+// 按鈕文字：預設、可修改、同步到預覽與入口卡
+ok((await pg.innerText('#a-preview .pv-btn')) === '書寫一封溫暖的問候', '按鈕文字預設「書寫一封溫暖的問候」');
+await pg.fill('#a-btn', '寫信給我的同伴'); await pg.waitForTimeout(150);
+ok((await pg.innerText('#a-preview .pv-btn')) === '寫信給我的同伴', '修改按鈕文字即時同步到預覽');
+const fb = await pg.evaluate(() => actFlex({ id: 'A1', title: 't', desc: '', deadline: '', paper: 'rose', button: '寫信給我的同伴' }));
+ok(fb.contents.footer.contents[0].action.label === '寫信給我的同伴', '入口卡按鈕用自訂文字');
+const fd = await pg.evaluate(() => actFlex({ id: 'A1', title: 't', desc: '', deadline: '', paper: 'rose', button: '' }));
+ok(fd.contents.footer.contents[0].action.label === '書寫一封溫暖的問候', '沒填按鈕文字時入口卡用預設');
+await pg.fill('#a-btn', ''); await pg.waitForTimeout(150);
+ok((await pg.innerText('#a-preview .pv-btn')) === '書寫一封溫暖的問候', '清空後預覽回到預設文字');
+
 await pg.click('#a-img-x'); await pg.waitForTimeout(200);
 ok((await pg.inputValue('#a-img')) === '' && await pg.locator('#a-preview .pv-hero').count() === 0, '按 × 移除封面');
 
 const gs = readFileSync(new URL('../Code.gs', import.meta.url), 'utf8');
-ok(/'封面圖片'\]/.test(gs) && /IMAGE: 8/.test(gs) && /function cleanImageUrl/.test(gs), '後端存封面圖片欄位並檢查網址');
+ok(/'封面圖片'/.test(gs) && /IMAGE: 8/.test(gs) && /function cleanImageUrl/.test(gs), '後端存封面圖片欄位並檢查網址');
+ok(/'按鈕文字'\]/.test(gs) && /BUTTON: 9/.test(gs), '後端存按鈕文字欄位');
 ok(errs.length === 0, '頁面沒有錯誤', errs.join(' | '));
 
 await b.close();
