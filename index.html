@@ -210,6 +210,18 @@
   .cover-thumb .photo-x { width: 28px; height: 28px; font-size: 15px; }
   .cover-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .cover-err { color: var(--stamp); font-size: 13px; margin: 4px 0 0; }
+  .tpl-box { margin: 4px 0 14px; }
+  .tpl-box .tpl-head { font-size: 14px; font-weight: 700; margin: 0 0 6px; }
+  .tpl-list { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px; padding: 2px 16px 6px; scrollbar-width: none; }
+  .tpl { flex: none; width: 150px; border: 1.5px solid var(--rule); border-radius: 12px; background: var(--card); padding: 0; cursor: pointer; text-align: left; position: relative; overflow: hidden; }
+  .tpl[aria-pressed=true] { border-color: var(--ink); box-shadow: 0 0 0 1.5px var(--ink); }
+  .tpl .tpl-img { height: 64px; background: var(--tp-env, var(--sky-2)); display: grid; place-items: center; font-size: 22px; color: var(--tp-accent, var(--ink-2)); }
+  .tpl .tpl-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tpl .tpl-name { font-size: 14px; font-weight: 700; padding: 6px 10px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tpl .tpl-meta { font-size: 12px; color: var(--ink-2); padding: 0 10px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tpl-x { position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: rgba(0,0,0,.55); color: #fff; font-size: 14px; line-height: 1; cursor: pointer; }
+  .tpl-x.armed { background: var(--stamp); width: auto; padding: 0 8px; border-radius: 999px; font-size: 12px; }
+  .tpl-save { margin-top: 10px; }
   .preview-box { margin: 18px 0 8px; border: 2px dashed var(--gold); border-radius: 16px; padding: 12px 12px 16px; background: #DCE3EA; }
   .preview-box > .pv-title { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 700; color: #3B4656; margin: 0 2px 10px; }
   .pv-card { max-width: 300px; margin: 0 auto; border-radius: 16px; overflow: hidden; background: var(--pv-paper); box-shadow: 0 2px 10px rgba(0,0,0,.12); color: var(--pv-ink); }
@@ -482,6 +494,10 @@ const verseShow = l => l.vref || l.vtext ? `<div class="verse-show"><div class="
 
 /* ================= 預覽模式用的假資料 ================= */
 const demo = {
+  templates: [
+    { id: 'T1', name: '寒冬問候（範本）', title: '冬天的第一個問候', desc: '寫一封溫暖的問候給你想感謝的人，可以附一張照片。', paper: 'winter', image: '', button: '', creator: '陳怡君', shared: true, mine: true, created: '2026/11/10 16:00' },
+    { id: 'T2', name: '福音朋友關懷', title: '寫給福音朋友的一封信', desc: '寫給你正在陪伴的福音朋友。', paper: 'gospel', image: '', button: '寫一封關心的信', creator: '林志豪', shared: true, mine: false, created: '2026/11/09 20:00' },
+  ],
   me: { userId: DEMO_MODE === 'coadmin' ? 'U1' : 'Udemo', displayName: DEMO_MODE === 'coadmin' ? '王小明' : '預覽使用者', name: ['bind', 'newbie'].includes(DEMO_MODE) ? '' : (DEMO_MODE === 'coadmin' ? '王小明' : '陳怡君'), isAdmin: DEMO_MODE !== 'coadmin', isSuper: DEMO_MODE === 'admin' },  // ?demo=admin 總管理者；?demo=coadmin 共同管理者
   acts: [
     { id: 'A1', title: '冬天的第一個問候', desc: '寫一封悄悄話給你想感謝的弟兄姊妹，可以附一張照片。12/24 前都可以寫。', deadline: '2026-12-24 23:59', paper: 'winter', open: true, created: '2026/11/10 16:00', creator: '陳怡君', creatorUid: 'Udemo', mine: true },
@@ -693,6 +709,13 @@ async function demoApi(action, d) {
     }
     case 'myData': return { ok: true, found: !!demo.me.name, name: demo.me.name, phone: demo.me.phone || '0912345678', lineName: demo.me.displayName, sent: demo.letters.filter(l => l.fromUid === demo.me.userId).length, received: 1 };
     case 'deleteMyData': demo.me.name = ''; return { ok: true, roster: 1, letters: 1, opens: 1 };
+    case 'listTemplates': return { ok: true, templates: demo.templates.filter(t => t.mine || t.shared) };
+    case 'saveTemplate': {
+      const a = act(d.actId); const t = { id: 'T' + Date.now(), name: d.name || a.title, title: a.title, desc: a.desc || '', paper: a.paper || 'rose', image: a.image || '', button: a.button || '',
+        creator: demo.me.name || '預覽使用者', shared: !!d.shared, mine: true, created: '剛剛' };
+      demo.templates.unshift(t); return { ok: true, template: t };
+    }
+    case 'deleteTemplate': demo.templates = demo.templates.filter(t => t.id !== d.templateId); return { ok: true, id: d.templateId };
     case 'overview': {
       if (!demo.me.isSuper) throw new Error('只有網站總管理者可以看登記總覽');
       const people = demoOverview();
@@ -1344,11 +1367,69 @@ function actCardPreview(a) {
   </div>`;
 }
 
+/* ---------- 活動範本 ---------- */
+let TEMPLATES = null;
+async function drawTemplates({ fill }) {
+  const box = $('a-tpl'); if (!box) return;
+  if (!TEMPLATES) { try { TEMPLATES = (await api('listTemplates', {})).templates || []; } catch (e) { TEMPLATES = []; } }
+  if (!box.isConnected) return;
+  if (!TEMPLATES.length) { box.hidden = true; return; }
+  let picked = '';
+  const draw = () => {
+    box.hidden = false;
+    box.innerHTML = `<p class="tpl-head">📋 從範本開始（點一下套用）</p><div class="tpl-list">${TEMPLATES.map(t => {
+      const p = paperOf(t.paper);
+      return `<button type="button" class="tpl" data-tpl="${esc(t.id)}" aria-pressed="${t.id === picked}" style="--tp-env:${p.env};--tp-accent:${p.accent}">
+        <div class="tpl-img">${imgOk(t.image) ? `<img src="${esc(t.image)}" alt="" loading="lazy">` : esc(p.sym)}</div>
+        <div class="tpl-name">${esc(t.name)}</div>
+        <div class="tpl-meta">${t.mine ? (t.shared ? '我的・已分享' : '我的') : '共享・' + esc(t.creator)}</div>
+        ${t.mine || (ME && (ME.isAdmin || ME.isSuper)) ? `<span class="tpl-x" role="button" tabindex="0" data-tdel="${esc(t.id)}" aria-label="刪除範本">×</span>` : ''}
+      </button>`; }).join('')}</div>`;
+    box.querySelectorAll('[data-tpl]').forEach(b => b.onclick = ev => {
+      if (ev.target.closest('[data-tdel]')) return;
+      const t = TEMPLATES.find(x => x.id === b.dataset.tpl); picked = t.id; draw(); fill(t);
+    });
+    box.querySelectorAll('[data-tdel]').forEach(x => x.onclick = ev => {
+      ev.stopPropagation();
+      armThen(x, '刪除？', () => busy(x, async rid => {
+        await api('deleteTemplate', { templateId: x.dataset.tdel, rid });
+        TEMPLATES = TEMPLATES.filter(t => t.id !== x.dataset.tdel); toast('已刪除範本');
+        if (TEMPLATES.length) draw(); else box.hidden = true;
+      }));
+    });
+  };
+  draw();
+}
+
+/** 活動後台「存成範本」：只存活動設定，不含截止時間、信件與名單 */
+function templateSaveForm(a) {
+  const box = $('d-tpl-form');
+  if (!box.hidden) { box.hidden = true; return; }
+  box.hidden = false;
+  box.innerHTML = `<div class="card tpl-save">
+    <label class="f" for="t-name" style="margin-top:0">範本名稱</label>
+    <input class="in" id="t-name" maxlength="30" value="${esc(a.title)}">
+    <p class="f-hint">範本只存活動名稱、說明、信紙主題、封面圖片和按鈕文字；不含截止時間、信件、收信人或名單。</p>
+    <label style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;font-size:15px"><input type="checkbox" id="t-shared" style="width:20px;height:20px;margin-top:2px">
+      <span>分享給所有建立活動的人<br><span class="f-hint">分享前請確認說明裡沒有個人資料（電話、地址等）。</span></span></label>
+    <div class="btn-row"><button class="btn ghost" id="t-cancel" type="button">取消</button><button class="btn gold" id="t-save" type="button">存成範本</button></div>
+  </div>`;
+  $('t-name').focus();
+  $('t-cancel').onclick = () => { box.hidden = true; };
+  $('t-save').onclick = e => busy(e.currentTarget, async rid => {
+    const r = await api('saveTemplate', { actId: a.id, name: $('t-name').value.trim(), shared: $('t-shared').checked, rid });
+    if (TEMPLATES) TEMPLATES.unshift(r.template);
+    box.hidden = true;
+    toast(`已存成範本「${r.template.name}」，建立新活動時可以套用`);
+  });
+}
+
 function renderActForm(a) {
   const dl = a && a.deadline ? a.deadline.replace(' ', 'T') : '';
   view(`${topHtml(ME.name || ME.displayName)}
     <button class="back" type="button" id="f-back">‹ 返回</button>
     <h2>${a ? '編輯流通神聖的愛活動' : '建立流通神聖的愛活動'}</h2>
+    ${a ? '' : '<div class="tpl-box" id="a-tpl" hidden></div>'}
     <div class="card">
       <label class="f" for="a-title">活動名稱</label>
       <input class="in" id="a-title" maxlength="40" value="${esc(a ? a.title : '')}" placeholder="例如：冬天的第一個問候">
@@ -1414,6 +1495,11 @@ function renderActForm(a) {
     finally { UPLOADING = false; if (btn.isConnected) { btn.textContent = '📷 上傳圖片'; btn.disabled = false; } }
   };
   drawCover(); drawPreview();
+  if (!a) drawTemplates({ fill: t => {
+    $('a-title').value = t.title || ''; $('a-desc').value = t.desc || ''; $('a-paper').value = t.paper || 'rose';
+    $('a-img').value = t.image || ''; $('a-btn').value = t.button || '';
+    drawCover(); drawPreview(); toast(`已套用範本「${t.name}」，可以再修改`);
+  } });
   $('f-back').onclick = () => a ? renderDetail(a.id) : renderHome();
   $('a-save').onclick = e => busy(e.currentTarget, async rid => {
     const input = formInput();
@@ -1494,12 +1580,15 @@ function drawDetail() {
     ${coAdminHtml(DETAIL)}
     <div class="btn-row">
       <button class="btn ghost" id="d-edit" type="button">編輯</button>
+      <button class="btn ghost" id="d-tpl" type="button">存成範本</button>
       <button class="btn ghost" id="d-open" type="button">${a.open ? '停止寫信' : '重新開放寫信'}</button>
       ${DETAIL.canDeleteAct === true ? '<button class="btn danger" id="d-del" type="button">刪除活動</button>' : ''}
-    </div>${footHtml()}`, 'detail:' + a.id, theme);
+    </div>
+    <div id="d-tpl-form" hidden></div>${footHtml()}`, 'detail:' + a.id, theme);
   $('d-back').onclick = () => renderHome();
   $('d-share').onclick = e => busy(e.currentTarget, () => sendAct(a));
   $('d-edit').onclick = () => renderActForm(a);
+  $('d-tpl').onclick = () => templateSaveForm(a);
   $('d-open').onclick = e => busy(e.currentTarget, async rid => { DETAIL.act = (await api('setOpen', { actId: a.id, open: !a.open, rid })).act; drawDetail(); });
   if ($('d-del')) $('d-del').onclick = e => armThen(e.currentTarget, `確定刪除？${list.length} 封信會一起刪掉`, () => busy(e.currentTarget, async rid => {
     await api('deleteAct', { actId: a.id, rid }); ACTS = ACTS.filter(x => x.id !== a.id); saveHome(); cacheDel('detail:' + a.id); toast('已刪除'); renderHome();
