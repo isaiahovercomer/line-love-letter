@@ -685,8 +685,8 @@ function updateLetter(user, letterId, input) {
     const sh = sheet(SH.LETTERS);
     sh.getRange(f.index, LT.TO + 1, 1, 4).setValues([safeRow([l.to, l.text, l.image, l.paper])]);
     sh.getRange(f.index, LT.VREF + 1, 1, 3).setValues([safeRow([l.vref, l.vtext, l.sign])]);
+    // 不論什麼時候改、改了哪裏（含收信人名字），都還是同一封信：信件代碼不變、已送出的狀態也保留
     const changedTo = normName(f.row[LT.TO]) !== normName(l.to);
-    if (changedTo) sh.getRange(f.index, LT.SENT + 1).setValue(false); // 換了收信人，要重新送出
     clearLoved(a.id);
     const s = lovedCount(a.id, l.to, user.userId);
     return { id: String(letterId), actId: a.id, actTitle: a.title, from: String(f.row[LT.FROM]), to: l.to, paper: l.paper, changedTo, opened: openedCount(a.id), loved: s.loved, writers: s.writers };
