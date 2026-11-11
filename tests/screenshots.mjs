@@ -89,7 +89,7 @@ await shotPage({ name: 'after-received-count.png', path: '?demo=write&noguide', 
         <div style="font-size:24px;font-weight:700">林志豪</div>
         <div style="font-size:11px;margin-top:4px">只有本人拆得開</div>
       </div>
-      <div style="margin-top:12px;background:#F0D8DC;border-radius:999px;padding:8px;text-align:center;color:#8E3E4C;font-weight:700;font-size:13px">已有 3 個人收到愛</div>`;
+      <div style="margin-top:12px;background:#F0D8DC;border-radius:999px;padding:8px;text-align:center;color:#8E3E4C;font-weight:700;font-size:13px">已有 3 人收到關心</div>`;
     document.querySelector('.papers').before(box);
     box.scrollIntoView({ block: 'start' });
   });
