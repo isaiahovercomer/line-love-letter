@@ -46,8 +46,8 @@ const clickOpen = async page => {
 
 await check('home（使用說明）', '?demo', async page => {
   await expectText(page, '.guide h3', '建立流通神聖的愛活動');
-  await expectText(page, '.guide .guide-credit', '背景音樂：Kevin MacLeod (incompetech.com)');
-  await expectText(page, '.guide .guide-credit', '生日曲為公有領域');
+  await expectText(page, '.guide .guide-credit', '背景音樂：英文詩歌（Hymns）曲調純音樂');
+  await expectText(page, '.guide .guide-credit', '旋律皆為公有領域');
   const cred = await page.evaluate(() => {
     const el = document.querySelector('.guide .guide-credit');
     const a = el && el.querySelector('a');
@@ -61,7 +61,7 @@ await check('home（使用說明）', '?demo', async page => {
       count: document.querySelectorAll('.guide-credit').length,
     };
   });
-  if (cred.href !== 'https://creativecommons.org/licenses/by/4.0/') throw new Error('署名連結不對：' + cred.href);
+  if (cred.href !== 'https://creativecommons.org/publicdomain/zero/1.0/') throw new Error('署名連結不對：' + cred.href);
   if (!cred.isLast) throw new Error('署名應在使用說明最下方');
   if (!(cred.fontSize > 0 && cred.fontSize <= 13)) throw new Error('署名字級應為小字：' + cred.fontSize);
   if (cred.count !== 1) throw new Error('署名應只有一行：' + cred.count);

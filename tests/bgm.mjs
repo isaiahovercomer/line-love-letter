@@ -21,9 +21,9 @@ let total = 0, sizeOk = true;
 for (const t of themes) {
   const n = statSync(join(root, 'audio', t + '.mp3')).size;
   total += n;
-  if (n < 350000 || n > 450000) { sizeOk = false; console.log('  size', t, n); }
+  if (n < 250000 || n > 500000) { sizeOk = false; console.log('  size', t, n); }
 }
-check('每首約 399 KB（350–450 KB）', sizeOk);
+check('每首 250–500 KB（一節長度不同）', sizeOk);
 console.log('  音檔合計', total, 'bytes');
 
 check('播放為循環且音量 0.35、點選才載入',
@@ -32,20 +32,21 @@ check('播放為循環且音量 0.35、點選才載入',
   && /a\.src = 'audio\/' \+ encodeURIComponent\(k\) \+ '\.mp3'/.test(html));
 check('音檔不進 service worker 預先快取', !/audio\//.test(sw.split('ASSETS')[1]?.split(']')[0] || 'audio/'));
 check('sw 快取有版本號', /loveletter-v\d+/.test(sw));
-check('使用說明最下方有一行小字署名與 CC BY 4.0 連結',
+check('使用說明最下方有一行小字署名（詩歌曲調、CC0 連結）',
   /class="guide-credit"/.test(html)
-  && /背景音樂：Kevin MacLeod \(incompetech.com\)/.test(html)
-  && /https:\/\/creativecommons.org\/licenses\/by\/4.0\//.test(html)
-  && /生日曲為公有領域/.test(html));
+  && /背景音樂：英文詩歌（Hymns）曲調純音樂與生日歌/.test(html)
+  && /https:\/\/creativecommons.org\/publicdomain\/zero\/1.0\//.test(html)
+  && !/Kevin MacLeod/.test(html));
 check('README 與 audio 說明不再寫「原創合成 CC0」',
   !/原創合成/.test(readme + audioReadme)
   && !/14 首短循環皆為本專案原創/.test(audioReadme)
-  && /Gymnopedie No\. 1/.test(readme)
-  && /Fresh Air/.test(readme)
+  && /It Is Well with My Soul/.test(readme)
+  && /英文詩歌第 313 首/.test(readme)
   && /Happy Birthday to You/.test(readme)
-  && /CC BY 4.0/.test(readme));
+  && /CC0/.test(readme)
+  && !/Kevin MacLeod/.test(readme + audioReadme));
 check('完整曲目只寫在 README',
-  !/Gymnopedie No\. 1/.test(html) && /Gymnopedie No\. 1/.test(readme));
+  !/All the Way My Savior/.test(html) && /All the Way My Savior/.test(readme));
 
 console.log(`${7 - fail} 項檢查，失敗 ${fail}；合計 ${total} bytes`);
 process.exit(fail ? 1 : 0);
