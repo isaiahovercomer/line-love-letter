@@ -718,6 +718,27 @@ const getSession = () => { try { const s = JSON.parse(localStorage.getItem(SESSI
 const setSession = s => { try { s ? localStorage.setItem(SESSION_KEY, JSON.stringify({ token: s.token, expires: s.expires })) : (localStorage.removeItem(SESSION_KEY), localStorage.removeItem(CACHE_KEY)); } catch (e) {} };
 const PUBLIC = ['act', 'letterCard', 'verses'];
 
+/** 登出：後端作廢通行證，清掉這台裝置上本平台的所有資料（通行證、快取、草稿、最近活動），再登出 LINE。
+ *  公用電腦或別人的電腦用完按一下，下一個人就看不到你的資料。 */
+async function logout() {
+  if (!DEMO && getSession()) { try { await api('logout', {}); } catch (e) {} }
+  try { Object.keys(localStorage).filter(k => k.startsWith('loveletter.')).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  try { sessionStorage.clear(); } catch (e) {}
+  if (!DEMO) { try { if (liff.isLoggedIn()) liff.logout(); } catch (e) {} }
+  ME = null;
+  location.replace(`${location.origin}${location.pathname}?loggedout${DEMO ? '&demo' : ''}`);
+}
+
+function loggedOutView() {
+  view(`<header class="top"><div class="brand"><img src="img/in-christ.svg" alt=""><h1>流通神聖的愛圖卡</h1></div></header>
+    <div class="card center" style="margin-top:24px">
+      <div class="big-emoji">👋</div>
+      <h2>已經登出</h2>
+      <p class="muted">這台裝置上你的登入和暫存資料都清掉了。<br>如果是公用電腦，可以直接關閉這個頁面。</p>
+      <a class="btn gold block" href="./${DEMO ? '?demo' : ''}" style="margin-top:12px">重新登入</a>
+    </div>`, 'loggedout');
+}
+
 /* ---------- 資料快取：先用上次的資料立刻畫面，背景再更新 ---------- */
 const CACHE_KEY = 'loveletter.cache';
 const CACHE_OK = !DEMO;
@@ -757,6 +778,7 @@ let ME = null;
 async function main() {
   try {
     if (PARAMS.has('install')) return installFlow(); // 安裝說明頁不需要登入
+    if (PARAMS.has('loggedout')) return loggedOutView(); // 登出完成頁：不要再自動登入
     const route = PARAMS.has('letter') || ['letter', 'wrong', 'newbie'].includes(DEMO_MODE) ? 'letter'
       : PARAMS.has('act') || ['write', 'bind'].includes(DEMO_MODE) ? 'write'
       : PARAMS.has('fwd') ? 'fwd' : PARAMS.has('share') ? 'share'
@@ -791,7 +813,9 @@ async function main() {
 }
 
 const topHtml = (who = '') => `<header class="top"><div class="brand"><img src="img/in-christ.svg" alt=""><h1>流通神聖的愛圖卡</h1></div><span class="who">${esc(who)}</span></header>${DEMO ? '<div class="demo-note">預覽模式：使用範例資料，不會真的送出。</div>' : ''}`;
-const footHtml = (opts = {}) => `<div class="foot"><button class="link" type="button" onclick="openGuide(GUIDE_KIND, true)">使用說明</button>${opts.hideMine ? '' : `　<button class="link" type="button" onclick="location.href='?mine${DEMO ? '&demo=mine' : ''}'">我寫過的信</button>`}　<button class="link" type="button" onclick="location.href='?mydata${DEMO ? '&demo=mydata' : ''}'">我的個人資料</button></div>`;
+const footHtml = (opts = {}) => `<div class="foot"><button class="link" type="button" onclick="openGuide(GUIDE_KIND, true)">使用說明</button>${opts.hideMine ? '' : `　<button class="link" type="button" onclick="location.href='?mine${DEMO ? '&demo=mine' : ''}'">我寫過的信</button>`}　<button class="link" type="button" onclick="location.href='?mydata${DEMO ? '&demo=mydata' : ''}'">我的個人資料</button>　<button class="link" type="button" id="foot-logout" onclick="confirmLogout(this)">登出</button></div>`;
+/** 頁尾的登出：先問一次，避免誤按 */
+function confirmLogout(btn) { armThen(btn, '確定登出？', () => logout()); }
 
 /* ---------- 使用說明：第一次登入後自動出現，之後可從頁尾再打開 ---------- */
 const GUIDES = {
@@ -1889,9 +1913,14 @@ async function myDataFlow() {
         <button class="btn gold block" id="m-write" type="button">我要寫信</button>
       </div>
     </div>
+    <div class="card">
+      <p class="small muted" style="margin-top:0">用公用電腦或別人的手機？用完記得登出，下一個人就看不到你的資料。登出不會刪掉你的資料，下次登入就回來。</p>
+      <button class="btn ghost block" id="m-logout" type="button">登出</button>
+    </div>
     ${d.found || d.sent ? `<p class="small muted">刪除後，你的姓名手機、你寫的信（含照片連結）與收信紀錄都會刪掉，下次使用要重新填寫。</p>
     <button class="btn danger block" id="m-del" type="button">刪除我的資料</button>` : ''}`);
   const goWrite = () => { location.href = writeHref(PARAMS.get('act') || lastAct()); };
+  $('m-logout').onclick = e => armThen(e.currentTarget, '確定登出？再按一次', () => logout());
   if ($('m-write')) $('m-write').onclick = goWrite;
   if ($('m-edit')) {
     const open = on => { $('m-form').hidden = !on; $('m-edit').hidden = on; $('m-edit').setAttribute('aria-expanded', on); if (on) $('m-name').focus(); };
