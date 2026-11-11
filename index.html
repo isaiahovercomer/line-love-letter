@@ -198,6 +198,27 @@
   .guide .btn-row { margin: 0; }
   .guide .guide-credit { margin: 16px 0 0; font-size: 11px; color: var(--ink-2); text-align: center; min-height: 0; line-height: 1.45; }
   .guide .guide-credit a { color: inherit; text-decoration: underline; }
+  .cover-pick { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .cover-pick .btn { min-height: 40px; padding: 6px 14px; font-size: 14px; }
+  .cover-thumb { position: relative; margin-top: 8px; width: 140px; border-radius: 10px; overflow: hidden; aspect-ratio: 20 / 13; background: var(--sky-2); }
+  .cover-thumb .photo-x { width: 28px; height: 28px; font-size: 15px; }
+  .cover-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .cover-err { color: var(--stamp); font-size: 13px; margin: 4px 0 0; }
+  .preview-box { margin: 18px 0 8px; border: 2px dashed var(--gold); border-radius: 16px; padding: 12px 12px 16px; background: #DCE3EA; }
+  .preview-box > .pv-title { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 700; color: #3B4656; margin: 0 2px 10px; }
+  .pv-card { max-width: 300px; margin: 0 auto; border-radius: 16px; overflow: hidden; background: var(--pv-paper); box-shadow: 0 2px 10px rgba(0,0,0,.12); color: var(--pv-ink); }
+  .pv-card .pv-hero { aspect-ratio: 20 / 13; background: #C9D1DA; }
+  .pv-card .pv-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .pv-card .pv-body { padding: 16px 18px 8px; }
+  .pv-card .pv-label { font-size: 12px; font-weight: 700; color: var(--pv-accent); }
+  .pv-card .pv-name { font-size: 20px; font-weight: 700; line-height: 1.35; margin: 4px 0 0; word-break: break-word; }
+  .pv-card .pv-name.empty { opacity: .4; }
+  .pv-card .pv-chip { display: inline-block; margin-top: 6px; padding: 3px 10px; border-radius: 999px; background: var(--pv-line); color: var(--pv-accent); font-size: 12px; font-weight: 700; }
+  .pv-card .pv-desc { font-size: 14px; color: #67645F; margin-top: 10px; white-space: pre-wrap; word-break: break-word; }
+  .pv-card .pv-dl { font-size: 12px; color: #67645F; margin-top: 8px; }
+  .pv-card .pv-foot { padding: 4px 14px 14px; }
+  .pv-card .pv-btn { display: block; text-align: center; border-radius: 8px; padding: 9px 0; font-size: 15px; font-weight: 700; background: var(--pv-accent); color: #fff; }
+  .pv-card .pv-link { display: block; text-align: center; padding: 9px 0 0; font-size: 14px; color: var(--pv-ink); }
   .sent-list .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--rule); font-size: 15px; }
   .sent-list .row:last-child { border-bottom: 0; }
   .mine-item { border-bottom: 1px solid var(--rule); padding-bottom: 10px; }
@@ -1263,6 +1284,24 @@ function renderHome() {
   document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => renderDetail(b.dataset.act));
 }
 
+/** 建立活動頁下方的「群組卡片預覽」：照著 actFlex 的版面用 HTML 畫出來 */
+function actCardPreview(a) {
+  const p = paperOf(a.paper);
+  const chips = actCountParts(a.writers, a.loved);
+  const vars = `--pv-paper:${p.paper};--pv-ink:${p.ink};--pv-accent:${p.accent};--pv-line:${p.line}`;
+  return `<div class="pv-card" style="${vars}">
+    ${imgOk(a.image) ? `<div class="pv-hero"><img src="${esc(a.image)}" alt="封面圖片" id="pv-img"></div>` : ''}
+    <div class="pv-body">
+      <div class="pv-label">✉️ 流通神聖的愛圖卡</div>
+      <div class="pv-name${a.title ? '' : ' empty'}">${esc(a.title || '活動名稱')}</div>
+      ${chips.map(t => `<span class="pv-chip">${esc(t)}</span>`).join(' ')}
+      ${a.desc ? `<div class="pv-desc">${esc(a.desc.length > 160 ? a.desc.slice(0, 158) + '…' : a.desc)}</div>` : ''}
+      ${shortTime(a.deadline) ? `<div class="pv-dl">寫信截止 ${esc(shortTime(a.deadline))}</div>` : ''}
+    </div>
+    <div class="pv-foot"><span class="pv-btn">寫一封愛的信</span><span class="pv-link">轉傳給其他群組或朋友</span></div>
+  </div>`;
+}
+
 function renderActForm(a) {
   const dl = a && a.deadline ? a.deadline.replace(' ', 'T') : '';
   view(`${topHtml(ME.name || ME.displayName)}
@@ -1279,12 +1318,63 @@ function renderActForm(a) {
       <select class="in" id="a-paper">${['日常', '節日場合'].map(g => `<optgroup label="${g === '日常' ? '日常' : '節日／場合'}">${papersIn(g, (a && a.paper) || '')
         .map(([k, p]) => `<option value="${k}" ${k === ((a && a.paper) || 'rose') ? 'selected' : ''}>${p.sym} ${p.name}</option>`).join('')}</optgroup>`).join('')}</select>
       <p class="f-hint">寫信的人打開時會先用這款信紙，也可以自己換。</p>
+      <label class="f" for="a-img">封面圖片（可不填）</label>
+      <div class="cover-pick">
+        <button class="btn ghost" id="a-upload" type="button">📷 上傳圖片</button>
+        <input type="file" id="a-file" accept="image/jpeg,image/png" hidden>
+      </div>
+      <input class="in" id="a-img" type="url" inputmode="url" maxlength="1000" style="margin-top:8px" value="${esc(a && a.image ? a.image : '')}" placeholder="或貼上網路圖片連結 https://…">
+      <p class="f-hint">建議用橫式圖片（約 3:2）。網路圖片請貼「圖片本身」的網址，通常結尾是 .jpg 或 .png。</p>
+      <div id="a-cover"></div>
       <div class="btn-row"><button class="btn block" id="a-save" type="button">${a ? '儲存' : '建立並發到群組'}</button></div>
-    </div>`, '', a ? themeOf(a) : '');
+    </div>
+    <section class="preview-box" aria-label="群組卡片預覽">
+      <div class="pv-title"><span>👀 群組卡片預覽</span><span style="font-weight:400">發到 LINE 群組會長這樣</span></div>
+      <div id="a-preview"></div>
+    </section>`, '', a ? themeOf(a) : '');
+  const formInput = () => ({ title: $('a-title').value.trim(), desc: $('a-desc').value.trim(), deadline: $('a-dl').value.replace('T', ' '),
+    paper: $('a-paper').value, image: $('a-img').value.trim() });
+  let COVER_BAD = false;
+  const drawCover = () => {
+    const url = $('a-img').value.trim();
+    const box = $('a-cover');
+    COVER_BAD = !!url && !isHttps(url) && !/^data:image\//.test(url);
+    if (!url) box.innerHTML = '';
+    else if (COVER_BAD) box.innerHTML = '<p class="cover-err">圖片網址要是 https:// 開頭的完整網址。</p>';
+    else {
+      box.innerHTML = `<div class="cover-thumb"><img src="${esc(url)}" alt="封面圖片" id="a-thumb"><button class="photo-x" id="a-img-x" type="button" aria-label="移除封面圖片">×</button></div>`;
+      $('a-thumb').onerror = () => { box.insertAdjacentHTML('beforeend', '<p class="cover-err">這張圖片打不開，請換一個網址或改用上傳。</p>'); };
+      $('a-img-x').onclick = () => { $('a-img').value = ''; drawCover(); drawPreview(); };
+    }
+  };
+  const drawPreview = () => {
+    const input = formInput();
+    if (COVER_BAD) input.image = '';
+    $('a-preview').innerHTML = actCardPreview({ ...input, writers: a && a.writers, loved: a && a.loved });
+  };
+  ['a-title', 'a-desc', 'a-dl', 'a-paper'].forEach(id => { $(id).addEventListener('input', drawPreview); $(id).addEventListener('change', drawPreview); });
+  $('a-img').addEventListener('input', () => { drawCover(); drawPreview(); });
+  $('a-upload').onclick = () => { if (!UPLOADING) $('a-file').click(); };
+  $('a-file').onchange = async e => {
+    const f = e.target.files && e.target.files[0]; e.target.value = '';
+    if (!f || UPLOADING) return;
+    UPLOADING = true;
+    const btn = $('a-upload'); btn.textContent = '圖片上傳中…'; btn.disabled = true;
+    try {
+      const data = await shrinkImage(f, 1200, 0.85);
+      const url = (await api('uploadImage', { data, mime: 'image/jpeg', rid: newRid() })).url;
+      if (!$('a-img')) return;
+      $('a-img').value = url; drawCover(); drawPreview();
+    } catch (err) { toast('上傳失敗：' + err.message); }
+    finally { UPLOADING = false; if (btn.isConnected) { btn.textContent = '📷 上傳圖片'; btn.disabled = false; } }
+  };
+  drawCover(); drawPreview();
   $('f-back').onclick = () => a ? renderDetail(a.id) : renderHome();
   $('a-save').onclick = e => busy(e.currentTarget, async rid => {
-    const input = { title: $('a-title').value.trim(), desc: $('a-desc').value.trim(), deadline: $('a-dl').value.replace('T', ' '), paper: $('a-paper').value };
+    const input = formInput();
     if (!input.title) { $('a-title').focus(); throw new Error('請填寫活動名稱'); }
+    if (UPLOADING) throw new Error('圖片還在上傳，請稍等一下');
+    if (COVER_BAD) { $('a-img').focus(); throw new Error('圖片網址要是 https:// 開頭的完整網址'); }
     if (a) { await api('updateAct', { actId: a.id, act: input, rid }); toast('已儲存'); return renderDetail(a.id); }
     const r = await api('createAct', { act: input, rid });
     ACTS.unshift(r.act); saveHome();
@@ -1858,6 +1948,7 @@ function actFlex(a) {
   if (shortTime(a.deadline)) body.push({ type: 'text', text: '寫信截止 ' + shortTime(a.deadline), size: 'xs', color: '#67645F', margin: 'md' });
   return { type: 'flex', altText: `✉️ ${a.title}：寫一封愛的信`.slice(0, 400), contents: {
     type: 'bubble',
+    ...(isHttps(a.image) ? { hero: { type: 'image', url: a.image, size: 'full', aspectRatio: '20:13', aspectMode: 'cover', action: { type: 'uri', label: '寫一封愛的信', uri: actUrl(a.id) } } } : {}),
     styles: { body: { backgroundColor: p.paper }, footer: { backgroundColor: p.paper } },
     body: { type: 'box', layout: 'vertical', paddingAll: '20px', contents: body },
     footer: { type: 'box', layout: 'vertical', paddingAll: '16px', paddingTop: '0px', spacing: 'xs', contents: [
