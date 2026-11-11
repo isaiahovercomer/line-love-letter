@@ -798,7 +798,26 @@ function myData(user) {
     found: !!r, name: r ? String(r[0]) : '', phone: r ? String(r[1]) : '', lineName: r ? String(r[3] || '') : user.displayName,
     sent: rows(SH.LETTERS).filter(l => String(l[LT.FROM_UID]) === user.userId).length,
     received: rows(SH.OPENS).filter(o => String(o[OP.UID]) === user.userId).length,
+    acts: myActs(user),
   };
+}
+
+/** 我參加過的活動：我寫過信或收過信的活動（活動結束了也列出；活動被刪掉的就沒有了） */
+function myActs(user) {
+  const map = {};
+  const touch = (aid, when, field) => {
+    const m = map[aid] || (map[aid] = { written: 0, received: 0, last: 0 });
+    m[field]++;
+    const t = when instanceof Date ? when.getTime() : 0;
+    if (t > m.last) m.last = t;
+  };
+  rows(SH.LETTERS).forEach(l => { if (String(l[LT.FROM_UID]) === user.userId) touch(String(l[LT.ACT]), l[LT.TIME], 'written'); });
+  rows(SH.OPENS).forEach(o => { if (String(o[OP.UID]) === user.userId) touch(String(o[OP.ACT]), o[OP.TIME], 'received'); });
+  return rows(SH.ACTS).filter(r => map[String(r[AC.ID])]).map(r => {
+    const a = rowToAct(r), m = map[a.id];
+    return { id: a.id, title: a.title, paper: a.paper, image: a.image, state: stateOf(a), deadline: a.deadline,
+      written: m.written, received: m.received, last: m.last ? fmt(new Date(m.last), 'yyyy/M/d') : '', lastTs: m.last };
+  }).sort((x, y) => y.lastTs - x.lastTs).map(({ lastTs, ...rest }) => rest);
 }
 
 /** 編輯我的資料：改姓名或手機。也一併更新自己寫過的信上的署名（寄件人姓名）。
