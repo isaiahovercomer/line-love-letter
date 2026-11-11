@@ -405,10 +405,13 @@ await check('roster：活動後台收信人名單可複製與截圖', '?demo&nog
   }
   await page.locator('#d-roster').scrollIntoViewIfNeeded();
   await shot(page, 'roster');
+  // 測試用瀏覽器遇到中文檔名會改叫 download，所以直接記下網頁給的檔名
+  await page.evaluate(() => { const o = shareOrDownloadPng; window.__pngNames = []; shareOrDownloadPng = (b, n) => { window.__pngNames.push(n); return o(b, n); }; });
   const download = page.waitForEvent('download', { timeout: 8000 });
   await page.locator('#d-shot').click();
   const dl = await download;
-  if (!/\.png$/i.test(dl.suggestedFilename() || '')) throw new Error('截圖檔名不是 PNG：' + dl.suggestedFilename());
+  const given = await page.evaluate(() => window.__pngNames.pop() || '');
+  if (!/\.png$/i.test(given)) throw new Error('截圖檔名不是 PNG：' + given);
   const path = SHOTS ? join(SHOTS, 'after-roster-shot.png') : undefined;
   if (path) await dl.saveAs(path);
 });
