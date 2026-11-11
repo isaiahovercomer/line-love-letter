@@ -161,19 +161,38 @@ function createSession(user) {
     for (let i = data.length - 1; i >= 1; i--) if (data[i][3] instanceof Date && data[i][3] < now) sh.deleteRow(i + 1);
     sh.appendRow(safeRow([token, user.userId, user.displayName, exp, now]));
   });
+  cacheSession(token, user.userId, user.displayName, exp);
   return { token, expires: exp.getTime() };
 }
 
+/* 通行證查詢結果放在 CacheService 10 分鐘，每次請求不用整張「登入」表讀一遍；刪除通行證時一併清掉（perf-session-cache-v1） */
+const SESSION_CACHE_SEC = 600;
+const sessionKey = token => 'sess:' + token;
+function cacheSession(token, userId, displayName, exp) {
+  try { CacheService.getScriptCache().put(sessionKey(token), JSON.stringify({ u: userId, n: displayName, e: exp.getTime() }), SESSION_CACHE_SEC); } catch (e) {}
+}
+function uncacheSessions(tokens) {
+  try { if (tokens.length) CacheService.getScriptCache().removeAll(tokens.map(sessionKey)); } catch (e) {}
+}
+
 function userFromSession(token) {
-  const data = sessionSheet().getDataRange().getValues(), now = new Date();
+  const now = new Date();
+  let hit = null;
+  try { hit = JSON.parse(CacheService.getScriptCache().get(sessionKey(token)) || 'null'); } catch (e) {}
+  if (hit && hit.e > now.getTime()) return { userId: String(hit.u), displayName: String(hit.n) };
+  const data = sessionSheet().getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === token && data[i][3] instanceof Date && data[i][3] > now) return { userId: String(data[i][1]), displayName: String(data[i][2]) };
+    if (data[i][0] === token && data[i][3] instanceof Date && data[i][3] > now) {
+      cacheSession(token, String(data[i][1]), String(data[i][2]), data[i][3]);
+      return { userId: String(data[i][1]), displayName: String(data[i][2]) };
+    }
   }
   throw new Error('SESSION_EXPIRED');
 }
 
 function deleteSession(token) {
   if (!token) return;
+  uncacheSessions([token]);
   withLock(() => {
     const sh = sessionSheet(), data = sh.getDataRange().getValues();
     for (let i = data.length - 1; i >= 1; i--) if (data[i][0] === token) sh.deleteRow(i + 1);
@@ -858,7 +877,9 @@ function deleteMyData(user) {
     if (SpreadsheetApp.getActive().getSheetByName(SH.COADMINS)) coadmins = deleteRows(SH.COADMINS, r => String(r[CA.UID]).trim() === user.userId);
     let templates = 0;
     if (SpreadsheetApp.getActive().getSheetByName(SH.TEMPLATES)) templates = deleteRows(SH.TEMPLATES, r => String(r[TP.UID]).trim() === user.userId);
-    sessionSheet(); deleteRows(SESSION_SHEET, r => String(r[1]) === user.userId);
+    const tokens = [];
+    sessionSheet(); deleteRows(SESSION_SHEET, r => String(r[1]) === user.userId && tokens.push(String(r[0])));
+    uncacheSessions(tokens);
     return { roster, letters, opens, coadmins, templates };
   });
 }
