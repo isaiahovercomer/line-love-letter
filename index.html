@@ -210,6 +210,14 @@
   .cover-thumb .photo-x { width: 28px; height: 28px; font-size: 15px; }
   .cover-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .cover-err { color: var(--stamp); font-size: 13px; margin: 4px 0 0; }
+  .myacts h3 { font-family: var(--serif); font-size: 18px; margin: 20px 0 8px; }
+  .myact { display: flex; width: 100%; gap: 12px; align-items: center; text-align: left; background: var(--card); border: 1px solid var(--rule); border-left: 6px solid var(--ma-accent, var(--gold)); border-radius: 12px; padding: 10px 12px; margin: 0 0 8px; cursor: pointer; }
+  .myact .ma-img { flex: none; width: 52px; height: 52px; border-radius: 10px; overflow: hidden; background: var(--ma-env, var(--sky-2)); display: grid; place-items: center; font-size: 20px; color: var(--ma-accent); }
+  .myact .ma-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .myact .ma-main { min-width: 0; flex: 1; }
+  .myact .ma-title { font-weight: 700; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .myact .ma-meta { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+  .myact .ma-go { flex: none; font-size: 13px; color: var(--gold-text); font-weight: 700; }
   .tpl-box { margin: 4px 0 14px; }
   .tpl-box .tpl-head { font-size: 14px; font-weight: 700; margin: 0 0 6px; }
   .tpl-list { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px; padding: 2px 16px 6px; scrollbar-width: none; }
@@ -627,6 +635,17 @@ function demoVisibleActs() {
     .map(demoActFlags);
 }
 
+function demoMyActs() {
+  const map = {};
+  demo.letters.forEach(l => {
+    const mine = l.fromUid === demo.me.userId, got = demoNorm(l.to) === demoNorm(demo.me.name) && l.openedAt;
+    if (!mine && !got) return;
+    const m = map[l.actId] || (map[l.actId] = { written: 0, received: 0, last: '' });
+    if (mine) m.written++; if (got) m.received++;
+    const day = String(l.time || '').split(' ')[0]; if (day > m.last) m.last = day;
+  });
+  return demo.acts.filter(a => map[a.id]).map(a => ({ id: a.id, title: a.title, paper: a.paper || 'rose', image: a.image || '', state: demoState(a), deadline: a.deadline, ...map[a.id] }));
+}
 async function demoApi(action, d) {
   await new Promise(r => setTimeout(r, 250));
   const act = id => demo.acts.find(a => a.id === id);
@@ -707,7 +726,7 @@ async function demoApi(action, d) {
       let n = 0; demo.letters.forEach(l => { if (l.fromUid === demo.me.userId && l.from !== d.name) { l.from = d.name; n++; } });
       return { ok: true, name: d.name, phone: demo.me.phone, renamed: old !== d.name, oldName: old, letters: n };
     }
-    case 'myData': return { ok: true, found: !!demo.me.name, name: demo.me.name, phone: demo.me.phone || '0912345678', lineName: demo.me.displayName, sent: demo.letters.filter(l => l.fromUid === demo.me.userId).length, received: 1 };
+    case 'myData': return { ok: true, acts: demoMyActs(), found: !!demo.me.name, name: demo.me.name, phone: demo.me.phone || '0912345678', lineName: demo.me.displayName, sent: demo.letters.filter(l => l.fromUid === demo.me.userId).length, received: 1 };
     case 'deleteMyData': demo.me.name = ''; return { ok: true, roster: 1, letters: 1, opens: 1 };
     case 'listTemplates': return { ok: true, templates: demo.templates.filter(t => t.mine || t.shared) };
     case 'saveTemplate': {
@@ -1872,12 +1891,15 @@ async function myLettersFlow() {
   renderMyLetters();
 }
 function renderMyLetters() {
-  const letters = sortLettersNewest(MY_LETTERS || []);
+  const onlyAct = PARAMS.get('only') || '';   // 從「我參加過的活動」點進來，只看這個活動
+  const letters = sortLettersNewest((MY_LETTERS || []).filter(l => !onlyAct || l.actId === onlyAct));
+  const actTitle = onlyAct && letters[0] ? letters[0].actTitle : '';
   const n = distinctRecipients(letters);
   const who = (ME && (ME.name || ME.displayName)) || '';
   view(`${topHtml(who)}
     <button class="back" type="button" id="ml-back">‹ 返回</button>
-    <h2>我寫過的信</h2>
+    <h2>${actTitle ? `我在「${esc(actTitle)}」寫的信` : '我寫過的信'}</h2>
+    ${onlyAct ? `<p class="small" style="margin:0"><a href="?mine${DEMO ? '&demo=mine' : ''}">看全部活動寫過的信 ›</a></p>` : ''}
     <p class="muted small" id="ml-sum">${letters.length ? `你已寫信給 ${n} 位` : '你還沒寫過信。從活動的寫信入口寫第一封吧。'}</p>
     <div class="card" id="ml-list" style="padding:4px 14px">
       ${letters.length ? letters.map(l => `
@@ -1979,6 +2001,23 @@ function renderOverview(r) {
 
 /* ================= 我的個人資料 ================= */
 
+/** 個人資料頁「我參加過的活動」：寫過或收過信的活動，結束了也留著 */
+function myActsHtml(acts) {
+  if (!acts.length) return '';
+  return `<section class="myacts" aria-label="我參加過的活動"><h3>我參加過的活動</h3>${acts.map(a => {
+    const p = paperOf(a.paper);
+    const bits = [];
+    if (a.written) bits.push(`寫了 ${a.written} 封`);
+    if (a.received) bits.push(`收到 ${a.received} 封`);
+    if (a.last) bits.push(a.last);
+    return `<button type="button" class="myact" data-myact="${esc(a.id)}" style="--ma-accent:${p.accent};--ma-env:${p.env}">
+      <span class="ma-img">${imgOk(a.image) ? `<img src="${esc(a.image)}" alt="" loading="lazy">` : esc(p.sym)}</span>
+      <span class="ma-main"><span class="ma-title" style="display:block">${esc(a.title)}</span>
+        <span class="ma-meta" style="display:block">${stateChip(a.state)} ${esc(bits.join('・'))}</span></span>
+      <span class="ma-go">${a.state === 'open' ? '去寫信 ›' : '看我的信 ›'}</span>
+    </button>`; }).join('')}</section>`;
+}
+
 async function myDataFlow() {
   view(`${topHtml()}${loading()}`);
   const d = await api('myData');
@@ -2002,6 +2041,7 @@ async function myDataFlow() {
         <button class="btn gold block" id="m-write" type="button">我要寫信</button>
       </div>
     </div>
+    ${myActsHtml(d.acts || [])}
     <div class="card">
       <p class="small muted" style="margin-top:0">用公用電腦或別人的手機？用完記得登出，下一個人就看不到你的資料。登出不會刪掉你的資料，下次登入就回來。</p>
       <button class="btn ghost block" id="m-logout" type="button">登出</button>
@@ -2009,6 +2049,10 @@ async function myDataFlow() {
     ${d.found || d.sent ? `<p class="small muted">刪除後，你的姓名手機、你寫的信（含照片連結）與收信紀錄都會刪掉，下次使用要重新填寫。</p>
     <button class="btn danger block" id="m-del" type="button">刪除我的資料</button>` : ''}`);
   const goWrite = () => { location.href = writeHref(PARAMS.get('act') || lastAct()); };
+  document.querySelectorAll('[data-myact]').forEach(b => b.onclick = () => {
+    const x = (d.acts || []).find(a => a.id === b.dataset.myact); if (!x) return;
+    location.href = x.state === 'open' ? writeHref(x.id) : `?mine&only=${encodeURIComponent(x.id)}${DEMO ? '&demo=mine' : ''}`;
+  });
   $('m-logout').onclick = e => armThen(e.currentTarget, '確定登出？再按一次', () => logout());
   if ($('m-write')) $('m-write').onclick = goWrite;
   if ($('m-edit')) {
