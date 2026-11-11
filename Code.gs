@@ -434,7 +434,7 @@ function stateOf(a) {
   return d && d < new Date() ? 'ended' : 'open';
 }
 function openedCount(actId) { return new Set(rows(SH.OPENS).filter(o => String(o[OP.ACT]) === String(actId)).map(o => String(o[OP.LETTER]))).size; }
-/** 已有 XX 個人收到愛、已有 XX 人寫信：該活動中已送出信件的不重複收信人（normName）與不重複寄件人（userId）。
+/** 已有 XX 人收到關心、已有 XX 人寫信：該活動中已送出信件的不重複收信人（normName）與不重複寄件人（userId）。
  *  extraTo／extraFrom 會把正要送出的這一封也算進去（圖卡送出當下的快照）。回傳 {loved, writers}。公開總數，短暫快取。 */
 function lovedCount(actId, extraTo, extraFrom) {
   const cache = CacheService.getScriptCache(), key = 'loved:' + String(actId);

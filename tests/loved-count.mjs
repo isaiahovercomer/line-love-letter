@@ -1,4 +1,4 @@
-// 「已有 XX 個人收到愛」：已送出信件的不重複收信人（含正要送出的這一封）
+// 「已有 XX 人收到關心」：已送出信件的不重複收信人（含正要送出的這一封）
 function normName(v) { return String(v || '').replace(/[\s　]+/g, '').toLowerCase(); }
 function actCounts(letters, actId, extraTo, extraFrom) {
   const names = new Set(), writers = new Set();
@@ -49,7 +49,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 const gs = readFileSync(join(root, 'Code.gs'), 'utf8');
 for (const [label, src, re] of [
-  ['前端 lovedLine 文案', html, /已有 \$\{?\+?loved\} 個人收到愛/],
+  ['前端 lovedLine 文案', html, /已有 \$\{?\+?loved\} 人收到關心/],
   ['前端人寫信文案', html, /已有 \$\{?\+?writers\} 人寫信/],
   ['前端不再用「人收到信」', html, /已有 \$\{[^}]+\} 人收到信/],
   ['後端 lovedCount', gs, /function lovedCount/],
