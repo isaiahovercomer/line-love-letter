@@ -700,7 +700,7 @@ async function demoApi(action, d) {
     }
     case 'updateLetter': {
       const l = letter(d.letterId); if (l.openedAt) throw new Error('對方已經收信了，不能再修改');
-      const changedTo = l.to !== d.letter.to; Object.assign(l, d.letter); if (changedTo) l.sent = false;
+      const changedTo = l.to !== d.letter.to; Object.assign(l, d.letter);
       const uc = demoCounts(l.actId, l.to, l.fromUid); return { ok: true, letter: { id: l.id, actId: l.actId, actTitle: act(l.actId).title, from: l.from, to: l.to, paper: l.paper, changedTo, loved: uc.loved, writers: uc.writers } };
     }
     case 'deleteLetter': { const l = letter(d.letterId); if (l && l.fromUid !== demo.me.userId) demoRequireOwner(l.actId); demo.letters = demo.letters.filter(x => x.id !== d.letterId); return { ok: true, id: d.letterId, opens: 0 }; }
@@ -1100,7 +1100,7 @@ function writeForm(edit, presetTo, resume) {
       const r = await api('updateLetter', { letterId: edit.id, letter, rid });
       PHOTO = '';
       if (unsent) { LETTER = r.letter; MINE = null; return sentView(await sendLetter(LETTER)); }
-      if (r.letter.changedTo) { LETTER = r.letter; toast('收信人改了，要重新送出'); return sentView(false); }
+      if (r.letter.changedTo) { toast('已儲存修改，還是同一封信。已送出的信封仍是原本的名字，對方一樣能拆開'); return writeForm(); }
       toast('已儲存修改'); return writeForm();
     }
     const r = await api('writeLetter', { actId: ACT.id, letter, rid });
