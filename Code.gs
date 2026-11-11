@@ -14,7 +14,7 @@ const SH = { ROSTER: '名單', ACTS: '流通神聖的愛活動', LETTERS: '信�
 const HEADERS = {
   '名單': ['姓名', '手機', 'LINE userId', 'LINE名稱'],
   '流通神聖的愛活動': ['活動代碼', '活動名稱', '說明', '開放寫信', '建立者', '建立時間', '截止時間', '預設信紙', '封面圖片', '按鈕文字'],
-  '信件': ['信件代碼', '活動代碼', '寄件人姓名', '寄件人 userId', '收信人姓名', '悄悄話', '照片網址', '信紙', '寫信時間', '已送出', '經文出處', '經文內容'],
+  '信件': ['信件代碼', '活動代碼', '寄件人姓名', '寄件人 userId', '收信人姓名', '悄悄話', '照片網址', '信紙', '寫信時間', '已送出', '經文出處', '經文內容', '署名'],
   '收信紀錄': ['時間', '信件代碼', '活動代碼', '收信人姓名', 'LINE名稱', 'LINE userId'],
   '發布者': ['LINE userId', '名稱', '備註'],
   '經文': ['出處', '經文（恢復本）', '分類'],
@@ -24,7 +24,7 @@ const HEADERS = {
 
 // 欄位位置（從 0 開始）
 const AC = { ID: 0, TITLE: 1, DESC: 2, OPEN: 3, CREATOR: 4, CREATED: 5, DEADLINE: 6, PAPER: 7, IMAGE: 8, BUTTON: 9 };
-const LT = { ID: 0, ACT: 1, FROM: 2, FROM_UID: 3, TO: 4, TEXT: 5, IMAGE: 6, PAPER: 7, TIME: 8, SENT: 9, VREF: 10, VTEXT: 11 };
+const LT = { ID: 0, ACT: 1, FROM: 2, FROM_UID: 3, TO: 4, TEXT: 5, IMAGE: 6, PAPER: 7, TIME: 8, SENT: 9, VREF: 10, VTEXT: 11, SIGN: 12 };
 const OP = { TIME: 0, LETTER: 1, ACT: 2, NAME: 3, LINE_NAME: 4, UID: 5 };
 const CA = { ACT: 0, UID: 1, NAME: 2, TIME: 3, ADDED_BY: 4 };
 const PAPERS = ['rose', 'sky', 'kraft', 'mint', 'winter', 'midautumn', 'duanwu', 'chuxi', 'winterbreak', 'summer', 'xmas', 'newyear', 'thanks', 'grad', 'birthday', 'gospel', 'love', 'shepherd', 'build'];
@@ -101,6 +101,7 @@ function run(user, req) {
     case 'addCoAdmin':    out = { ok: true, ...addCoAdmin(user, req.actId, req.key) }; break;
     case 'removeCoAdmin': out = { ok: true, ...removeCoAdmin(user, req.actId, req.key) }; break;
     case 'myData':       out = { ok: true, ...myData(user) }; break;
+    case 'updateMyData': out = { ok: true, ...updateMyData(user, req.name, req.phone) }; break;
     case 'deleteMyData': out = { ok: true, ...deleteMyData(user) }; break;
     case 'overview':     out = { ok: true, ...listOverview(user) }; break;
     default: throw new Error('未知的動作');
@@ -110,7 +111,7 @@ function run(user, req) {
 
 /* ---------- 防重複送出：同一個人、同一個動作、同一個請求編號（rid），10 分鐘內只做一次 ---------- */
 // 前端每次按下按鈕產生一個 rid，連點或失敗重試都帶同一個；故意再寫一封新的信會是新的 rid，不受影響
-const ONCE_ACTIONS = ['bind', 'uploadImage', 'writeLetter', 'markSent', 'updateLetter', 'deleteLetter', 'createAct', 'updateAct', 'setOpen', 'deleteAct', 'deleteMyData', 'addCoAdmin', 'removeCoAdmin'];
+const ONCE_ACTIONS = ['bind', 'uploadImage', 'writeLetter', 'markSent', 'updateLetter', 'deleteLetter', 'createAct', 'updateAct', 'setOpen', 'deleteAct', 'deleteMyData', 'updateMyData', 'addCoAdmin', 'removeCoAdmin'];
 const ONCE_PENDING = '__pending__';
 function once(user, req, fn) {
   const rid = String(req.rid || '');
@@ -552,7 +553,7 @@ function listActs(user) {
 function hostLetterView(l, o, full) {
   const v = { id: String(l[LT.ID]), from: String(l[LT.FROM]), to: String(l[LT.TO]), paper: String(l[LT.PAPER] || 'rose'),
     time: fmt(l[LT.TIME]), sent: isTrue(l[LT.SENT]), openedAt: o ? fmt(o[OP.TIME]) : '', openedBy: o ? String(o[OP.NAME]) : '' };
-  if (full) Object.assign(v, { text: String(l[LT.TEXT]), image: String(l[LT.IMAGE] || ''), vref: String(l[LT.VREF] || ''), vtext: String(l[LT.VTEXT] || '') });
+  if (full) Object.assign(v, { text: String(l[LT.TEXT]), image: String(l[LT.IMAGE] || ''), vref: String(l[LT.VREF] || ''), vtext: String(l[LT.VTEXT] || ''), sign: String(l[LT.SIGN] || '') });
   return v;
 }
 
@@ -671,9 +672,9 @@ function writeLetter(user, actId, input) {
   if (st !== 'open') throw new Error(st === 'ended' ? '這個流通神聖的愛活動已經截止寫信' : '主辦人已經停止這個活動的寫信');
   const from = rosterName(user);
   if (!from) throw new Error('NEED_BIND');
-  const { to, text, image, paper, vref, vtext } = cleanLetterInput(input);
+  const { to, text, image, paper, vref, vtext, sign } = cleanLetterInput(input);
   const id = newId('L');
-  withLock(() => sheet(SH.LETTERS).appendRow(safeRow([id, a.id, from, user.userId, to, text, image, paper, new Date(), false, vref, vtext])));
+  withLock(() => sheet(SH.LETTERS).appendRow(safeRow([id, a.id, from, user.userId, to, text, image, paper, new Date(), false, vref, vtext, sign])));
   const s = lovedCount(a.id, to, user.userId);
   return { id, actId: a.id, actTitle: a.title, from, to, paper, opened: openedCount(a.id), loved: s.loved, writers: s.writers };
 }
@@ -684,7 +685,7 @@ function cleanLetterInput(input) {
   if (!text) throw new Error('請寫下要給對方的悄悄話');
   const image = /^https:\/\/lh3\.googleusercontent\.com\/d\/[\w-]+$/.test(input.image || '') ? input.image : '';
   const paper = PAPERS.includes(input.paper) ? input.paper : 'rose';
-  return { to, text, image, paper, vref: clip(input.vref, 40), vtext: clip(input.vtext, 500) };
+  return { to, text, image, paper, vref: clip(input.vref, 40), vtext: clip(input.vtext, 500), sign: clip(input.sign, 30) };
 }
 
 /** 寫信的人修改自己的信：對方還沒收信、活動還開放寫信時才能改 */
@@ -698,7 +699,7 @@ function updateLetter(user, letterId, input) {
     if (!a || stateOf(a) !== 'open') throw new Error('這個活動已經停止寫信，不能再修改');
     const sh = sheet(SH.LETTERS);
     sh.getRange(f.index, LT.TO + 1, 1, 4).setValues([safeRow([l.to, l.text, l.image, l.paper])]);
-    sh.getRange(f.index, LT.VREF + 1, 1, 2).setValues([safeRow([l.vref, l.vtext])]);
+    sh.getRange(f.index, LT.VREF + 1, 1, 3).setValues([safeRow([l.vref, l.vtext, l.sign])]);
     const changedTo = normName(f.row[LT.TO]) !== normName(l.to);
     if (changedTo) sh.getRange(f.index, LT.SENT + 1).setValue(false); // 換了收信人，要重新送出
     clearLoved(a.id);
@@ -743,7 +744,7 @@ function myLetters(user, actId) {
     const aid = String(l[LT.ACT]);
     return { id: String(l[LT.ID]), actId: aid, actTitle: titles[aid] || '', from: String(l[LT.FROM]), to: String(l[LT.TO]), text: String(l[LT.TEXT]), image: String(l[LT.IMAGE] || ''),
       paper: String(l[LT.PAPER] || 'rose'), time: fmt(l[LT.TIME]), sent: isTrue(l[LT.SENT]), openedAt: o ? fmt(o[OP.TIME]) : '',
-      vref: String(l[LT.VREF] || ''), vtext: String(l[LT.VTEXT] || '') };
+      vref: String(l[LT.VREF] || ''), vtext: String(l[LT.VTEXT] || ''), sign: String(l[LT.SIGN] || '') };
   }).reverse();
 }
 
@@ -759,7 +760,7 @@ function letterCard(id) {
 function letterContent(r, a) {
   return { id: String(r[LT.ID]), actId: String(r[LT.ACT]), actTitle: a ? a.title : '', from: String(r[LT.FROM]), to: String(r[LT.TO]),
     text: String(r[LT.TEXT]), image: String(r[LT.IMAGE] || ''), paper: String(r[LT.PAPER] || 'rose'), time: fmt(r[LT.TIME]),
-    vref: String(r[LT.VREF] || ''), vtext: String(r[LT.VTEXT] || '') };
+    vref: String(r[LT.VREF] || ''), vtext: String(r[LT.VTEXT] || ''), sign: String(r[LT.SIGN] || '') };
 }
 
 /** 按「收信」：登記姓名與收信人相符才拆信，第一次拆信記入收信紀錄（＝配對成功） */
@@ -794,6 +795,33 @@ function myData(user) {
     sent: rows(SH.LETTERS).filter(l => String(l[LT.FROM_UID]) === user.userId).length,
     received: rows(SH.OPENS).filter(o => String(o[OP.UID]) === user.userId).length,
   };
+}
+
+/** 編輯我的資料：改姓名或手機。也一併更新自己寫過的信上的署名（寄件人姓名）。
+ *  寫給「舊名字」的信不會自動改收信人，所以改名後那些信要請寫信的人用新名字再寄。 */
+function updateMyData(user, name, phone) {
+  name = clip(name, 30);
+  const digits = String(phone || '').replace(/\D/g, '');
+  const p = normPhone(digits);
+  if (!name || p.length < 9) throw new Error('請填寫姓名和完整手機號碼');
+  return withLock(() => {
+    const rs = sheet(SH.ROSTER), data = rs.getDataRange().getValues();
+    const mine = data.findIndex((r, i) => i > 0 && String(r[2]).trim() === user.userId);
+    if (mine < 1) throw new Error('還沒有你的登記資料，請先寫一封信或收一次信完成登記');
+    const clash = data.findIndex((r, i) => i > 0 && i !== mine && normName(r[0]) === normName(name) && normPhone(r[1]) === p);
+    if (clash > 0) throw new Error('這組姓名和手機已經有人登記，請確認後再改，或聯絡主辦人');
+    const oldName = String(data[mine][0]);
+    rs.getRange(mine + 1, 2).setNumberFormat('@');
+    rs.getRange(mine + 1, 1, 1, 2).setValues([safeRow([name, digits])]);
+    let letters = 0;
+    if (name !== oldName) {
+      const ls = sheet(SH.LETTERS), ld = ls.getDataRange().getValues();
+      for (let i = 1; i < ld.length; i++) {
+        if (String(ld[i][LT.FROM_UID]) === user.userId && String(ld[i][LT.FROM]) !== name) { ls.getRange(i + 1, LT.FROM + 1).setValue(safe(name)); letters++; }
+      }
+    }
+    return { name, phone: digits, renamed: name !== oldName, oldName, letters };
+  });
 }
 
 /** 刪除名單資料、自己寫的信、自己的收信紀錄、登入通行證 */
