@@ -84,6 +84,8 @@
   .shot-row { margin: 12px 0 0; }
   .shot-row.center { text-align: center; }
   .shot-btn { min-height: 40px; padding: 0 18px; font-size: 15px; }
+  .copy-alt { margin: 18px 0 0; padding: 12px 14px; border: 1px dashed var(--rule); border-radius: 12px; }
+  .copy-alt p { margin: 0 0 8px; line-height: 1.6; }
   .resume-note { font-size: 14px; line-height: 1.6; color: var(--ink); background: var(--gold-soft); border-radius: 10px; padding: 10px 12px; margin: 10px 0 12px; }
 
   /* 活動列表 */
@@ -1181,6 +1183,7 @@ async function drawMine() {
           : l.sent ? `<span class="chip pending">已送出・未收</span>` : `<span class="chip">還沒送出</span>`}</div>
         <div class="mine-acts">
           ${l.sent ? '' : `<button class="btn gold" type="button" data-resend="${esc(l.id)}">送出</button>`}
+          ${l.openedAt ? '' : `<button class="btn ghost" type="button" data-copy="${esc(l.id)}">🔗 複製連結</button>`}
           ${l.openedAt ? '' : `<button class="btn ghost" type="button" data-edit="${esc(l.id)}">編輯</button>`}
           <button class="btn danger" type="button" data-del="${esc(l.id)}">刪除</button>
         </div>
@@ -1190,6 +1193,10 @@ async function drawMine() {
       const l = letters.find(x => x.id === b.dataset.resend);
       if (await sendLetter({ ...l, actTitle: ACT.title, opened: ACT.opened, loved: ACT.loved, writers: ACT.writers })) drawMine();
     }));
+    box.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => busy(b, async () => {
+      const l = letters.find(x => x.id === b.dataset.copy);
+      if (await copyLetterLink({ ...l, actTitle: ACT.title })) { l.sent = true; drawMine(); }
+    }));
     box.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => writeForm(letters.find(x => x.id === b.dataset.edit)));
     box.querySelectorAll('[data-del]').forEach(b => b.onclick = () => armThen(b, '確定刪除？', () => busy(b, async rid => {
       await api('deleteLetter', { letterId: b.dataset.del, rid }); toast('已刪除這封信'); box.innerHTML = ''; drawMine();
@@ -1197,6 +1204,16 @@ async function drawMine() {
   } catch (e) {}
 }
 
+/** 好友清單裡找不到對方時的備用方式：複製收信連結，自己貼到和對方的聊天室 */
+const copyLinkHtml = id => `<div class="copy-alt"><p class="small muted">好友清單裡找不到對方？對方可能在 LINE 關掉了「外部應用程式存取」。可以複製收信連結，到和他的聊天室貼上。</p>
+    <button class="btn ghost block" id="${id}" type="button">🔗 複製收信連結</button></div>`;
+async function copyLetterLink(l) {
+  const text = `💌 有一封給「${l.to}」的信（${l.actTitle || '流通神聖的愛圖卡'}）\n點這裡收信：${letterUrl(l.id)}`;
+  if (!(await copyText(text))) throw new Error('無法複製，請再試一次');
+  try { await api('markSent', { letterId: l.id, rid: newRid() }); } catch (e) {}
+  toast('已複製收信連結，到和對方的聊天室貼上就可以了');
+  return true;
+}
 function sentView(ok) {
   view(`${topHtml(ME.name)}
     <div class="center fade-up">
@@ -1208,8 +1225,10 @@ function sentView(ok) {
     <div class="btn-row">
       <button class="btn ${ok ? 'ghost' : 'gold'} block" id="s-again" type="button">${ok ? '再傳給其他人' : '選擇朋友或群組送出'}</button>
       <button class="btn block" id="s-new" type="button">再寫一封</button>
-    </div>${footHtml()}`, 'write', themeOf(ACT));
+    </div>
+    ${copyLinkHtml('s-copy')}${footHtml()}`, 'write', themeOf(ACT));
   $('s-again').onclick = e => busy(e.currentTarget, async () => { if (await sendLetter(LETTER)) sentView(true); });
+  $('s-copy').onclick = e => busy(e.currentTarget, async () => { if (await copyLetterLink(LETTER)) sentView(true); });
   $('s-new').onclick = () => writeForm();
 }
 
