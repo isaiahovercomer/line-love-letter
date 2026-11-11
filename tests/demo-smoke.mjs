@@ -138,12 +138,6 @@ await check('letter：收信後看到內容', '?demo=letter&noguide', async page
   await shot(page, 'letter-opened');
 });
 
-await check('wrong：不是給你的信', '?demo=wrong&noguide', async page => {
-  await clickOpen(page);
-  await expectText(page, 'h2', '這封信不是給你的');
-  if (await page.locator('.paper .text').count()) throw new Error('不該看到信件內容');
-  await shot(page, 'wrong-opened');
-});
 
 await check('newbie：先登記才能收信', '?demo=newbie&noguide', async page => {
   await clickOpen(page);
@@ -548,10 +542,10 @@ await check('mydata：有入口到我寫過的信', '?demo=mydata&noguide', asyn
   await expectText(page, '.card', '寫過 3 封信');
 });
 
-await check('lock-note：寫信頁說明已改為大致相符', '?demo=write&noguide', async page => {
+await check('lock-note：寫信頁說明為登入就能拆、不比對姓名', '?demo=write&noguide', async page => {
   await page.locator('#w-to').waitFor();
   const note = await page.locator('.lock-note').innerText();
-  if (!note.includes('大致相符') || !note.includes('收信') || note.includes('一樣，才拆得開'))
+  if (!note.includes('登入就能拆開') || !note.includes('私訊') || note.includes('相符'))
     throw new Error('寫信頁說明未更新：' + note);
 });
 
@@ -564,9 +558,9 @@ await check('guide：使用說明有新規則與按鈕對比', '?demo=write&nogu
     throw new Error('寫信說明應示範金色主按鈕');
   await page.locator('.guide [data-g=next]').click();
   await page.locator('.guide [data-g=next]').click();
-  await expectText(page, '.guide h3', '名字大致相符就可以');
+  await expectText(page, '.guide h3', '按收信就能拆開');
   const body = await page.locator('.guide p').first().innerText();
-  if (!body.includes('大致相符') || !body.includes('稱謂') || !body.includes('小名'))
+  if (!body.includes('登入') || !body.includes('私訊') || body.includes('相符'))
     throw new Error('使用說明姓名規則未更新：' + body);
   if (await page.locator('.guide-samples .btn.gold', { hasText: '收信' }).count() === 0)
     throw new Error('姓名頁應示範收信按鈕');
