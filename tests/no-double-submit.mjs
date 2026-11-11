@@ -66,7 +66,7 @@ const settle = page => page.waitForTimeout(1500);
 const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
 const once = (s, action) => expect((s.calls[action] || 0) === 1, `${action} 呼叫 ${s.calls[action] || 0} 次`);
 
-await check('儲存並送出：連按 5 次 → writeLetter、選單、markSent 各 1 次', '?demo=write&noguide', async page => {
+await check('儲存並送出：連按 5 次 → writeLetter、選單、markSent 各 1 次', '?demo=write&new&noguide', async page => {
   await page.locator('#w-to').waitFor();
   await spy(page);
   await page.fill('#w-to', '林志豪');
@@ -80,7 +80,7 @@ await check('儲存並送出：連按 5 次 → writeLetter、選單、markSent 
   expect(s.rids.writeLetter[0], 'writeLetter 沒有帶 rid');
 });
 
-await check('再傳給其他人（#s-again）：連按 5 次 → 選單、markSent 各 1 次', '?demo=write&noguide', async page => {
+await check('再傳給其他人（#s-again）：連按 5 次 → 選單、markSent 各 1 次', '?demo=write&new&noguide', async page => {
   await page.locator('#w-to').waitFor();
   await page.fill('#w-to', '林志豪');
   await page.fill('#w-text', '連點測試');
@@ -94,7 +94,7 @@ await check('再傳給其他人（#s-again）：連按 5 次 → 選單、markSe
   expect(s.picker === 1, `選單開了 ${s.picker} 次`);
 });
 
-await check('取消選單後「選擇朋友或群組送出」、我的信「送出」：連按各只開 1 次', '?demo=write&noguide', async page => {
+await check('取消選單後「選擇朋友或群組送出」、我的信「送出」：連按各只開 1 次', '?demo=write&new&noguide', async page => {
   await page.locator('#w-to').waitFor();
   await spy(page, { cancel: true });
   await page.fill('#w-to', '林志豪');
@@ -119,7 +119,7 @@ await check('取消選單後「選擇朋友或群組送出」、我的信「送�
   once(s, 'markSent');
 });
 
-await check('失敗後可以再按：第一次 writeLetter 失敗 → 按鈕恢復，再按成功，兩次用同一個 rid', '?demo=write&noguide', async page => {
+await check('失敗後可以再按：第一次 writeLetter 失敗 → 按鈕恢復，再按成功，兩次用同一個 rid', '?demo=write&new&noguide', async page => {
   await page.locator('#w-to').waitFor();
   await spy(page, { fail: ['writeLetter'] });
   await page.fill('#w-to', '林志豪');
@@ -138,7 +138,7 @@ await check('失敗後可以再按：第一次 writeLetter 失敗 → 按鈕恢�
   expect(s.picker === 1, `選單開了 ${s.picker} 次`);
 });
 
-await check('故意連寫兩封不同的信：各自一個 rid，都寫得進去', '?demo=write&noguide', async page => {
+await check('故意連寫兩封不同的信：各自一個 rid，都寫得進去', '?demo=write&new&noguide', async page => {
   await page.locator('#w-to').waitFor();
   await spy(page);
   for (const to of ['林志豪', '王小明']) {
@@ -240,7 +240,7 @@ for (const [w, h] of [[390, 844], [320, 694]]) {
     expect(r.gap > 0, `封蠟與 To. 重疊 ${(-r.gap).toFixed(1)}px`);
     expect(r.inside, '封蠟或收信人超出信封');
   };
-  await check(`信封 ${w}px：寫信送出後封蠟不蓋 To.`, '?demo=write&noguide', async page => {
+  await check(`信封 ${w}px：寫信送出後封蠟不蓋 To.`, '?demo=write&new&noguide', async page => {
     await page.locator('#w-to').waitFor();
     await page.fill('#w-to', '林志豪');
     await page.fill('#w-text', '截圖用');

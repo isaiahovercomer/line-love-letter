@@ -28,7 +28,7 @@ const AC = { ID: 0, TITLE: 1, DESC: 2, OPEN: 3, CREATOR: 4, CREATED: 5, DEADLINE
 const LT = { ID: 0, ACT: 1, FROM: 2, FROM_UID: 3, TO: 4, TEXT: 5, IMAGE: 6, PAPER: 7, TIME: 8, SENT: 9, VREF: 10, VTEXT: 11, SIGN: 12 };
 const OP = { TIME: 0, LETTER: 1, ACT: 2, NAME: 3, LINE_NAME: 4, UID: 5 };
 const CA = { ACT: 0, UID: 1, NAME: 2, TIME: 3, ADDED_BY: 4 };
-const PAPERS = ['rose', 'sky', 'kraft', 'mint', 'winter', 'midautumn', 'duanwu', 'chuxi', 'winterbreak', 'summer', 'xmas', 'newyear', 'thanks', 'grad', 'birthday', 'gospel', 'love', 'shepherd', 'build'];
+const PAPERS = ['rose', 'sky', 'kraft', 'mint', 'winter', 'midautumn', 'duanwu', 'chuxi', 'winterbreak', 'summer', 'xmas', 'newyear', 'thanks', 'grad', 'birthday', 'gospel', 'love', 'shepherd', 'build', 'farewell', 'distance', 'reunion', 'missing'];
 
 function setup() {
   const ss = SpreadsheetApp.getActive();

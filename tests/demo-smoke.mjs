@@ -190,25 +190,31 @@ await check('verses：點備選經文，出處與恢復本內容都填好', '?de
   await shot(page, 'verses-picked');
 });
 
-await check('theme-groups：節日／場合換行並與日常對齊；愛情牧養建造都在', '?demo=write&noguide', async page => {
+await check('theme-groups：日常／節日／季節／人生場景／召會生活分開排列，新場景都在', '?demo=write&noguide', async page => {
   await page.locator('#w-to').waitFor();
   if (await page.locator('.music-hint', { hasText: '點選主題，會配上相應的背景音樂' }).count() === 0)
     throw new Error('沒有主題音樂說明');
-  for (const name of ['愛情', '牧養', '建造', '福音', '中秋', '端午', '除夕', '寒假', '暑假']) {
-    if (await page.locator(`[data-paper]`, { hasText: name }).count() === 0) throw new Error('缺少信紙：' + name);
+  const want = { daily: ['素雅', '晴空', '牛皮', '薄荷'], festival: ['新春', '除夕', '端午', '中秋', '感恩'], season: ['冬季', '寒假', '暑假'],
+    scene: ['生日', '畢業', '離別', '遠距', '重逢', '思念', '愛情'], church: ['福音', '牧養', '建造'] };
+  for (const [g, names] of Object.entries(want)) {
+    const got = await page.locator(`.pg-row[data-group=${g}] [data-paper]`).allInnerTexts();
+    const clean = got.map(t => t.replace(/\s+/g, ' ').trim().split(' ').pop());
+    if (clean.join() !== names.join()) throw new Error(`${g} 分組內容不對：${clean.join('、')}`);
   }
   if (await page.locator(`[data-paper]`, { hasText: '聖誕' }).count()) throw new Error('聖誕場合應已從選單拿掉');
   const gospelSym = await page.locator('[data-paper=gospel] i').textContent();
   if (new RegExp('[' + ['\\u271D','\\u271E','\\u271F','\\u2020','\\u2626','\\u2671','\\u26EA','\\u2629','\\u2719','\\u{1F547}'].join('') + ']', 'u').test(gospelSym || '')) throw new Error('福音仍用十字架符號：' + gospelSym);
-  const rows = await page.locator('.papers .pg-row').count();
-  if (rows !== 2) throw new Error('信紙分組列數 ' + rows);
-  const [daily, fest] = await page.locator('.papers .pg-row .pg').evaluateAll(els => els.map(el => {
+  const labels = await page.locator('.papers .pg-row .pg').evaluateAll(els => els.map(el => {
     const r = el.getBoundingClientRect();
     return { text: el.textContent.trim(), x: Math.round(r.left), y: Math.round(r.top) };
   }));
-  if (daily.text !== '日常' || fest.text !== '節日／場合') throw new Error('分組標籤不對：' + daily.text + ' / ' + fest.text);
-  if (fest.y <= daily.y + 8) throw new Error('節日／場合沒有換到下一行');
-  if (Math.abs(fest.x - daily.x) > 2) throw new Error(`節日／場合未與日常左對齊（${fest.x} vs ${daily.x}）`);
+  if (labels.map(l => l.text).join('/') !== '日常/節日/季節/人生場景/召會生活') throw new Error('分組標籤不對：' + labels.map(l => l.text).join('/'));
+  for (let i = 1; i < labels.length; i++) {
+    if (labels[i].y <= labels[i - 1].y + 8) throw new Error(labels[i].text + ' 沒有換到下一行');
+    if (Math.abs(labels[i].x - labels[0].x) > 2) throw new Error(labels[i].text + ' 未與日常左對齊');
+  }
+  const over = await page.evaluate(() => [...document.querySelectorAll('.papers [data-paper]')].some(b => b.getBoundingClientRect().right > document.documentElement.clientWidth));
+  if (over) throw new Error('信紙按鈕超出畫面');
   await shot(page, 'theme-groups-390');
 });
 
@@ -303,7 +309,7 @@ await check('listen-hint：收信頁有打開聲音提示、不自動播放', '?
   if (a.length !== 1 || a[0].paused || Math.abs(a[0].vol - 0.35) > 0.001) throw new Error('按了仍沒正確播放：' + JSON.stringify(a));
 });
 
-await check('loved-flex：圖卡文案與人數', '?demo=write&noguide', async page => {
+await check('loved-flex：圖卡文案與人數', '?demo=write&new&noguide', async page => {
   await page.locator('#w-to').waitFor();
   await expectText(page, 'h2', '冬天的第一個問候');
   await expectText(page, 'h2 + .act-counts', '已有 2 人寫信');
@@ -351,14 +357,14 @@ await check('loved-flex：圖卡文案與人數', '?demo=write&noguide', async p
 await check('my-letters：跨活動列出自己寫過的信', '?demo=mine&noguide', async page => {
   await expectText(page, 'h2', '我寫過的信');
   await expectText(page, '#ml-sum', '你已寫信給 3 位');
-  const rows = page.locator('#ml-list [data-ml]');
+  const rows = page.locator('#ml-list [data-ml], #ml-list [data-mledit]');
   if (await rows.count() !== 3) throw new Error('應有 3 封自己的信，實際 ' + await rows.count());
   const body = await page.locator('#ml-list').innerText();
   if (!body.includes('林志豪') || !body.includes('王小明') || !body.includes('李美玲')) throw new Error('缺少收信人：' + body);
   if (!body.includes('冬天的第一個問候') || !body.includes('畢業祝福信')) throw new Error('缺少活動名稱：' + body);
   if (!body.includes('未送出') || !body.includes('已送出') || !body.includes('對方已收信')) throw new Error('三種狀態不齊：' + body);
   if (body.includes('謝謝你這一年') || body.includes('願主祝福你的新工作') || body.includes('畢業快樂！')) throw new Error('列表不該出現別人的信件內容');
-  const ids = await rows.evaluateAll(els => els.map(e => e.getAttribute('data-ml')));
+  const ids = await rows.evaluateAll(els => els.map(e => e.getAttribute('data-ml') || e.getAttribute('data-mledit')));
   if (ids.some(id => !['L2', 'L5', 'L6'].includes(id))) throw new Error('出現別人的信：' + ids.join(','));
   // 最新在前：L5 (11/11) 、L2 (11/10) 、L6 (6/1)
   if (ids[0] !== 'L5' || ids[1] !== 'L2' || ids[2] !== 'L6') throw new Error('未依寫信時間新到舊：' + ids.join(','));
