@@ -131,6 +131,12 @@
   .paper textarea:focus, .paper .dear input:focus { outline: none; }
   .paper .text { white-space: pre-wrap; word-break: break-word; font-size: 17px; min-height: 96px; }
   .paper .sign { text-align: right; font-size: 17px; font-weight: 700; }
+  .paper .sign.editable { display: flex; justify-content: flex-end; align-items: baseline; gap: 4px; }
+  .paper .sign input { width: 11em; max-width: 70%; text-align: right; border: 0; border-bottom: 1.5px dashed var(--p-line); background: transparent; font-family: var(--serif); font-size: 17px; font-weight: 700; color: var(--p-ink); padding: 0 2px; border-radius: 0; }
+  .paper .sign input:hover, .paper .sign input:focus { border-bottom-color: var(--p-accent); outline: none; }
+  .paper .sign .pen { font-family: var(--sans); font-size: 13px; color: var(--p-accent); cursor: pointer; }
+  .profile-edit { margin-top: 12px; padding-top: 4px; border-top: 1px solid var(--rule); }
+  .warn-note { font-size: 13px; color: var(--gold-text); background: var(--gold-soft); border-radius: 10px; padding: 8px 12px; margin: 10px 0 0; }
   .paper .date { text-align: right; font-family: var(--sans); font-size: 13px; opacity: .75; }
   .paper .photo { margin: 8px 0 8px; line-height: 0; }
   .paper .photo img { width: 100%; max-height: 360px; object-fit: cover; border-radius: 4px; border: 6px solid #fff; box-shadow: 0 4px 12px rgba(0,0,0,.12); transform: rotate(-1.2deg); }
@@ -679,7 +685,13 @@ async function demoApi(action, d) {
       if (i >= 0) { name = demo.coAdmins[i].name; demo.coAdmins.splice(i, 1); removed = true; }
       return { ok: true, removed, name, coAdmins: demoListCoAdmins(d.actId), candidates: demoListCandidates(d.actId) };
     }
-    case 'myData': return { ok: true, found: !!demo.me.name, name: demo.me.name, phone: '0912345678', lineName: demo.me.displayName, sent: demo.letters.filter(l => l.fromUid === demo.me.userId).length, received: 1 };
+    case 'updateMyData': {
+      if (!d.name || String(d.phone).replace(/\D/g, '').length < 9) throw new Error('請填寫姓名和完整手機號碼');
+      const old = demo.me.name; demo.me.name = d.name; demo.me.phone = String(d.phone).replace(/\D/g, '');
+      let n = 0; demo.letters.forEach(l => { if (l.fromUid === demo.me.userId && l.from !== d.name) { l.from = d.name; n++; } });
+      return { ok: true, name: d.name, phone: demo.me.phone, renamed: old !== d.name, oldName: old, letters: n };
+    }
+    case 'myData': return { ok: true, found: !!demo.me.name, name: demo.me.name, phone: demo.me.phone || '0912345678', lineName: demo.me.displayName, sent: demo.letters.filter(l => l.fromUid === demo.me.userId).length, received: 1 };
     case 'deleteMyData': demo.me.name = ''; return { ok: true, roster: 1, letters: 1, opens: 1 };
     case 'overview': {
       if (!demo.me.isSuper) throw new Error('只有網站總管理者可以看登記總覽');
@@ -935,7 +947,7 @@ function writeForm(edit, presetTo) {
         <input id="v-ref" maxlength="40" value="${esc(d.vref || '')}" placeholder="出處，例如：約翰福音 3:16" aria-label="經文出處">
         <textarea id="v-text" maxlength="500" placeholder="經文內容（可自己填寫，或點上面的備選經文）" aria-label="經文內容">${esc(d.vtext || '')}</textarea>
       </div>
-      <div class="sign">— ${esc(ME.name)}</div>
+      <div class="sign editable">— <input id="w-sign" maxlength="30" value="${esc((d.sign || '').trim() || ME.name)}" placeholder="${esc(ME.name)}" aria-label="署名（可以修改）"><label class="pen" for="w-sign" title="點一下可以修改署名">✎</label></div>
       <div class="date">${esc(today)}</div>
     </div>
     <p class="lock-note">🔒 收信人按下「收信」並用 LINE 登入後，只要登記的姓名和信上寫的大致相符就可以拆開（可以加稱謂或用小名；只有完全不相干的名字才打不開）。</p>
@@ -943,7 +955,8 @@ function writeForm(edit, presetTo) {
     ${edit ? '' : '<div id="w-mine"></div>'}${footHtml()}`, 'write', themeOf(ACT));
 
   let cur = paper;
-  const keep = () => { if (!edit) saveDraft(ACT.id, { to: $('w-to').value, text: $('w-text').value, paper: cur, photo: PHOTO, vref: $('v-ref').value, vtext: $('v-text').value }); };
+  const signVal = () => { const v = $('w-sign').value.trim(); return v && v !== ME.name ? v : ''; };   // 跟登記姓名一樣就不另存
+  const keep = () => { if (!edit) saveDraft(ACT.id, { to: $('w-to').value, text: $('w-text').value, paper: cur, photo: PHOTO, vref: $('v-ref').value, vtext: $('v-text').value, sign: $('w-sign').value }); };
   if (edit) $('w-cancel').onclick = () => { PHOTO = ''; writeForm(); };
   document.querySelectorAll('[data-paper]').forEach(b => b.onclick = () => {
     cur = b.dataset.paper;
@@ -956,6 +969,8 @@ function writeForm(edit, presetTo) {
   const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.max(224, Math.ceil(ta.scrollHeight / 32) * 32) + 'px'; };
   ta.oninput = () => { grow(); keep(); };
   $('w-to').oninput = keep;
+  $('w-sign').oninput = keep;
+  $('w-sign').onblur = () => { if (!$('w-sign').value.trim()) { $('w-sign').value = ME.name; keep(); } };
   grow();
   const vt = $('v-text');
   const vgrow = () => { vt.style.height = 'auto'; vt.style.height = Math.max(96, Math.ceil(vt.scrollHeight / 32) * 32) + 'px'; };
@@ -975,7 +990,7 @@ function writeForm(edit, presetTo) {
   });
   drawPhoto(keep);
   $('w-send').onclick = e => busy(e.currentTarget, async rid => {
-    const letter = { to: $('w-to').value.trim(), text: $('w-text').value.trim(), paper: cur, image: PHOTO, vref: $('v-ref').value.trim(), vtext: vt.value.trim() };
+    const letter = { to: $('w-to').value.trim(), text: $('w-text').value.trim(), paper: cur, image: PHOTO, vref: $('v-ref').value.trim(), vtext: vt.value.trim(), sign: signVal() };
     if (!letter.to) { $('w-to').focus(); throw new Error('請填寫收信人的名字'); }
     if (!letter.text) { ta.focus(); throw new Error('請寫下要給對方的悄悄話'); }
     if (edit) {
@@ -1152,7 +1167,7 @@ function drawLetter(r) {
       <div class="text">${esc(l.text)}</div>
       ${imgOk(l.image) ? `<div class="photo"><img src="${esc(l.image)}" alt="寫信人附上的照片"></div>` : ''}
       ${verseShow(l)}
-      <div class="sign">— ${esc(l.from)}</div>
+      <div class="sign">— ${esc(l.sign || l.from)}</div>
       <div class="date">${esc(l.time)}</div>
     </div>
     <p class="music-hint center"><button type="button" class="link" id="l-music">🔈 打開聲音聆聽</button></p>
@@ -1779,7 +1794,7 @@ function showMyLetter(id) {
       <div class="text">${esc(l.text)}</div>
       ${imgOk(l.image) ? `<div class="photo"><img src="${esc(l.image)}" alt="寫信人附上的照片"></div>` : ''}
       ${verseShow(l)}
-      <div class="sign">— ${esc(l.from || who)}</div>
+      <div class="sign">— ${esc(l.sign || l.from || who)}</div>
       <div class="date">${esc(l.time)}</div>
     </div>
     ${footHtml()}`, 'mine-letter');
@@ -1859,7 +1874,16 @@ async function myDataFlow() {
     <h2>我的個人資料</h2>
     <div class="card">${d.found ? `
       <p>姓名：<b>${esc(d.name)}</b><br>手機：${esc(d.phone)}<br>LINE 名稱：${esc(d.lineName)}</p>
-      <p class="small muted">寫過 ${d.sent} 封信・收過 ${d.received} 封信</p>` : '<p>目前沒有你的資料。</p>'}
+      <p class="small muted">寫過 ${d.sent} 封信・收過 ${d.received} 封信</p>
+      <button class="btn ghost block" id="m-edit" type="button" aria-expanded="false">✏️ 編輯我的資料</button>
+      <div class="profile-edit" id="m-form" hidden>
+        <label class="f" for="m-name">姓名</label>
+        <input class="in" id="m-name" autocomplete="name" maxlength="30" value="${esc(d.name)}">
+        <label class="f" for="m-phone">手機</label>
+        <input class="in" id="m-phone" inputmode="tel" autocomplete="tel" maxlength="15" value="${esc(d.phone)}">
+        <p class="warn-note" id="m-warn" hidden>改了姓名之後，別人用舊名字「${esc(d.name)}」寫給你的信會拆不開，要請他用新名字再寄。你寫過的信，署名會一起改成新名字。</p>
+        <div class="btn-row"><button class="btn ghost" id="m-cancel" type="button">取消</button><button class="btn gold" id="m-save" type="button">儲存</button></div>
+      </div>` : '<p>目前沒有你的資料。</p>'}
       <div class="btn-row col" style="margin:8px 0 0">
         <a class="btn ghost block" id="m-mine" href="?mine${DEMO ? '&demo=mine' : ''}">查看我寫過的信</a>
         <button class="btn gold block" id="m-write" type="button">我要寫信</button>
@@ -1869,6 +1893,22 @@ async function myDataFlow() {
     <button class="btn danger block" id="m-del" type="button">刪除我的資料</button>` : ''}`);
   const goWrite = () => { location.href = writeHref(PARAMS.get('act') || lastAct()); };
   if ($('m-write')) $('m-write').onclick = goWrite;
+  if ($('m-edit')) {
+    const open = on => { $('m-form').hidden = !on; $('m-edit').hidden = on; $('m-edit').setAttribute('aria-expanded', on); if (on) $('m-name').focus(); };
+    $('m-edit').onclick = () => open(true);
+    $('m-cancel').onclick = () => { $('m-name').value = d.name; $('m-phone').value = d.phone; $('m-warn').hidden = true; open(false); };
+    $('m-name').oninput = () => { $('m-warn').hidden = normKey($('m-name').value) === normKey(d.name); };
+    $('m-save').onclick = e => busy(e.currentTarget, async rid => {
+      const name = $('m-name').value.trim(), phone = $('m-phone').value.trim();
+      if (!name) { $('m-name').focus(); throw new Error('請填寫姓名'); }
+      if (phone.replace(/\D/g, '').length < 9) { $('m-phone').focus(); throw new Error('請填寫完整手機號碼'); }
+      const r = await api('updateMyData', { name, phone, rid });
+      if (ME) ME.name = r.name;
+      cacheDel('home');
+      toast(r.renamed ? `已改成「${r.name}」` : '已儲存');
+      myDataFlow();
+    });
+  }
   const del = $('m-del');
   if (del) del.onclick = e => armThen(e.currentTarget, '再按一次確定刪除', () => busy(e.currentTarget, async rid => {
     await api('deleteMyData', { rid }); setSession(null); toast('已刪除你的資料'); myDataFlow();
