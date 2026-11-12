@@ -1442,7 +1442,7 @@ function renderHome() {
   if ($('h-install')) $('h-install').onclick = () => startInstall();
   if ($('h-overview')) $('h-overview').onclick = () => { location.href = DEMO ? '?demo=admin&overview=1&noguide' : '?overview=1'; };
   if ($('h-mine')) $('h-mine').onclick = () => { location.href = DEMO ? '?demo=mine&noguide' : '?mine=1'; };
-  document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => renderDetail(b.dataset.act));
+  document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => renderDetail(b.dataset.act).catch(e => { toast(e.message); renderHome(); }));
 }
 
 const DEFAULT_BTN = '書寫一封溫暖的問候';
@@ -1620,7 +1620,12 @@ async function renderDetail(id) {
   if (known && known.state === 'open') rememberAct(id);
   const cached = DEMO ? null : cacheGet('detail:' + id);
   if (cached) { DETAIL = cached; drawDetail(); }
-  else view(`${topHtml(ME.name || ME.displayName)}${loading()}`, 'detail:' + id, themeOf((ACTS.find(x => x.id === id) || {})));
+  else {
+    view(`${topHtml(ME.name || ME.displayName)}<button class="back" type="button" id="d-back">‹ 我的流通神聖的愛活動</button>
+      <h2>${esc((known && known.title) || '活動後台')}</h2>
+      <p class="muted small center" style="margin-top:24px">正在載入活動後台…信件多的活動要等幾秒</p>${loading()}`, 'detail:' + id, themeOf(known || {}));
+    $('d-back').onclick = () => renderHome();
+  }
   let fresh;
   try { fresh = await api('actDetail', { actId: id }); }
   catch (e) { if (cached) { toast('無法更新：' + e.message); return; } throw e; }

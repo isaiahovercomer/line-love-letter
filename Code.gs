@@ -63,6 +63,7 @@ function doPost(e) {
       out = { ok: true, card: letterCard(req.letterId) };
     } else {
       const user = req.session && req.action !== 'session' ? userFromSession(req.session) : verifyIdToken(req.idToken);
+      MEMO_ON = READ_ONLY_ACTIONS.includes(req.action);
       out = ONCE_ACTIONS.includes(req.action) ? once(user, req, () => run(user, req)) : run(user, req);
     }
   } catch (err) {
@@ -195,8 +196,20 @@ function verifyIdToken(idToken) {
 
 /* ---------- 工具 ---------- */
 function sheet(name) { return SpreadsheetApp.getActive().getSheetByName(name); }
-function rows(name) { const v = sheet(name).getDataRange().getValues(); v.shift(); return v; }
-function tz() { return Session.getScriptTimeZone(); }
+/* 唯讀的請求（例如活動後台）同一個工作表只讀一次：信件多的活動，原本一次要把信件表讀三四遍 */
+const READ_ONLY_ACTIONS = ['actDetail', 'listActs', 'myLetters', 'myData'];
+let MEMO_ON = false;
+const MEMO = {};
+function sheetValues(name) {
+  if (MEMO_ON && MEMO[name]) return MEMO[name];
+  const sh = SpreadsheetApp.getActive().getSheetByName(name);
+  const v = sh ? sh.getDataRange().getValues() : null;
+  if (MEMO_ON) MEMO[name] = v;
+  return v;
+}
+function rows(name) { const v = MEMO_ON ? sheetValues(name) : sheet(name).getDataRange().getValues(); return v ? v.slice(1) : []; }
+let TZ_ = '';
+function tz() { return TZ_ || (TZ_ = Session.getScriptTimeZone()); }
 function fmt(d, p) { return d instanceof Date ? Utilities.formatDate(d, tz(), p || 'yyyy/M/d HH:mm') : String(d || ''); }
 function normPhone(v) { return String(v || '').replace(/\D/g, '').slice(-9); }
 /** 比對姓名：去掉所有空白、英文不分大小寫 */
@@ -283,6 +296,7 @@ function ensureCoAdminSheet() {
   return sh;
 }
 function coRows() {
+  if (MEMO_ON) { const m = sheetValues(SH.COADMINS); return m ? m.slice(1) : []; }
   const sh = SpreadsheetApp.getActive().getSheetByName(SH.COADMINS);
   if (!sh) return [];
   const v = sh.getDataRange().getValues();
@@ -456,7 +470,7 @@ function publicAct(a) {
   return { id: a.id, title: a.title, desc: a.desc, deadline: a.deadline, paper: a.paper, image: a.image, button: a.button, state: stateOf(a), opened: openedCount(a.id), loved: s.loved, writers: s.writers };
 }
 function findActRow(id) {
-  const data = sheet(SH.ACTS).getDataRange().getValues();
+  const data = MEMO_ON ? sheetValues(SH.ACTS) : sheet(SH.ACTS).getDataRange().getValues();
   for (let i = 1; i < data.length; i++) if (String(data[i][AC.ID]) === String(id)) return { index: i + 1, row: data[i] };
   throw new Error('找不到這個流通神聖的愛活動，可能已經被刪除');
 }
