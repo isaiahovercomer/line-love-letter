@@ -1410,7 +1410,7 @@ async function homeFlow(pre) {
 async function prefetchDetails() {
   for (const a of ACTS.slice(0, 3)) {
     if (cacheGet('detail:' + a.id)) continue;
-    try { cacheSet('detail:' + a.id, await api('actDetail', { actId: a.id })); } catch (e) { return; }
+    try { const d = await api('actDetail', { actId: a.id }); if (detailOk(d)) cacheSet('detail:' + a.id, d); } catch (e) { return; }
   }
 }
 const saveHome = () => cacheSet('home', { me: ME, acts: ACTS });
@@ -1609,11 +1609,20 @@ function renderActForm(a) {
 }
 
 let DETAIL = null, FILTER = 'all', OPENED_ROW = '';
+/** 活動後台資料要有活動與信件清單；不完整的（舊快取或讀取失敗）不用、不存 */
+const detailOk = d => !!(d && d.act && d.act.id && Array.isArray(d.list));
+async function fetchDetail(id) {
+  let d = await api('actDetail', { actId: id });
+  if (!detailOk(d)) d = await api('actDetail', { actId: id });   // 偶爾不完整：再讀一次
+  if (!detailOk(d)) throw new Error('活動資料讀取不完整，請稍後再試一次（' + Object.keys(d || {}).join(',') + '）');
+  return d;
+}
 async function renderDetail(id) {
   FILTER = 'all'; OPENED_ROW = '';
   const known = ACTS.find(x => x.id === id);
   if (known && known.state === 'open') rememberAct(id);
-  const cached = DEMO ? null : cacheGet('detail:' + id);
+  let cached = DEMO ? null : cacheGet('detail:' + id);
+  if (cached && !detailOk(cached)) { cacheDel('detail:' + id); cached = null; }
   if (cached) { DETAIL = cached; drawDetail(); }
   else {
     view(`${topHtml(ME.name || ME.displayName)}<button class="back" type="button" id="d-back">‹ 我的流通神聖的愛活動</button>
@@ -1622,7 +1631,7 @@ async function renderDetail(id) {
     $('d-back').onclick = () => renderHome();
   }
   let fresh;
-  try { fresh = await api('actDetail', { actId: id }); }
+  try { fresh = await fetchDetail(id); }
   catch (e) { if (cached) { toast('無法更新：' + e.message); return; } throw e; }
   cacheSet('detail:' + id, fresh);
   const i = ACTS.findIndex(x => x.id === id); if (i >= 0) { ACTS[i] = { ...ACTS[i], ...fresh.act }; saveHome(); }
