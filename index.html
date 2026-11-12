@@ -86,6 +86,8 @@
   .shot-btn { min-height: 40px; padding: 0 18px; font-size: 15px; }
   .copy-alt { margin: 18px 0 0; padding: 12px 14px; border: 1px dashed var(--rule); border-radius: 12px; }
   .copy-alt p { margin: 0 0 8px; line-height: 1.6; }
+  .why-id { margin: 10px 0 4px; padding: 10px 12px; border-radius: 10px; background: var(--gold-soft); font-size: 13.5px; line-height: 1.65; color: var(--ink); }
+  .why-id b { display: block; margin-bottom: 2px; }
   .resume-note { font-size: 14px; line-height: 1.6; color: var(--ink); background: var(--gold-soft); border-radius: 10px; padding: 10px 12px; margin: 10px 0 12px; }
 
   /* 活動列表 */
@@ -723,8 +725,7 @@ async function demoApi(action, d) {
     case 'openLetter': {
       const l = letter(d.letterId);
       if (l.fromUid === demo.me.userId) return { ok: true, status: 'mine', letter: demoContent(l), openedAt: l.openedAt };
-      if (!demo.me.name) return { ok: true, status: 'need_bind', to: l.to };
-      const first = !l.openedAt; if (first) { l.openedAt = '剛剛'; l.openedBy = demo.me.name; l.openedUid = demo.me.userId; }
+      const first = !l.openedAt; if (first) { l.openedAt = '剛剛'; l.openedBy = demo.me.name || demo.me.displayName || 'LINE 使用者'; l.openedUid = demo.me.userId; }
       return { ok: true, status: 'opened', first, letter: demoContent(l), openedAt: l.openedAt };
     }
     case 'createAct': { if (!d.act.title) throw new Error('請填寫活動名稱'); const a = { id: 'A' + Date.now(), ...d.act, open: true, created: '剛剛', creator: demo.me.name || '預覽使用者', creatorUid: demo.me.userId, mine: true }; demo.acts.unshift(a); return { ok: true, act: demoActFlags(a) }; }
@@ -901,9 +902,9 @@ const GUIDES = {
   writer: [
     ['✉️', '寫一封信', '在信紙上填收信人的名字，寫下想對他說的悄悄話。可以換信紙（分成日常、節日、季節、人生場景、召會生活五類，有畢業、離別、遠距、重逢、思念等），也可以附一張照片。活動頁會帶上相應的淡色調、花邊和背景浮水印。', [['gold', '儲存並送出']]],
     ['🎵', '主題會配上音樂', '點選主題，會配上詩歌曲調的純音樂。不想聽就按「停止音樂」。收信的人要自己按「打開聲音聆聽」才會播放。', [['ghost', '停止音樂'], ['ghost', '打開聲音聆聽']]],
-    ['🔓', '按收信就能拆開', '信是私訊給對方的。收信人按下「收信」並用 LINE 登入（第一次要填姓名和手機）就能拆開，不用擔心名字寫法對不上。請把信直接傳給收信人本人。', [['gold', '收信']]],
+    ['🔓', '按收信就能拆開', '信是私訊給對方的。收信人按下「收信」並用 LINE 開啟就能拆開，不用填姓名或手機。要回信或寫新的信時，才需要填姓名和手機核對身份。請把信直接傳給收信人本人。', [['gold', '收信']]],
     ['📖', '可以選一節經文', '備選經文都在這一頁，分幾行排列。點一下，出處和恢復本內容會一起填好，也可以自己寫。'],
-    ['📤', '按一次，等它送出', '按「儲存並送出」一次就好，請等它處理完。選好朋友或群組後，對方會收到只寫著「To. 他名字」的信封。活動標題旁邊會顯示「已有 XX 人寫信」「已有 XX 人收到關心」（送出當下這個活動的人數，圖卡發出後不會再變）。', [['gold', '儲存並送出']]],
+    ['📤', '按一次，等它送出', '按「儲存並送出」一次就好，請等它處理完。選好朋友或群組後，對方會收到只寫著「To. 他名字」的信封（信封上不顯示人數；「已有 XX 人寫信」「已有 XX 人收到關心」只出現在寫信入口圖卡）。', [['gold', '儲存並送出']]],
     ['🕊️', '收信＝神聖的愛流通成功', '對方按「收信」並登入就能拆信。你寫的信列在頁面下方，可以重新送出；對方收信前可以編輯或刪除。信件內容：寫信的人看得到自己寫的，收信人拆開後看得到那封，網站總管理者看得到全部；活動建立者與共同管理者只看得到誰寫給誰，看不到內容。', [['gold', '收信'], ['ghost', '編輯'], ['danger', '刪除']]],
     ['📷', '信紙存成圖片', '拆開的信、我寫過的信、寫信頁的信紙下方都有「存成圖片」。按一下就把信紙存成 PNG 圖片，可以存到手機相簿或分享給朋友（只有信紙，不含畫面其他部分）。', [['ghost', '📷 存成圖片']]],
     ['📜', '我寫過的信', '首頁最下面有「我寫過的信」，「我的個人資料」裡也可以查看，並列出你在各個活動寫給過誰、是否已送出或對方已收信。在個人資料頁按「我要寫信」，會回到進行中的活動繼續寫。', [['ghost', '查看我寫過的信'], ['gold', '我要寫信']]],
@@ -980,7 +981,7 @@ function bindView(title, hint, done, preset = '') {
       <input class="in" id="b-name" autocomplete="name" maxlength="30" value="${esc(preset)}" placeholder="例如：陳怡君">
       <label class="f" for="b-phone">手機</label>
       <input class="in" id="b-phone" inputmode="tel" autocomplete="tel" maxlength="15" placeholder="0912345678">
-      <p class="f-hint">只用來確認是你本人，之後用這個 LINE 開啟就不用再填。</p>
+      <div class="why-id"><b>🔒 為什麼要填手機？</b>用來核對是你本人，避免有人冒用名字寫信。手機不會顯示給收信人，也不會用來打電話或推銷；之後用這個 LINE 開啟就不用再填。</div>
       <div class="btn-row"><button class="btn block" id="b-go" type="button">確認</button></div>
     </div>${footHtml()}`, '', ACT ? themeOf(ACT) : '');
   $('b-go').onclick = e => busy(e.currentTarget, async rid => {
@@ -1033,7 +1034,7 @@ async function writeFlow(pre, actId) {
   // 有還沒送出的信，先接著編輯那一封（?new 可以直接寫新的）
   const resume = PARAMS.has('new') ? null : pendingLetter(MINE, PARAMS.get('edit'), PARAMS.get('to'));
   const start = () => resume ? writeForm(resume, undefined, true) : writeForm();
-  if (!ME.name) return bindView('先認識一下你', `第一次寫信，請填你的姓名和手機。<br>收到信的人會看到你的姓名。`, () => { start(); openGuide('writer'); });
+  if (!ME.name) return bindView('寫信前先核對身份', `收信的人會看到你的名字。為了確認信真的是你本人寫的、讓對方安心拆信，第一次寫信請填姓名和手機（只要填一次）。`, () => { start(); openGuide('writer'); });
   start(); openGuide('writer');
 }
 
@@ -1253,10 +1254,9 @@ async function letterFlow(pre) {
   LETTER_ACT_THEME = themeOf({ title: card.actTitle, paper: card.actPaper });
   view(`${topHtml()}
     <p class="center muted small" style="margin-top:20px">${esc(card.actTitle)}</p>
-    ${actCountBadges(card, 'center')}
     <h2 class="center">有一封給「${esc(card.to)}」的信</h2>
     <div class="env-stage"><div class="env" id="env" style="${paperVars(card.paper)}"><div class="flap"></div><div class="seal">${paperOf(card.paper).sym}</div><div class="to"><small>To.</small><b>${esc(card.to)}</b></div></div></div>
-    <p class="center muted small">按「收信」並用 LINE 登入，就能拆開</p>
+    <p class="center muted small">按「收信」用 LINE 開啟就能拆開，不用填任何資料</p>
     <p class="music-hint center"><button type="button" class="link" id="l-music">🔈 打開聲音聆聽</button></p>
     <button class="btn block gold" id="l-open" type="button" style="margin-top:12px">收信</button>
     ${footHtml()}`, 'letter', LETTER_ACT_THEME);
@@ -1269,16 +1269,10 @@ async function letterFlow(pre) {
 
 async function tryOpen(card) {
   const r = await api('openLetter', { letterId: card.id });
-  if (r.status === 'need_bind') {
-    return bindView('收信前，先確認你是誰', `第一次收信，請填你的姓名和手機，填好就能拆開這封信。`, async () => {
-      view(loading()); const again = await api('openLetter', { letterId: card.id }); showOpened(card, again);
-    }, '');
-  }
   showOpened(card, r);
 }
 
 function showOpened(card, r) {
-  if (r.status === 'need_bind') return tryOpen(card);
   // 拆信動畫：信封打開後，信紙滑上來
   const env = $('env');
   const reveal = () => drawLetter(r);
@@ -1293,9 +1287,10 @@ async function writeFrom(actId, to) {
   ACT = act;
   if (!ME || !ME.name) ME = await api('me');
   await loadVerses();
-  writeForm(undefined, to);
-  if (!to) $('w-to').focus();
-  openGuide('writer');
+  const go = () => { writeForm(undefined, to); if (!to) $('w-to').focus(); openGuide('writer'); };
+  // 收信不用登記；要回信或寫新的信，才請他填姓名和手機核對身份
+  if (!ME.name) return bindView('寫信前先核對身份', `收信的人會看到你的名字。為了確認信真的是你本人寫的、讓對方安心拆信，第一次寫信請填姓名和手機（只要填一次）。`, go);
+  go();
 }
 
 function drawLetter(r) {
@@ -2293,13 +2288,12 @@ function letterFlex(l) {
     styles: { body: { backgroundColor: p.paper }, footer: { backgroundColor: p.paper } },
     body: { type: 'box', layout: 'vertical', paddingAll: '18px', contents: [
       { type: 'text', text: '✉️ ' + (l.actTitle || '流通神聖的愛信'), size: 'xs', color: p.accent, weight: 'bold', wrap: true },
-      ...lovedLine(l.loved, p, l.writers),
       { type: 'box', layout: 'vertical', margin: 'md', backgroundColor: p.env, cornerRadius: '10px', paddingAll: '16px', paddingTop: '22px', contents: [
         { type: 'box', layout: 'vertical', width: '44px', height: '44px', cornerRadius: '22px', backgroundColor: p.accent, justifyContent: 'center', alignItems: 'center',
           contents: [{ type: 'text', text: p.sym, color: '#FFFFFF', size: 'lg', align: 'center' }] },
         { type: 'text', text: 'To.', size: 'xs', color: p.ink, margin: 'lg' },
         { type: 'text', text: String(l.to), size: 'xl', weight: 'bold', color: p.ink, wrap: true },
-        { type: 'text', text: '只有本人拆得開', size: 'xxs', color: p.ink, margin: 'sm' } ] } ] },
+        { type: 'text', text: '給你的悄悄話，按「收信」拆開', size: 'xxs', color: p.ink, margin: 'sm', wrap: true } ] } ] },
     footer: { type: 'box', layout: 'vertical', paddingAll: '14px', paddingTop: '0px', spacing: 'xs', contents: [
       { type: 'button', style: 'primary', color: p.accent, height: 'sm', action: { type: 'uri', label: '收信', uri: letterUrl(l.id) } },
       { type: 'button', style: 'link', height: 'sm', color: p.ink, action: { type: 'uri', label: '轉傳給其他朋友', uri: fwdUrl(l.id) } } ] },

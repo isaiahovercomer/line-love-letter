@@ -129,8 +129,7 @@ await check('bind：第一次寫信先填姓名手機', '?demo=bind&noguide', as
 
 await check('letter：收信後看到內容', '?demo=letter&noguide', async page => {
   await expectText(page, 'h2', '有一封給「陳怡君」的信');
-  await expectText(page, '.act-counts', '已有 2 人寫信');
-  await expectText(page, '.act-counts', '已有 2 人收到關心');
+  if (await page.locator('.act-counts').count()) throw new Error('收信頁不該顯示人數');
   await shot(page, 'letter');
   await clickOpen(page);
   await expectText(page, '.paper .text', '謝謝你這一年');
@@ -139,12 +138,18 @@ await check('letter：收信後看到內容', '?demo=letter&noguide', async page
 });
 
 
-await check('newbie：先登記才能收信', '?demo=newbie&noguide', async page => {
+await check('newbie：不用填資料就能收信，回信時才核對身份', '?demo=newbie&noguide', async page => {
   await clickOpen(page);
-  await expectText(page, 'h2', '收信前，先確認你是誰');
-  await page.locator('#b-name').waitFor();
-  if (await page.locator('.paper .text').count()) throw new Error('不該看到信件內容');
+  await page.locator('.paper .text').first().waitFor();
+  if (await page.locator('#b-name').count()) throw new Error('收信時不該要求填資料');
   await shot(page, 'newbie-opened');
+  await page.locator('#l-reply').click();
+  await expectText(page, 'h2', '寫信前先核對身份');
+  await expectText(page, '.why-id', '為什麼要填手機');
+  await page.fill('#b-name', '林志豪'); await page.fill('#b-phone', '0912345678');
+  await page.locator('#b-go').click();
+  await page.locator('#w-to').waitFor();
+  if (!(await page.inputValue('#w-to'))) throw new Error('回信的收信人應預設為原寄信人');
 });
 
 await check('mydata：我的個人資料', '?demo=mydata&noguide', async page => {
@@ -340,9 +345,8 @@ await check('loved-flex：圖卡文案與人數', '?demo=write&new&noguide', asy
     return { letter: walk(letter), none: walk(none), act: walk(act), flex: { letter: checkFlex(letter, '信件圖卡'), act: checkFlex(act, '活動圖卡') } };
   });
   const li = texts.letter, ai = texts.act;
-  const tTitle = li.indexOf('✉️ 冬天的第一個問候'), tWrite = li.indexOf('已有 2 人寫信'), tLove = li.indexOf('已有 3 人收到關心'), tTo = li.indexOf('To.');
-  if (tTitle < 0 || tWrite < 0 || tLove < 0) throw new Error('信件圖卡缺少標題或人數：' + li.join('|'));
-  if (!(tTitle < tWrite && tWrite < tLove && tLove < tTo)) throw new Error('信件圖卡人數應在標題後、信封前：' + li.join('|'));
+  if (li.indexOf('✉️ 冬天的第一個問候') < 0 || li.indexOf('To.') < 0) throw new Error('信件圖卡缺少標題或收信人：' + li.join('|'));
+  if (li.some(t => /收到關心|人寫信/.test(t))) throw new Error('信件圖卡（給收信人）不該顯示人數：' + li.join('|'));
   if (texts.none.some(t => /收到關心|人寫信/.test(t))) throw new Error('人數為 0 時不該顯示：' + texts.none.join('|'));
   const aTitle = ai.indexOf('冬天的第一個問候'), aWrite = ai.indexOf('已有 4 人寫信'), aLove = ai.indexOf('已有 5 人收到關心'), aDesc = ai.indexOf('說明文字');
   if (!(aTitle < aWrite && aWrite < aLove && aLove < aDesc)) throw new Error('活動圖卡人數應緊跟標題、在說明前：' + ai.join('|'));
@@ -564,7 +568,7 @@ await check('guide：使用說明有新規則與按鈕對比', '?demo=write&nogu
   await page.locator('.guide [data-g=next]').click();
   await expectText(page, '.guide h3', '按收信就能拆開');
   const body = await page.locator('.guide p').first().innerText();
-  if (!body.includes('登入') || !body.includes('私訊') || body.includes('相符'))
+  if (!body.includes('不用填姓名或手機') || !body.includes('私訊') || body.includes('相符'))
     throw new Error('使用說明姓名規則未更新：' + body);
   if (await page.locator('.guide-samples .btn.gold', { hasText: '收信' }).count() === 0)
     throw new Error('姓名頁應示範收信按鈕');
