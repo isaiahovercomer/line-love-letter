@@ -204,13 +204,15 @@ await check('轉傳寫信入口（?share）：連按 5 次只開 1 次選單', '
   expect(s.picker === 1, `選單開了 ${s.picker} 次`);
 });
 
-await check('綁定、收信：連按 5 次 bind、openLetter 各 1 次', '?demo=newbie&noguide', async page => {
+await check('收信、綁定：連按 5 次 openLetter、bind 各 1 次', '?demo=newbie&noguide', async page => {
   await page.locator('#l-open').waitFor();
   await spy(page);
   await hammer(page, '#l-open');
-  await page.locator('#b-name').waitFor({ timeout: 5000 });
+  await page.locator('#l-pass').waitFor({ timeout: 5000 });
   let s = await stats(page);
   once(s, 'openLetter');
+  await page.locator('#l-pass').click();
+  await page.locator('#b-name').waitFor({ timeout: 5000 });
   await page.fill('#b-name', '陳怡君');
   await page.fill('#b-phone', '0912345678');
   await hammer(page, '#b-go');

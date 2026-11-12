@@ -770,8 +770,8 @@ function openLetter(user, letterId) {
   if (!f) throw new Error('找不到這封信，可能已經被刪除');
   const r = f.row, a = getAct(r[LT.ACT]);
   if (String(r[LT.FROM_UID]) === user.userId) return { status: 'mine', letter: letterContent(r, a), ...openInfo(letterId) };
-  const name = rosterName(user);
-  if (!name) return { status: 'need_bind', to: String(r[LT.TO]) };
+  // 收信不用填任何資料：沒登記過的人用 LINE 名稱記在收信紀錄（要回信或寫信時才需要登記姓名與手機）
+  const name = rosterName(user) || String(user.displayName || '') || 'LINE 使用者';
   return withLock(() => {
     let info = openInfo(letterId), first = false;
     if (!info.openedAt) {
