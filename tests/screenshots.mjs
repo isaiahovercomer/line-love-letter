@@ -33,12 +33,8 @@ await shotPage({ name: 'after-theme-groups-390.png', path: '?demo=write&noguide'
 }});
 await shotPage({ name: 'after-theme-groups-320.png', path: '?demo=write&noguide', width: 320, height: 694, after: async page => {
   await page.locator('.papers').waitFor();
-  const [daily, fest] = await page.locator('.papers .pg-row .pg').evaluateAll(els => els.map(el => {
-    const r = el.getBoundingClientRect();
-    return { text: el.textContent.trim(), x: Math.round(r.left), y: Math.round(r.top) };
-  }));
-  if (fest.y <= daily.y + 8) throw new Error('320：節日／場合沒換行');
-  if (Math.abs(fest.x - daily.x) > 2) throw new Error(`320：未對齊 ${fest.x} vs ${daily.x}`);
+  const over = await page.evaluate(() => [...document.querySelectorAll('.pp-tabs, .papers .pg-row:not([hidden]) [data-paper]')].some(b => b.getBoundingClientRect().right > document.documentElement.clientWidth + 1 && !b.closest('.pp-tabs')));
+  if (over) throw new Error('320：信紙按鈕超出畫面');
 }});
 
 await shotPage({ name: 'after-verse-picks-390.png', path: '?demo=write&noguide', after: async page => {
@@ -59,15 +55,18 @@ await shotPage({ name: 'after-verse-picks-320.png', path: '?demo=write&noguide',
 }});
 
 await shotPage({ name: 'after-love-theme.png', path: '?demo=write&noguide', after: async page => {
+  await page.locator('.pp-tabs [data-tab=scene]').click();
   await page.locator('[data-paper=love]').click();
   await page.locator('#paper').waitFor();
 }});
 await shotPage({ name: 'after-theme-music.png', path: '?demo=write&noguide', after: async page => {
   await page.locator('.music-hint').waitFor();
+  await page.locator('.pp-tabs [data-tab=church]').click();
   await page.locator('[data-paper=shepherd]').click();
 }});
 await shotPage({ name: 'after-no-cross-header.png', path: '?demo&noguide', fullPage: false });
 await shotPage({ name: 'after-no-cross-gospel.png', path: '?demo=write&noguide', after: async page => {
+  await page.locator('.pp-tabs [data-tab=church]').click();
   await page.locator('[data-paper=gospel]').click();
   await page.locator('#w-stamp').waitFor();
 }});

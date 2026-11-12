@@ -121,16 +121,20 @@
   .pair .body { margin-top: 10px; }
 
   /* 信紙：每組一行，節日／場合與日常左對齊；按鈕可換行，不要左右滑動 */
-  .papers { display: flex; flex-direction: column; gap: 14px; margin: 6px 0 14px; padding: 14px 12px; background: var(--card); border: 1px solid var(--rule); border-radius: 14px; overflow: visible; }
-  .papers .pg-row { display: block; }
-  .papers .pg { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: .12em; color: var(--ink-2); margin: 0 0 8px; }
-  .papers .pg::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
-  .papers .pg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 7px; }
-  .papers button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 58px; padding: 7px 2px 5px; border-radius: 11px; border: 1.5px solid var(--rule); background: #fff; color: var(--ink); font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: border-color .15s, box-shadow .15s, transform .15s; }
-  .papers button i { font-style: normal; display: grid; place-items: center; width: 30px; height: 22px; border-radius: 6px; background: var(--bg); border: 1px solid var(--ln); color: var(--c); font-size: 13px; line-height: 1; }
-  .papers button:active { transform: scale(.97); }
-  .papers button[aria-pressed=true] { border-color: var(--c); background: var(--bg); color: var(--c); box-shadow: 0 0 0 2px var(--c) inset; }
-  .papers button[aria-pressed=true] i { background: var(--c); border-color: var(--c); color: #fff; }
+  .papers { margin: 6px 0 12px; padding: 8px 10px 10px; background: var(--card); border: 1px solid var(--rule); border-radius: 14px; }
+  .papers .pp-tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; margin: 0 -2px 8px; border-bottom: 1px solid var(--rule); }
+  .papers .pp-tabs::-webkit-scrollbar { display: none; }
+  .papers .pp-tabs button { flex: 0 0 auto; padding: 6px 9px 7px; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; color: var(--ink-2); font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .papers .pp-tabs button[aria-selected=true] { color: var(--ink); border-bottom-color: var(--accent); }
+  .papers .pp-tabs button .dot { display: inline-block; width: 6px; height: 6px; margin-left: 4px; border-radius: 50%; background: var(--accent); vertical-align: 2px; }
+  .papers .pg-row[hidden] { display: none; }
+  .papers .pg { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .papers .pg-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .papers .pg-grid button { display: inline-flex; align-items: center; gap: 5px; height: 34px; padding: 0 10px 0 5px; border-radius: 999px; border: 1.5px solid var(--rule); background: #fff; color: var(--ink); font-size: 13.5px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: border-color .15s, box-shadow .15s, transform .15s; }
+  .papers .pg-grid button i { font-style: normal; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--bg); border: 1px solid var(--ln); color: var(--c); font-size: 12px; line-height: 1; }
+  .papers .pg-grid button:active { transform: scale(.97); }
+  .papers .pg-grid button[aria-pressed=true] { border-color: var(--c); background: var(--bg); color: var(--c); box-shadow: 0 0 0 1px var(--c) inset; }
+  .papers .pg-grid button[aria-pressed=true] i { background: var(--c); border-color: var(--c); color: #fff; }
   .music-hint { font-size: 13px; color: var(--ink-2); margin: 0 0 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .music-hint button { font-size: 13px; }
   .paper { position: relative; background-color: var(--p-paper); color: var(--p-ink); border-radius: 6px 6px 10px 10px; border-top: 6px solid var(--p-accent);
@@ -1049,9 +1053,11 @@ function writeForm(edit, presetTo, resume) {
     ${actCountBadges(ACT)}
     ${edit ? '' : ACT.desc ? `<p class="muted small" style="white-space:pre-wrap">${esc(ACT.desc)}</p>` : ''}
     ${ACT.deadline ? `<p class="small muted">寫信截止：${esc(shortTime(ACT.deadline))}</p>` : ''}
-    <div class="papers" role="group" aria-label="選信紙">
-      ${PAPER_GROUPS.map(([g, label]) => { const list = papersIn(g, paper); return list.length ? `<div class="pg-row" data-group="${g}"><span class="pg">${label}</span><div class="pg-grid">` + list.map(([k, p]) =>
-        `<button type="button" data-paper="${k}" aria-pressed="${k === paper}" style="--c:${p.accent};--bg:${p.paper};--ln:${p.line}"><i aria-hidden="true">${p.sym}</i><span>${p.name}</span></button>`).join('') + '</div></div>' : ''; }).join('')}
+    <div class="papers" role="group" aria-label="選信紙">${(() => { const curG = (paperOf(paper).group) || 'daily';
+      return `<div class="pp-tabs" role="tablist" aria-label="信紙分類">${PAPER_GROUPS.filter(([g]) => papersIn(g, paper).length).map(([g, label]) =>
+        `<button type="button" role="tab" data-tab="${g}" aria-selected="${g === curG}">${label}${g === curG ? '<span class="dot" aria-hidden="true"></span>' : ''}</button>`).join('')}</div>` +
+      PAPER_GROUPS.map(([g, label]) => { const list = papersIn(g, paper); return list.length ? `<div class="pg-row" data-group="${g}" role="tabpanel" ${g === curG ? '' : 'hidden'}><span class="pg">${label}</span><div class="pg-grid">` + list.map(([k, p]) =>
+        `<button type="button" data-paper="${k}" aria-pressed="${k === paper}" style="--c:${p.accent};--bg:${p.paper};--ln:${p.line}"><i aria-hidden="true">${p.sym}</i><span>${p.name}</span></button>`).join('') + '</div></div>' : ''; }).join(''); })()}
     </div>
     <p class="music-hint" id="w-music-hint"><span>🎵 點選主題，會配上相應的背景音樂</span><button type="button" class="link" id="w-music-toggle" hidden>停止音樂</button></p>
     <div class="paper" id="paper" style="${paperVars(paper)}">
@@ -1078,9 +1084,16 @@ function writeForm(edit, presetTo, resume) {
   const signVal = () => { const v = $('w-sign').value.trim(); return v && v !== ME.name ? v : ''; };   // 跟登記姓名一樣就不另存
   const keep = () => { if (!edit) saveDraft(ACT.id, { to: $('w-to').value, text: $('w-text').value, paper: cur, photo: PHOTO, vref: $('v-ref').value, vtext: $('v-text').value, sign: $('w-sign').value }); };
   if (edit) $('w-cancel').onclick = () => { PHOTO = ''; writeForm(); };
+  // 分類分頁：一次只顯示一類；目前選的信紙所在分類有小圓點
+  document.querySelectorAll('.pp-tabs [data-tab]').forEach(t => t.onclick = () => {
+    document.querySelectorAll('.pp-tabs [data-tab]').forEach(x => x.setAttribute('aria-selected', x === t));
+    document.querySelectorAll('.papers .pg-row').forEach(r => r.hidden = r.dataset.group !== t.dataset.tab);
+  });
   document.querySelectorAll('[data-paper]').forEach(b => b.onclick = () => {
     cur = b.dataset.paper;
     document.querySelectorAll('[data-paper]').forEach(x => x.setAttribute('aria-pressed', x === b));
+    const g = b.closest('.pg-row') && b.closest('.pg-row').dataset.group;
+    document.querySelectorAll('.pp-tabs [data-tab]').forEach(t => { const d = t.querySelector('.dot'); if (t.dataset.tab === g && !d) t.insertAdjacentHTML('beforeend', '<span class="dot" aria-hidden="true"></span>'); else if (t.dataset.tab !== g && d) d.remove(); });
     $('paper').setAttribute('style', paperVars(cur)); $('w-stamp').textContent = paperOf(cur).sym; keep();
     previewThemeMusic(cur);
   });

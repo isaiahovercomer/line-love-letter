@@ -191,22 +191,21 @@ await check('theme-groups：日常／節日／季節／人生場景／召會生�
   const want = { daily: ['素雅', '晴空', '牛皮', '薄荷'], festival: ['新春', '除夕', '端午', '中秋', '感恩'], season: ['冬季', '寒假', '暑假'],
     scene: ['生日', '畢業', '離別', '遠距', '重逢', '思念', '愛情'], church: ['福音', '牧養', '建造'] };
   for (const [g, names] of Object.entries(want)) {
-    const got = await page.locator(`.pg-row[data-group=${g}] [data-paper]`).allInnerTexts();
-    const clean = got.map(t => t.replace(/\s+/g, ' ').trim().split(' ').pop());
+    const clean = (await page.locator(`.pg-row[data-group=${g}] [data-paper] span`).allTextContents()).map(t => t.trim());
     if (clean.join() !== names.join()) throw new Error(`${g} 分組內容不對：${clean.join('、')}`);
   }
   if (await page.locator(`[data-paper]`, { hasText: '聖誕' }).count()) throw new Error('聖誕場合應已從選單拿掉');
   const gospelSym = await page.locator('[data-paper=gospel] i').textContent();
   if (new RegExp('[' + ['\\u271D','\\u271E','\\u271F','\\u2020','\\u2626','\\u2671','\\u26EA','\\u2629','\\u2719','\\u{1F547}'].join('') + ']', 'u').test(gospelSym || '')) throw new Error('福音仍用十字架符號：' + gospelSym);
-  const labels = await page.locator('.papers .pg-row .pg').evaluateAll(els => els.map(el => {
-    const r = el.getBoundingClientRect();
-    return { text: el.textContent.trim(), x: Math.round(r.left), y: Math.round(r.top) };
-  }));
-  if (labels.map(l => l.text).join('/') !== '日常/節日/季節/人生場景/召會生活') throw new Error('分組標籤不對：' + labels.map(l => l.text).join('/'));
-  for (let i = 1; i < labels.length; i++) {
-    if (labels[i].y <= labels[i - 1].y + 8) throw new Error(labels[i].text + ' 沒有換到下一行');
-    if (Math.abs(labels[i].x - labels[0].x) > 2) throw new Error(labels[i].text + ' 未與日常左對齊');
-  }
+  const tabs = await page.locator('.pp-tabs [data-tab]').allInnerTexts();
+  if (tabs.map(t => t.trim()).join('/') !== '日常/節日/季節/人生場景/召會生活') throw new Error('分類分頁不對：' + tabs.join('/'));
+  if (await page.locator('.papers .pg-row:not([hidden])').count() !== 1) throw new Error('一次應只顯示一類');
+  const h = (await page.locator('.papers').boundingBox()).height;
+  if (h > 170) throw new Error('信紙選單太高：' + Math.round(h) + 'px');
+  await page.click('.pp-tabs [data-tab=scene]');
+  if (!(await page.locator('.pg-row[data-group=scene]').isVisible()) || await page.locator('.pg-row[data-group=daily]').isVisible()) throw new Error('切換分頁沒有換分類');
+  await page.click('[data-paper=farewell]');
+  if (await page.locator('.pp-tabs [data-tab=scene] .dot').count() !== 1 || await page.locator('.pp-tabs .dot').count() !== 1) throw new Error('選中的分類沒有標示');
   const over = await page.evaluate(() => [...document.querySelectorAll('.papers [data-paper]')].some(b => b.getBoundingClientRect().right > document.documentElement.clientWidth));
   if (over) throw new Error('信紙按鈕超出畫面');
   await shot(page, 'theme-groups-390');
@@ -269,12 +268,14 @@ await check('music：點選主題才載入，音量輕柔', '?demo=write&noguide
   });
   if (before !== 0) throw new Error('還沒點主題就建立了 Audio');
   await expectText(page, '.music-hint', '點選主題，會配上相應的背景音樂');
+  await page.locator('.pp-tabs [data-tab=scene]').click();
   await page.locator('[data-paper=love]').click();
   const after = await page.evaluate(() => window.__audio.map(a => ({ src: a.src, vol: a.volume, loop: a.loop, paused: a.paused })));
   if (after.length !== 1) throw new Error('應只載入一首，實際 ' + after.length);
   if (!/love\.mp3$/.test(after[0].src)) throw new Error('音檔不是 love.mp3：' + after[0].src);
   if (Math.abs(after[0].vol - 0.35) > 0.001) throw new Error('音量不是 0.35：' + after[0].vol);
   if (!after[0].loop || after[0].paused) throw new Error('應循環並播放');
+  await page.locator('.pp-tabs [data-tab=church]').click();
   await page.locator('[data-paper=shepherd]').click();
   const sw = await page.evaluate(() => window.__audio.map(a => ({ src: a.src, paused: a.paused })));
   const playing = sw.filter(a => !a.paused);
