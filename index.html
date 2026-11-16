@@ -121,6 +121,12 @@
   .pair .names .arrow { color: var(--gold); margin: 0 6px; }
   .pair .when { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
   .pair .body { margin-top: 10px; }
+  .sel-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0 8px; }
+  .sel-bar .btn { min-height: 36px; padding: 0 12px; font-size: 14px; }
+  .sel-bar .sel-count { flex: 1; font-size: 14px; font-weight: 700; color: var(--ink-2); }
+  .pair .tick { flex: 0 0 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--rule); display: grid; place-items: center; font-size: 14px; font-weight: 700; color: #fff; background: #fff; }
+  .pair.selected .tick { background: var(--ink); border-color: var(--ink); }
+  .pair.selected { background: var(--gold-soft); margin: 0 -14px; padding-left: 16px; padding-right: 16px; }
 
   /* 信紙：每組一行，節日／場合與日常左對齊；按鈕可換行，不要左右滑動 */
   .papers { margin: 6px 0 12px; padding: 8px 10px 10px; background: var(--card); border: 1px solid var(--rule); border-radius: 14px; }
@@ -718,6 +724,7 @@ async function demoApi(action, d) {
       const changedTo = l.to !== d.letter.to; Object.assign(l, d.letter);
       const uc = demoCounts(l.actId, l.to, l.fromUid); return { ok: true, letter: { id: l.id, actId: l.actId, actTitle: act(l.actId).title, from: l.from, to: l.to, paper: l.paper, changedTo, loved: uc.loved, writers: uc.writers } };
     }
+    case 'deleteLetters': { demoRequireOwner(d.actId); const ids = new Set((d.letterIds || []).map(String)); const gone = demo.letters.filter(x => ids.has(x.id) && x.actId === d.actId).map(x => x.id); demo.letters = demo.letters.filter(x => !gone.includes(x.id)); return { ok: true, ids: gone, opens: 0 }; }
     case 'deleteLetter': { const l = letter(d.letterId); if (l && l.fromUid !== demo.me.userId) demoRequireOwner(l.actId); demo.letters = demo.letters.filter(x => x.id !== d.letterId); return { ok: true, id: d.letterId, opens: 0 }; }
     case 'verses': return { ok: true, verses: VERSE_REFS };
     case 'markSent': { const l = letter(d.letterId); l.sent = true; const mc = demoCounts(l.actId); return { ok: true, id: d.letterId, loved: mc.loved, writers: mc.writers }; }
@@ -1609,6 +1616,7 @@ function renderActForm(a) {
 }
 
 let DETAIL = null, FILTER = 'all', OPENED_ROW = '';
+let SELECT_MODE = false, SELECTED = new Set();   // 活動後台：選取多封信一次刪除
 /** 活動後台資料要有活動與信件清單；不完整的（舊快取或讀取失敗）不用、不存 */
 const detailOk = d => !!(d && d.act && d.act.id && Array.isArray(d.list));
 async function fetchDetail(id) {
@@ -1618,7 +1626,7 @@ async function fetchDetail(id) {
   return d;
 }
 async function renderDetail(id) {
-  FILTER = 'all'; OPENED_ROW = '';
+  FILTER = 'all'; OPENED_ROW = ''; SELECT_MODE = false; SELECTED = new Set();
   const known = ACTS.find(x => x.id === id);
   if (known && known.state === 'open') rememberAct(id);
   let cached = DEMO ? null : cacheGet('detail:' + id);
@@ -1671,15 +1679,22 @@ function drawDetail() {
       <button type="button" data-f="pending" aria-pressed="${FILTER === 'pending'}">待收信 ${list.length - paired.length}</button>
     </div>
     ${full ? '' : '<p class="lock-note" id="d-privacy">🔒 信件內容使用者可見。這裡只顯示誰寫給誰、是否已送出與收信。</p>'}
+    ${list.length ? (SELECT_MODE ? `<div class="sel-bar" id="d-selbar">
+        <button type="button" class="btn ghost" id="d-selall">${shown.length && shown.every(l => SELECTED.has(l.id)) ? '☑ 取消全選' : '☐ 全選'}</button>
+        <span class="sel-count" id="d-selcount">已選 ${SELECTED.size} 封</span>
+        <button type="button" class="btn danger" id="d-seldel" ${SELECTED.size ? '' : 'disabled'}>刪除已選</button>
+        <button type="button" class="btn ghost" id="d-seldone">完成</button>
+      </div>` : `<div class="sel-bar"><span class="small muted">點信件可展開；要一次刪除多封，按「選取」</span><button type="button" class="btn ghost" id="d-sel">☐ 選取</button></div>`) : ''}
     <div class="card" style="padding:4px 14px">
       ${shown.length ? shown.map(l => `
-        <div class="pair">
-          <button type="button" data-row="${esc(l.id)}" aria-expanded="${OPENED_ROW === l.id}">
-            <span style="min-width:0"><span class="names">${esc(l.from)}<span class="arrow">→</span>${esc(l.to)}</span>
+        <div class="pair${SELECT_MODE && SELECTED.has(l.id) ? ' selected' : ''}">
+          <button type="button" ${SELECT_MODE ? `data-pick="${esc(l.id)}" role="checkbox" aria-checked="${SELECTED.has(l.id)}"` : `data-row="${esc(l.id)}" aria-expanded="${OPENED_ROW === l.id}"`}>
+            ${SELECT_MODE ? `<span class="tick" aria-hidden="true">${SELECTED.has(l.id) ? '✓' : ''}</span>` : ''}
+            <span style="min-width:0;flex:1"><span class="names">${esc(l.from)}<span class="arrow">→</span>${esc(l.to)}</span>
               <span class="when" style="display:block">${l.openedAt ? `${esc(l.openedBy)} 於 ${esc(l.openedAt)} 收信` : `寫於 ${esc(l.time)}`}</span></span>
             ${l.openedAt ? '<span class="chip paired">🕊️ 神聖的愛流通成功</span>' : l.sent ? '<span class="chip pending">未收信</span>' : '<span class="chip">未送出</span>'}
           </button>
-          ${OPENED_ROW === l.id ? `<div class="body">${full ? `<div class="paper mini" id="dp-${esc(l.id)}" style="${paperVars(l.paper)}"><div class="text">${esc(l.text)}</div>
+          ${!SELECT_MODE && OPENED_ROW === l.id ? `<div class="body">${full ? `<div class="paper mini" id="dp-${esc(l.id)}" style="${paperVars(l.paper)}"><div class="text">${esc(l.text)}</div>
             ${imgOk(l.image) ? `<div class="photo"><img src="${esc(l.image)}" alt="附上的照片" style="max-height:220px"></div>` : ''}${verseShow(l)}</div>` : ''}
             <div class="btn-row" style="margin:8px 0 0">${full ? `<button class="btn ghost" type="button" data-shot="dp-${esc(l.id)}" data-name="${esc(shotName(l.to, l.time))}" style="min-height:38px">📷 存成圖片</button>` : ''}<button class="btn danger" type="button" data-ldel="${esc(l.id)}" style="min-height:38px">刪除這封信</button></div></div>` : ''}
         </div>`).join('') : `<div class="empty small">${list.length ? '這裡沒有信' : '還沒有人寫信。把寫信入口發到群組吧！'}</div>`}
@@ -1709,6 +1724,25 @@ function drawDetail() {
     const i = ACTS.findIndex(x => x.id === DETAIL.act.id); if (i >= 0) ACTS[i] = { ...ACTS[i], ...DETAIL.act };
     OPENED_ROW = ''; toast('已刪除這封信'); drawDetail();
   })));
+  // 選取模式：勾選多封、全選目前篩選的信、一次刪除
+  const redraw = () => { const y = scrollY; drawDetail(); scrollTo(0, y); };
+  if ($('d-sel')) $('d-sel').onclick = () => { SELECT_MODE = true; SELECTED = new Set(); OPENED_ROW = ''; redraw(); };
+  if ($('d-seldone')) $('d-seldone').onclick = () => { SELECT_MODE = false; SELECTED = new Set(); redraw(); };
+  if ($('d-selall')) $('d-selall').onclick = () => {
+    const all = shown.length && shown.every(l => SELECTED.has(l.id));
+    shown.forEach(l => all ? SELECTED.delete(l.id) : SELECTED.add(l.id)); redraw();
+  };
+  document.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { const id = b.dataset.pick; SELECTED.has(id) ? SELECTED.delete(id) : SELECTED.add(id); redraw(); });
+  if ($('d-seldel')) $('d-seldel').onclick = e => armThen(e.currentTarget, `確定刪除這 ${SELECTED.size} 封信？刪了無法復原`, () => busy(e.currentTarget, async rid => {
+    const ids = [...SELECTED].filter(id => DETAIL.list.some(x => x.id === id));
+    const r = await api('deleteLetters', { actId: a.id, letterIds: ids, rid });
+    const gone = new Set(r.ids || ids);
+    const openedGone = DETAIL.list.filter(x => gone.has(x.id) && x.openedAt).length;
+    DETAIL.list = DETAIL.list.filter(x => !gone.has(x.id));
+    DETAIL.act = { ...DETAIL.act, letters: Math.max(0, DETAIL.act.letters - gone.size), opened: Math.max(0, DETAIL.act.opened - openedGone) };
+    const i = ACTS.findIndex(x => x.id === DETAIL.act.id); if (i >= 0) ACTS[i] = { ...ACTS[i], ...DETAIL.act };
+    SELECTED = new Set(); SELECT_MODE = false; toast(`已刪除 ${gone.size} 封信`); redraw();
+  }));
   document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { FILTER = b.dataset.f; drawDetail(); });
   document.querySelectorAll('[data-row]').forEach(b => b.onclick = () => { OPENED_ROW = OPENED_ROW === b.dataset.row ? '' : b.dataset.row; const y = scrollY; drawDetail(); scrollTo(0, y); });
   bindRosterActions(a, list);

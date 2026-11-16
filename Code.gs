@@ -92,6 +92,7 @@ function run(user, req) {
     case 'markSent':     out = { ok: true, ...markSent(user, req.letterId) }; break;
     case 'updateLetter': out = { ok: true, letter: updateLetter(user, req.letterId, req.letter || {}) }; break;
     case 'deleteLetter': out = { ok: true, ...deleteLetter(user, req.letterId) }; break;
+    case 'deleteLetters': out = { ok: true, ...deleteLetters(user, req.actId, req.letterIds) }; break;
     case 'myLetters':    out = { ok: true, letters: myLetters(user, req.actId) }; break;
     case 'openLetter':   out = { ok: true, ...openLetter(user, req.letterId) }; break;
     case 'createAct':    out = { ok: true, act: createAct(user, req.act || {}) }; break;
@@ -116,7 +117,7 @@ function run(user, req) {
 
 /* ---------- 防重複送出：同一個人、同一個動作、同一個請求編號（rid），10 分鐘內只做一次 ---------- */
 // 前端每次按下按鈕產生一個 rid，連點或失敗重試都帶同一個；故意再寫一封新的信會是新的 rid，不受影響
-const ONCE_ACTIONS = ['bind', 'uploadImage', 'writeLetter', 'markSent', 'updateLetter', 'deleteLetter', 'createAct', 'updateAct', 'setOpen', 'deleteAct', 'deleteMyData', 'updateMyData', 'saveTemplate', 'deleteTemplate', 'addCoAdmin', 'removeCoAdmin'];
+const ONCE_ACTIONS = ['bind', 'uploadImage', 'writeLetter', 'markSent', 'updateLetter', 'deleteLetter', 'deleteLetters', 'createAct', 'updateAct', 'setOpen', 'deleteAct', 'deleteMyData', 'updateMyData', 'saveTemplate', 'deleteTemplate', 'addCoAdmin', 'removeCoAdmin'];
 const ONCE_PENDING = '__pending__';
 function once(user, req, fn) {
   const rid = String(req.rid || '');
@@ -720,6 +721,24 @@ function deleteLetter(user, letterId) {
     const opens = deleteRows(SH.OPENS, r => String(r[OP.LETTER]) === String(letterId));
     clearLoved(actId);
     return { id: String(letterId), opens };
+  });
+}
+
+/** 活動後台一次刪除多封信：只有這個活動的管理者（建立者、共同管理者、發布者、總管理者）可以；只刪這個活動裡的信 */
+function deleteLetters(user, actId, letterIds) {
+  requireOwner(user, actId);
+  const want = {};
+  (Array.isArray(letterIds) ? letterIds : []).slice(0, 500).forEach(id => { want[String(id)] = true; });
+  if (!Object.keys(want).length) throw new Error('請先選取要刪除的信');
+  return withLock(() => {
+    const sh = sheet(SH.LETTERS), data = sh.getDataRange().getValues(), gone = {};
+    for (let i = data.length - 1; i >= 1; i--) {
+      const id = String(data[i][LT.ID]);
+      if (want[id] && String(data[i][LT.ACT]) === String(actId)) { sh.deleteRow(i + 1); gone[id] = true; }
+    }
+    const opens = deleteRows(SH.OPENS, r => gone[String(r[OP.LETTER])]);
+    clearLoved(String(actId));
+    return { ids: Object.keys(gone), opens };
   });
 }
 
