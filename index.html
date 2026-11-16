@@ -124,6 +124,12 @@
   .sel-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0 8px; }
   .sel-bar .btn { min-height: 36px; padding: 0 12px; font-size: 14px; }
   .sel-bar .sel-count { flex: 1; font-size: 14px; font-weight: 700; color: var(--ink-2); }
+  .card.act .t .tick { flex: 0 0 22px; height: 22px; margin-right: 8px; border-radius: 6px; border: 1.5px solid var(--rule); display: grid; place-items: center; font-size: 14px; font-weight: 700; color: #fff; background: #fff; }
+  .card.act.picking .t { align-items: center; }
+  .card.act.picking .t h3 { flex: 1; }
+  .card.act.picked { box-shadow: 0 0 0 2px var(--ink) inset; }
+  .card.act.picked .t .tick { background: var(--ink); border-color: var(--ink); }
+  .card.act.nopick { opacity: .45; cursor: not-allowed; }
   .pair .tick { flex: 0 0 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--rule); display: grid; place-items: center; font-size: 14px; font-weight: 700; color: #fff; background: #fff; }
   .pair.selected .tick { background: var(--ink); border-color: var(--ink); }
   .pair.selected { background: var(--gold-soft); margin: 0 -14px; padding-left: 16px; padding-right: 16px; }
@@ -673,7 +679,7 @@ function demoFindByKey(actId, key) {
 function demoActFlags(a) {
   const mine = demoCreatorUid(a) === demo.me.userId;
   const coadmin = !mine && demoIsCoAdmin(a.id);
-  return { ...demoStats(a), mine, coadmin };
+  return { ...demoStats(a), mine, coadmin, canDelete: mine || !!demo.me.isSuper };
 }
 function demoVisibleActs() {
   return demo.acts.filter(a => demo.me.isSuper || demoCreatorUid(a) === demo.me.userId || demoIsCoAdmin(a.id) || (demo.me.isAdmin && DEMO_MODE !== 'coadmin'))
@@ -748,6 +754,7 @@ async function demoApi(action, d) {
       return { ok: true, act: demoActFlags(a), list, full, canManageAdmins, canDeleteAct: canManageAdmins, role, coAdmins: demoListCoAdmins(d.actId), candidates: demoListCandidates(d.actId) };
     }
     case 'setOpen': { demoRequireOwner(d.actId); const a = act(d.actId); a.open = d.open; return { ok: true, act: demoActFlags(a) }; }
+    case 'deleteActs': { const ids = (d.actIds || []).map(String); ids.forEach(demoRequireCreator); const n = demo.letters.filter(l => ids.includes(l.actId)).length; demo.acts = demo.acts.filter(a => !ids.includes(a.id)); demo.letters = demo.letters.filter(l => !ids.includes(l.actId)); demo.coAdmins = demo.coAdmins.filter(c => !ids.includes(c.actId)); return { ok: true, ids, letters: n, opens: 0 }; }
     case 'deleteAct': { demoRequireCreator(d.actId); const n = demo.letters.filter(l => l.actId === d.actId).length; demo.acts = demo.acts.filter(a => a.id !== d.actId); demo.letters = demo.letters.filter(l => l.actId !== d.actId); demo.coAdmins = demo.coAdmins.filter(c => c.actId !== d.actId); return { ok: true, letters: n, opens: 0 }; }
     case 'addCoAdmin': {
       demoRequireCreator(d.actId);
@@ -1422,16 +1429,28 @@ async function prefetchDetails() {
 }
 const saveHome = () => cacheSet('home', { me: ME, acts: ACTS });
 
+let HOME_SELECT = false, HOME_SEL = new Set();   // 活動列表：選取多個活動一次刪除（只有建立者／網站總管理者能刪）
+const canDel = a => a.canDelete === true || (a.canDelete === undefined && a.mine === true);
 function renderHome() {
+  const deletable = ACTS.filter(canDel);
+  if (!deletable.length) HOME_SELECT = false;
+  HOME_SEL = new Set([...HOME_SEL].filter(id => deletable.some(a => a.id === id)));
+  const allOn = deletable.length && deletable.every(a => HOME_SEL.has(a.id));
   view(`${topHtml(ME.name || ME.displayName)}
     <h2>我的流通神聖的愛活動</h2>
     <p class="muted small">建立活動 → 把寫信入口發到群組 → 大家寫信、傳給收信人 → 在這裡看神聖的愛流通。</p>
     <button class="btn block gold" id="h-new" type="button">＋ 建立流通神聖的愛活動</button>
     ${isStandalone() ? '' : '<button class="btn ghost block" id="h-install" type="button" style="margin-top:10px">📲 安裝到手機桌面</button>'}
     ${ME && ME.isSuper ? '<button class="btn ghost block" id="h-overview" type="button" style="margin-top:10px">登記總覽</button>' : ''}
+    ${deletable.length ? (HOME_SELECT ? `<div class="sel-bar" id="h-selbar">
+        <button type="button" class="btn ghost" id="h-selall">${allOn ? '☑ 取消全選' : '☐ 全選'}</button>
+        <span class="sel-count" id="h-selcount">已選 ${HOME_SEL.size} 個活動</span>
+        <button type="button" class="btn danger" id="h-seldel" ${HOME_SEL.size ? '' : 'disabled'}>刪除已選</button>
+        <button type="button" class="btn ghost" id="h-seldone">完成</button>
+      </div>${deletable.length < ACTS.length ? '<p class="small muted" style="margin:0 0 6px">只有活動建立者（或網站總管理者）能刪除；別人建立的活動不能勾選。</p>' : ''}` : `<div class="sel-bar" style="margin-top:14px"><span class="small muted">要一次刪除多個活動，按「選取」</span><button type="button" class="btn ghost" id="h-sel">☐ 選取</button></div>`) : ''}
     ${ACTS.length ? ACTS.map(a => `
-      <button class="card act theme-card" type="button" data-act="${esc(a.id)}" data-theme="${esc(themeOf(a))}" style="${themeVars(themeOf(a))}">
-        <div class="t"><h3>${esc(a.title)}</h3>${stateChip(a.state)}</div>
+      <button class="card act theme-card${HOME_SELECT ? ' picking' : ''}${HOME_SELECT && HOME_SEL.has(a.id) ? ' picked' : ''}${HOME_SELECT && !canDel(a) ? ' nopick' : ''}" type="button" ${HOME_SELECT ? (canDel(a) ? `data-hpick="${esc(a.id)}" role="checkbox" aria-checked="${HOME_SEL.has(a.id)}"` : 'disabled aria-disabled="true"') : `data-act="${esc(a.id)}"`} data-theme="${esc(themeOf(a))}" style="${themeVars(themeOf(a))}">
+        <div class="t">${HOME_SELECT ? `<span class="tick" aria-hidden="true">${HOME_SEL.has(a.id) ? '✓' : ''}</span>` : ''}<h3>${esc(a.title)}</h3>${stateChip(a.state)}</div>
         ${actCountBadges(a)}
         <div class="s"><span class="nowrap">✉️ ${a.letters} 封信</span>・<span class="nowrap">🕊️ 神聖的愛流通成功 ${a.opened}</span>${a.deadline ? `・<span class="nowrap">截止 ${esc(shortTime(a.deadline))}</span>` : ''}${a.coadmin ? '・共同管理' : ''}${a.mine === false ? `・${esc(a.creator)} 建立` : ''}</div>
       </button>`).join('') : `<div class="card empty"><div class="big-emoji">✉️</div>還沒有流通神聖的愛活動，按上面的按鈕建立第一個。</div>`}
@@ -1445,6 +1464,20 @@ function renderHome() {
   if ($('h-overview')) $('h-overview').onclick = () => { location.href = DEMO ? '?demo=admin&overview=1&noguide' : '?overview=1'; };
   if ($('h-mine')) $('h-mine').onclick = () => { location.href = DEMO ? '?demo=mine&noguide' : '?mine=1'; };
   document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => renderDetail(b.dataset.act).catch(e => { toast(e.message); renderHome(); }));
+  const redraw = () => { const y = scrollY; renderHome(); scrollTo(0, y); };
+  if ($('h-sel')) $('h-sel').onclick = () => { HOME_SELECT = true; HOME_SEL = new Set(); redraw(); };
+  if ($('h-seldone')) $('h-seldone').onclick = () => { HOME_SELECT = false; HOME_SEL = new Set(); redraw(); };
+  if ($('h-selall')) $('h-selall').onclick = () => { HOME_SEL = allOn ? new Set() : new Set(deletable.map(a => a.id)); redraw(); };
+  document.querySelectorAll('[data-hpick]').forEach(b => b.onclick = () => { const id = b.dataset.hpick; HOME_SEL.has(id) ? HOME_SEL.delete(id) : HOME_SEL.add(id); redraw(); });
+  if ($('h-seldel')) {
+    const picked = ACTS.filter(a => HOME_SEL.has(a.id)), n = picked.reduce((s, a) => s + (+a.letters || 0), 0);
+    $('h-seldel').onclick = e => armThen(e.currentTarget, `確定刪除 ${picked.length} 個活動？${n ? `裡面 ${n} 封信也會一起刪掉` : '刪了無法復原'}`, () => busy(e.currentTarget, async rid => {
+      const r = await api('deleteActs', { actIds: picked.map(a => a.id), rid });
+      const gone = new Set(r.ids || picked.map(a => a.id));
+      ACTS = ACTS.filter(a => !gone.has(a.id)); gone.forEach(id => cacheDel('detail:' + id)); saveHome();
+      HOME_SELECT = false; HOME_SEL = new Set(); toast(`已刪除 ${gone.size} 個活動`); redraw();
+    }));
+  }
 }
 
 const DEFAULT_BTN = '書寫一封溫暖的問候';

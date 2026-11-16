@@ -101,6 +101,7 @@ function run(user, req) {
     case 'actDetail':    own(); out = { ok: true, ...actDetail(req.actId, user) }; break;
     case 'setOpen':      own(); out = { ok: true, act: setOpen(req.actId, !!req.open) }; break;
     case 'deleteAct':    requireCreator(user, req.actId); out = { ok: true, ...deleteAct(req.actId) }; break;
+    case 'deleteActs':   out = { ok: true, ...deleteActs(user, req.actIds) }; break;
     case 'addCoAdmin':    out = { ok: true, ...addCoAdmin(user, req.actId, req.key) }; break;
     case 'removeCoAdmin': out = { ok: true, ...removeCoAdmin(user, req.actId, req.key) }; break;
     case 'myData':       out = { ok: true, ...myData(user) }; break;
@@ -117,7 +118,7 @@ function run(user, req) {
 
 /* ---------- 防重複送出：同一個人、同一個動作、同一個請求編號（rid），10 分鐘內只做一次 ---------- */
 // 前端每次按下按鈕產生一個 rid，連點或失敗重試都帶同一個；故意再寫一封新的信會是新的 rid，不受影響
-const ONCE_ACTIONS = ['bind', 'uploadImage', 'writeLetter', 'markSent', 'updateLetter', 'deleteLetter', 'deleteLetters', 'createAct', 'updateAct', 'setOpen', 'deleteAct', 'deleteMyData', 'updateMyData', 'saveTemplate', 'deleteTemplate', 'addCoAdmin', 'removeCoAdmin'];
+const ONCE_ACTIONS = ['bind', 'uploadImage', 'writeLetter', 'markSent', 'updateLetter', 'deleteLetter', 'deleteLetters', 'deleteActs', 'createAct', 'updateAct', 'setOpen', 'deleteAct', 'deleteMyData', 'updateMyData', 'saveTemplate', 'deleteTemplate', 'addCoAdmin', 'removeCoAdmin'];
 const ONCE_PENDING = '__pending__';
 function once(user, req, fn) {
   const rid = String(req.rid || '');
@@ -228,6 +229,18 @@ function safe(v) { return typeof v === 'string' && /^[=+\-@\t\r]/.test(v) ? "'" 
 function safeRow(r) { return r.map(safe); }
 function parseTime(s) { return s ? Utilities.parseDate(String(s), tz(), 'yyyy-MM-dd HH:mm') : null; }
 function cleanTime(v) { const m = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/.exec(String(v || '')); return m ? m[1] + ' ' + m[2] : ''; }
+/** 刪很多列時用：留下不刪的列整批寫回，再清掉多出來的列（比一列一列 deleteRow 快很多） */
+function deleteRowsBulk(name, test) {
+  const sh = sheet(name), data = sh.getDataRange().getValues();
+  if (data.length < 2) return 0;
+  const keep = data.slice(1).filter(r => !test(r)), n = data.length - 1 - keep.length;
+  if (!n) return 0;
+  if (keep.length) sh.getRange(2, 1, keep.length, data[0].length).setValues(keep);
+  sh.getRange(2 + keep.length, 1, n, data[0].length).clearContent();
+  const drop = keep.length ? n : n - 1;   // 全部刪光時留一列空白，避免「不能刪除所有未凍結的列」
+  if (drop > 0) sh.deleteRows(2 + keep.length + (keep.length ? 0 : 1), drop);
+  return n;
+}
 function deleteRows(name, test) {
   const sh = sheet(name), data = sh.getDataRange().getValues();
   let n = 0;
@@ -536,14 +549,15 @@ function withStats(a, letters, opens) {
 }
 
 function listActs(user) {
-  const admin = isSuperAdmin(user.userId) || isPublisher(user.userId);
+  const sup = isSuperAdmin(user.userId);
+  const admin = sup || isPublisher(user.userId);
   const letters = rows(SH.LETTERS), opens = rows(SH.OPENS);
   const co = {};
   coRows().forEach(function (r) { if (String(r[CA.UID]).trim() === user.userId) co[String(r[CA.ACT])] = true; });
   return rows(SH.ACTS).filter(r => admin || creatorOf(r) === user.userId || co[String(r[AC.ID])])
     .map(r => {
       const mine = creatorOf(r) === user.userId;
-      return { ...withStats(rowToAct(r), letters, opens), mine: mine, coadmin: !mine && !!co[String(r[AC.ID])] };
+      return { ...withStats(rowToAct(r), letters, opens), mine: mine, coadmin: !mine && !!co[String(r[AC.ID])], canDelete: mine || sup };
     })
     .reverse();
 }
@@ -585,6 +599,24 @@ function deleteAct(id) {
     if (csh) coadmins = deleteRows(SH.COADMINS, r => String(r[CA.ACT]) === String(id));
     clearLoved(id);
     return { letters, opens, coadmins };
+  });
+}
+
+/** 活動列表一次刪除多個活動（連同信件、收信紀錄、共同管理者）：每個活動都要是建立者或網站總管理者 */
+function deleteActs(user, actIds) {
+  const ids = {};
+  (Array.isArray(actIds) ? actIds : []).slice(0, 100).forEach(id => { ids[String(id)] = true; });
+  const list = Object.keys(ids);
+  if (!list.length) throw new Error('請先選取要刪除的活動');
+  list.forEach(id => requireCreator(user, id));
+  return withLock(() => {
+    const acts = deleteRowsBulk(SH.ACTS, r => ids[String(r[AC.ID])]);
+    const letters = deleteRowsBulk(SH.LETTERS, r => ids[String(r[LT.ACT])]);
+    const opens = deleteRowsBulk(SH.OPENS, r => ids[String(r[OP.ACT])]);
+    let coadmins = 0;
+    if (SpreadsheetApp.getActive().getSheetByName(SH.COADMINS)) coadmins = deleteRows(SH.COADMINS, r => ids[String(r[CA.ACT])]);
+    list.forEach(id => clearLoved(id));
+    return { ids: list, acts, letters, opens, coadmins };
   });
 }
 
