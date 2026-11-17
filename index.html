@@ -42,6 +42,9 @@
 
   header.top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 -16px 18px; padding: calc(18px + env(safe-area-inset-top)) 16px 16px; background: var(--ink); color: #F7F1E4; border-bottom: 3px solid var(--gold); }
   header.top .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  header.top a.brand { color: inherit; text-decoration: none; border-radius: 8px; -webkit-tap-highlight-color: transparent; }
+  header.top a.brand:active { opacity: .75; }
+  header.top a.brand:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
   header.top img { width: 38px; height: 38px; flex: none; }
   header.top h1 { font-family: var(--serif); font-weight: 900; font-size: 21px; letter-spacing: .05em; margin: 0; white-space: nowrap; }
   header.top .who { color: #C9C2B3; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -824,7 +827,7 @@ async function logout() {
 }
 
 function loggedOutView() {
-  view(`<header class="top"><div class="brand"><img src="img/in-christ.svg" alt=""><h1>流通神聖的愛圖卡</h1></div></header>
+  view(`<header class="top"><a class="brand" id="top-home" href="${homeHref()}" aria-label="回首頁"><img src="img/in-christ.svg" alt=""><h1>流通神聖的愛圖卡</h1></a></header>
     <div class="card center" style="margin-top:24px">
       <div class="big-emoji">👋</div>
       <h2>已經登出</h2>
@@ -906,7 +909,7 @@ async function main() {
   }
 }
 
-const topHtml = (who = '') => `<header class="top"><div class="brand"><img src="img/in-christ.svg" alt=""><h1>流通神聖的愛圖卡</h1></div><span class="who">${esc(who)}</span></header>${DEMO ? '<div class="demo-note">預覽模式：使用範例資料，不會真的送出。</div>' : ''}`;
+const topHtml = (who = '') => `<header class="top"><a class="brand" id="top-home" href="${homeHref()}" aria-label="回首頁"><img src="img/in-christ.svg" alt=""><h1>流通神聖的愛圖卡</h1></a><span class="who">${esc(who)}</span></header>${DEMO ? '<div class="demo-note">預覽模式：使用範例資料，不會真的送出。</div>' : ''}`;
 const footHtml = (opts = {}) => `<div class="foot"><button class="link" type="button" onclick="openGuide(GUIDE_KIND, true)">使用說明</button>${opts.hideMine ? '' : `　<button class="link" type="button" onclick="location.href='?mine${DEMO ? '&demo=mine' : ''}'">我寫過的信</button>`}　<button class="link" type="button" onclick="location.href='?mydata${DEMO ? '&demo=mydata' : ''}'">我的個人資料</button>　<button class="link" type="button" id="foot-logout" onclick="confirmLogout(this)">登出</button></div>`;
 /** 頁尾的登出：先問一次，避免誤按 */
 function confirmLogout(btn) { armThen(btn, '確定登出？', () => logout()); }
