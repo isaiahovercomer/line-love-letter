@@ -1748,7 +1748,7 @@ function drawDetail() {
   $('d-share').onclick = e => busy(e.currentTarget, () => sendAct(a));
   $('d-edit').onclick = () => renderActForm(a);
   $('d-tpl').onclick = () => templateSaveForm(a);
-  $('d-open').onclick = e => busy(e.currentTarget, async rid => { DETAIL.act = (await api('setOpen', { actId: a.id, open: !a.open, rid })).act; drawDetail(); });
+  $('d-open').onclick = e => busy(e.currentTarget, async rid => { DETAIL.act = (await api('setOpen', { actId: a.id, open: !a.open, rid })).act; redrawDetail(); });
   if ($('d-del')) $('d-del').onclick = e => armThen(e.currentTarget, `確定刪除？${list.length} 封信會一起刪掉`, () => busy(e.currentTarget, async rid => {
     await api('deleteAct', { actId: a.id, rid }); ACTS = ACTS.filter(x => x.id !== a.id); saveHome(); cacheDel('detail:' + a.id); toast('已刪除'); renderHome();
   }));
@@ -1758,7 +1758,7 @@ function drawDetail() {
     DETAIL.list = DETAIL.list.filter(x => x.id !== b.dataset.ldel);
     DETAIL.act = { ...DETAIL.act, letters: DETAIL.act.letters - 1, opened: DETAIL.act.opened - (gone && gone.openedAt ? 1 : 0) };
     const i = ACTS.findIndex(x => x.id === DETAIL.act.id); if (i >= 0) ACTS[i] = { ...ACTS[i], ...DETAIL.act };
-    OPENED_ROW = ''; toast('已刪除這封信'); drawDetail();
+    OPENED_ROW = ''; toast('已刪除這封信'); redrawDetail();
   })));
   // 選取模式：勾選多封、全選目前篩選的信、一次刪除
   const redraw = () => { const y = scrollY; drawDetail(); scrollTo(0, y); };
@@ -1779,7 +1779,7 @@ function drawDetail() {
     const i = ACTS.findIndex(x => x.id === DETAIL.act.id); if (i >= 0) ACTS[i] = { ...ACTS[i], ...DETAIL.act };
     SELECTED = new Set(); SELECT_MODE = false; toast(`已刪除 ${gone.size} 封信`); redraw();
   }));
-  document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { FILTER = b.dataset.f; drawDetail(); });
+  document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { FILTER = b.dataset.f; redrawDetail(); });
   document.querySelectorAll('[data-row]').forEach(b => b.onclick = () => { OPENED_ROW = OPENED_ROW === b.dataset.row ? '' : b.dataset.row; const y = scrollY; drawDetail(); scrollTo(0, y); });
   bindRosterActions(a, list);
   bindCoAdminActions();
@@ -1874,6 +1874,8 @@ function coAdminHtml(d) {
       <p class="muted small">還沒打開信的收信人還不能新增（尚未連結 LINE 帳號）。</p>` : '<p class="muted small">只有活動建立者可以新增或移除共同管理者。</p>'}
   </section>`;
 }
+/** 在活動後台原地更新（新增共同管理者、停止寫信、刪信、切換篩選等），畫面停在原來的位置 */
+function redrawDetail() { const y = scrollY; drawDetail(); scrollTo(0, y); }
 function bindCoAdminActions() {
   document.querySelectorAll('[data-coadd]').forEach(b => b.onclick = () => {
     const name = (b.childNodes[0] && b.childNodes[0].textContent || '').trim();
@@ -1881,7 +1883,7 @@ function bindCoAdminActions() {
       const r = await api('addCoAdmin', { actId: DETAIL.act.id, key: b.dataset.coadd, rid });
       DETAIL.coAdmins = r.coAdmins; DETAIL.candidates = r.candidates;
       toast(r.added === false ? '已經是共同管理者' : '已新增共同管理者');
-      drawDetail();
+      redrawDetail();
     }));
   });
   document.querySelectorAll('[data-corem]').forEach(b => b.onclick = () => {
@@ -1891,7 +1893,7 @@ function bindCoAdminActions() {
       const r = await api('removeCoAdmin', { actId: DETAIL.act.id, key: b.dataset.corem, rid });
       DETAIL.coAdmins = r.coAdmins; DETAIL.candidates = r.candidates;
       toast(r.removed ? '已移除' : '已不在名單中');
-      drawDetail();
+      redrawDetail();
     }));
   });
 }
