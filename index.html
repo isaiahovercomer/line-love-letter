@@ -91,6 +91,12 @@
   .copy-alt p { margin: 0 0 8px; line-height: 1.6; }
   .why-id { margin: 10px 0 4px; padding: 10px 12px; border-radius: 10px; background: var(--gold-soft); font-size: 13.5px; line-height: 1.65; color: var(--ink); }
   .why-id b { display: block; margin-bottom: 2px; }
+  .save-sheet { position: fixed; inset: 0; z-index: 9999; background: rgba(20,22,30,.72); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .save-sheet .ss-panel { background: #fff; border-radius: 16px; padding: 14px; width: 100%; max-width: 440px; max-height: 92vh; display: flex; flex-direction: column; gap: 10px; }
+  .save-sheet .ss-tip { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--ink); }
+  .save-sheet .ss-img { display: block; width: 100%; height: auto; min-height: 0; flex: 1; object-fit: contain; border-radius: 10px; border: 1px solid var(--rule); -webkit-touch-callout: default; user-select: auto; }
+  .save-sheet .ss-btns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .save-sheet .ss-btns .btn { min-height: 40px; padding: 0 16px; }
   .resume-note { font-size: 14px; line-height: 1.6; color: var(--ink); background: var(--gold-soft); border-radius: 10px; padding: 10px 12px; margin: 10px 0 12px; }
 
   /* 活動列表 */
@@ -1909,7 +1915,7 @@ function bindRosterActions(act, list) {
     const blob = await rosterPng(act, roster);
     const safe = String((act && act.title) || '活動').replace(/[\\/:*?"<>|]+/g, '').slice(0, 30) || '活動';
     const r = await shareOrDownloadPng(blob, `收信人名單-${safe}.png`);
-    if (r === 'cancelled') return;
+    if (r === 'cancelled' || r === 'preview') return;
     toast(r === 'shared' ? '已打開分享' : '已存成圖片');
   });
 }
@@ -2001,31 +2007,54 @@ function sheetPng(title, sub, rows) {
   ctx.fillText('流通神聖的愛圖卡', x + 28, H - 24 - 16);
   return new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('無法產生圖片')), 'image/png'));
 }
+/** 手機（含 LINE 內建瀏覽器）：<a download> 常常沒反應、截圖後再呼叫分享也可能被擋，所以改成在畫面上打開圖片，
+ *  讓使用者長按圖片存到相簿，或再按一次「分享／儲存」（這一下是新的點擊，系統才肯打開分享選單） */
+const isMobileUA = () => { const ua = navigator.userAgent || ''; return /Android|iPhone|iPad|iPod|Line\//i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1); };
 async function shareOrDownloadPng(blob, filename) {
   if (!blob) throw new Error('無法產生圖片');
   const file = new File([blob], filename, { type: 'image/png' });
-  if (navigator.canShare) {
+  if (!isMobileUA()) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    return 'downloaded';
+  }
+  if (navigator.canShare && navigator.share) {
     try {
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: filename });
-        return 'shared';
-      }
-    } catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
+      if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: filename }); return 'shared'; }
+    } catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }   // 其他錯誤（例如點擊已過期）→ 改用下面的存圖畫面
   }
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename; a.rel = 'noopener';
-  document.body.appendChild(a); a.click(); a.remove();
-  const ua = navigator.userAgent || '';
-  if (/Line\//i.test(ua) || /iPhone|iPad|iPod/i.test(ua)) {
-    const w = window.open(url, '_blank');
-    if (!w) {
-      const imgWin = window.open('', '_blank');
-      if (imgWin) { imgWin.document.title = filename; imgWin.document.body.innerHTML = `<img src="${url}" alt="${filename}" style="max-width:100%">`; }
-    }
-  }
-  setTimeout(() => URL.revokeObjectURL(url), 30000);
-  return 'downloaded';
+  await showSaveSheet(blob, file, filename);
+  return 'preview';
+}
+function showSaveSheet(blob, file, filename) {
+  return new Promise(res => {
+    const r = new FileReader();
+    r.onload = () => {
+      document.querySelectorAll('.save-sheet').forEach(x => x.remove());
+      const canShareFile = !!(navigator.canShare && navigator.share && (() => { try { return navigator.canShare({ files: [file] }); } catch (e) { return false; } })());
+      const box = document.createElement('div');
+      box.className = 'save-sheet'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', '存成圖片');
+      box.innerHTML = `<div class="ss-panel">
+          <p class="ss-tip"><b>長按下面的圖片</b>，選「儲存圖片」或「加入照片」，就會存到手機相簿。</p>
+          <img class="ss-img" alt="${esc(filename)}" src="${r.result}">
+          <div class="ss-btns">${canShareFile ? '<button type="button" class="btn gold" id="ss-share">分享／儲存</button>' : ''}
+            <a class="btn ghost" id="ss-dl" href="${r.result}" download="${esc(filename)}">下載</a>
+            <button type="button" class="btn ghost" id="ss-close">關閉</button></div>
+        </div>`;
+      document.body.appendChild(box);
+      const close = () => { box.remove(); };
+      box.addEventListener('click', e => { if (e.target === box) close(); });
+      box.querySelector('#ss-close').onclick = close;
+      const sh = box.querySelector('#ss-share');
+      if (sh) sh.onclick = async () => { try { await navigator.share({ files: [file], title: filename }); close(); } catch (e) { if (!e || e.name !== 'AbortError') toast('這個瀏覽器不能直接分享，請長按圖片儲存'); } };
+      res();
+    };
+    r.onerror = () => res();
+    r.readAsDataURL(blob);
+  });
 }
 /* ---------- 信紙一鍵存成圖片：只截信紙的範圍，存成 PNG，可存到手機或分享 ---------- */
 let SHOT_LIB = null;
@@ -2081,7 +2110,7 @@ async function savePaper(btn) {
       await Promise.all([...box.querySelectorAll('img')].map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; })));
       const blob = await paperBlob(box.firstElementChild);
       const r = await shareOrDownloadPng(blob, shotName($('w-to').value, new Date()));
-      if (r !== 'cancelled') toast(r === 'shared' ? '已打開分享，可以存到手機或傳給朋友' : '已存成圖片');
+      if (r !== 'cancelled' && r !== 'preview') toast(r === 'shared' ? '已打開分享，可以存到手機或傳給朋友' : '已存成圖片');
     } finally { box.remove(); }
     return;
   }
@@ -2090,7 +2119,7 @@ async function savePaper(btn) {
   const blob = await paperBlob(el);
   if (!blob) throw new Error('無法產生圖片');
   const r = await shareOrDownloadPng(blob, btn.dataset.name || shotName());
-  if (r === 'cancelled') return;
+  if (r === 'cancelled' || r === 'preview') return;
   toast(r === 'shared' ? '已打開分享，可以存到手機或傳給朋友' : '已存成圖片');
 }
 document.addEventListener('click', e => {
@@ -2231,7 +2260,7 @@ function renderOverview(r) {
       ? people.map(p => ({ name: p.name || '', st: `寫過 ${p.written || 0} 封・收過 ${p.received || 0} 封` }))
       : [{ name: '還沒有人登記', st: '' }]);
     const res = await shareOrDownloadPng(blob, '登記總覽.png');
-    if (res === 'cancelled') return;
+    if (res === 'cancelled' || res === 'preview') return;
     toast(res === 'shared' ? '已打開分享' : '已存成圖片');
   });
 }
