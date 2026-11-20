@@ -1333,7 +1333,7 @@ function drawLetter(r) {
       <div class="sign">— ${esc(l.sign || l.from)}</div>
       <div class="date">${esc(sigDate(l.time))}</div>
     </div>
-    ${shotBtn('l-paper', shotName(l.to, l.time), 'center')}
+    ${shotBtn('l-paper', shotName(l.to, l.time), 'center', l)}
     <p class="music-hint center"><button type="button" class="link" id="l-music">🔈 打開聲音聆聽</button></p>
     <div class="btn-row col" style="margin-top:20px">
       ${r.status === 'mine' ? '' : `<button class="btn gold" type="button" id="l-reply">✉️ 回信給 ${esc(l.from)}</button>`}
@@ -2071,7 +2071,9 @@ function loadShotLib() {
 }
 const shotName = (to, time) => `流通神聖的愛-給${String(to || '').replace(/[\\/:*?"<>|\s]+/g, '').slice(0, 20) || '你'}-${sigDate(time || new Date())}.png`;
 /** 信紙下方的「存成圖片」按鈕；target 是信紙的 id */
-const shotBtn = (target, name, extra = '') => `<p class="shot-row ${extra}"><button class="btn ghost shot-btn" type="button" data-shot="${esc(target)}" data-name="${esc(name)}">📷 存成圖片</button></p>`;
+const shotBtn = (target, name, extra = '', copyLetter = null) => `<p class="shot-row ${extra}">${copyLetter ? `<button class="btn ghost shot-btn" type="button" data-lcopy="${esc(letterText(copyLetter))}">複製文字</button> ` : ''}<button class="btn ghost shot-btn" type="button" data-shot="${esc(target)}" data-name="${esc(name)}">📷 存成圖片</button></p>`;
+/** 信的文字版：親愛的…、內容、經文、署名、日期 */
+const letterText = l => [`親愛的 ${l.to}：`, '', l.text || '', ...(l.vtext || l.vref ? ['', `${l.vtext || ''}${l.vref ? `（${l.vref}）` : ''}`] : []), '', `— ${l.sign || l.from || ''}`, sigDate(l.time || new Date())].join('\n');
 async function paperBlob(el) {
   const ms = await loadShotLib();
   const w = Math.ceil(el.getBoundingClientRect().width);
@@ -2125,6 +2127,8 @@ async function savePaper(btn) {
   toast(r === 'shared' ? '已打開分享，可以存到手機或傳給朋友' : '已存成圖片');
 }
 document.addEventListener('click', e => {
+  const c = e.target.closest && e.target.closest('[data-lcopy]');
+  if (c) { e.preventDefault(); busy(c, async () => { if (!(await copyText(c.dataset.lcopy))) throw new Error('無法複製，請手動選取文字'); toast('已複製信的文字'); }); return; }
   const b = e.target.closest && e.target.closest('[data-shot]');
   if (b) { e.preventDefault(); busy(b, () => savePaper(b)); }
 });
@@ -2199,7 +2203,7 @@ function showMyLetter(id) {
       <div class="sign">— ${esc(l.sign || l.from || who)}</div>
       <div class="date">${esc(sigDate(l.time))}</div>
     </div>
-    ${shotBtn('ml-paper', shotName(l.to, l.time), 'center')}
+    ${shotBtn('ml-paper', shotName(l.to, l.time), 'center', { ...l, sign: l.sign || l.from || who })}
     ${footHtml()}`, 'mine-letter');
   $('ml-back').onclick = () => renderMyLetters();
 }
