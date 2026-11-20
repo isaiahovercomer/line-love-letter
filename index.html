@@ -1040,7 +1040,9 @@ let CAN_MANAGE = false;   // 這個活動的建立者／共同管理者／管理
 const homeHref = () => DEMO ? '?demo&noguide' : './';
 const manageHref = id => (DEMO ? '?demo&noguide&manage=' : './?manage=') + encodeURIComponent(id);
 /** 寫信頁上方的導覽：回首頁、（管理者）到活動後台 */
-const writeNav = () => `<nav class="w-nav"><a class="link" id="w-home" href="${homeHref()}">‹ 回首頁</a>${CAN_MANAGE && ACT ? `<a class="link" id="w-manage" href="${manageHref(ACT.id)}">活動後台 ›</a>` : ''}</nav>`;
+const FROM_CARD = PARAMS.get('from') === 'praycard';   // 從代禱牆平台的「我的代禱卡」點名字過來
+const PRAYCARD_URL = 'https://liff.line.me/2012412693-LFVpYPMf?tab=card';
+const writeNav = () => `<nav class="w-nav">${FROM_CARD ? `<a class="link" id="w-card" href="${PRAYCARD_URL}">‹ 回到我的代禱卡</a>` : `<a class="link" id="w-home" href="${homeHref()}">‹ 回首頁</a>`}${CAN_MANAGE && ACT ? `<a class="link" id="w-manage" href="${manageHref(ACT.id)}">活動後台 ›</a>` : ''}</nav>`;
 async function writeFlow(pre, actId) {
   if (!pre || !pre.me) pre = await api('writeBoot', { actId }).catch(async () => {   // 第一次登入，或舊版後端
     const [a, me] = await Promise.all([api('act', { actId }), api('me'), loadVerses()]);

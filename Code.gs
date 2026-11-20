@@ -54,6 +54,7 @@ function doPost(e) {
   let out;
   try {
     const req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    if (req.actId === PRAYCARD_ACT) ensurePrayCardAct(); // 從「代禱牆」個人代禱卡寫信：固定的常設活動，第一次用到時自動建立
     if (req.action === 'act') {                       // 公開：活動標題與說明（寫信頁、入口卡）
       const a = getAct(req.actId);
       out = { ok: true, act: a ? publicAct(a) : null };
@@ -70,6 +71,20 @@ function doPost(e) {
     out = { ok: false, error: String((err && err.message) || err) };
   }
   return json(out);
+}
+
+/* ---------- 代禱卡寫信：代禱牆平台的個人代禱卡點名字就能寫信 ----------
+   用固定代碼 PRAYCARD 的常設活動（不截止、預設福音信紙），只有發布者／總管理者看得到後台。 */
+const PRAYCARD_ACT = 'PRAYCARD';
+function ensurePrayCardAct() {
+  const exists = () => sheet(SH.ACTS).getDataRange().getValues().some(r => String(r[AC.ID]) === PRAYCARD_ACT);
+  if (exists()) return;
+  withLock(() => {
+    if (exists()) return;
+    const sh = sheet(SH.ACTS), at = sh.getLastRow() + 1;
+    sh.getRange(at, AC.DEADLINE + 1).setNumberFormat('@');
+    sh.getRange(at, 1, 1, 10).setValues([safeRow([PRAYCARD_ACT, '代禱卡・寫信關心', '從個人代禱卡寫信，關心你正在為他禱告的人。', true, '代禱卡', new Date(), '', 'gospel', '', '寫信關心'])]);
+  });
 }
 
 /** 需要登入的動作 */
